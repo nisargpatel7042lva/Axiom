@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --spectra-bg: #080c14;
+  --spectra-surface: #0d1420;
+  --spectra-card: #0d1420;
+  --spectra-border: #1a2235;
+  --spectra-accent: #00e5c3;
+  --spectra-accent-hover: #33ebd3;
+  --spectra-red: #ef4444;
+  --spectra-amber: #f59e0b;
+  --spectra-text: #e8edf5;
+  --spectra-muted: #8b9cb3;
+}
+
+@theme inline {
+  --color-spectra-bg: var(--spectra-bg);
+  --color-spectra-surface: var(--spectra-surface);
+  --color-spectra-card: var(--spectra-card);
+  --color-spectra-border: var(--spectra-border);
+  --color-spectra-accent: var(--spectra-accent);
+  --color-spectra-red: var(--spectra-red);
+  --color-spectra-amber: var(--spectra-amber);
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-space-mono), ui-monospace, monospace;
+}
+
+html {
+  background: var(--spectra-bg);
+  color: var(--spectra-text);
+}
+
+body {
+  min-height: 100%;
+  background: var(--spectra-bg);
+  color: var(--spectra-text);
+  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-mono-nums {
+  font-family: var(--font-space-mono), ui-monospace, monospace;
+}
+
+.wallet-adapter-modal-wrapper {
+  z-index: 100 !important;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(0, 229, 195, 0.05) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px rgba(0, 229, 195, 0.15), 0 0 60px rgba(0, 229, 195, 0.05);
+}
+
+.glow-accent-strong {
+  box-shadow: 0 0 30px rgba(0, 229, 195, 0.25), 0 0 80px rgba(0, 229, 195, 0.1);
+}
