@@ -13,11 +13,11 @@ import { useMemo } from "react";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-const FALLBACK = clusterApiUrl(WalletAdapterNetwork.Mainnet);
+const FALLBACK = clusterApiUrl(WalletAdapterNetwork.Devnet);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const endpoint =
-    process.env.NEXT_PUBLIC_RPCFAST_ENDPOINT?.trim() || FALLBACK;
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() || FALLBACK;
 
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],

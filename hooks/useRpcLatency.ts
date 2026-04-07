@@ -1,57 +1,43 @@
 "use client";
 
-import { clusterApiUrl, Connection } from "@solana/web3.js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Connection } from "@solana/web3.js";
 
-const FALLBACK = clusterApiUrl("mainnet-beta");
+type Status = "good" | "degraded" | "down";
 
-export type RpcHealthStatus = "good" | "degraded" | "down";
+const ENDPOINT =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com"
+    : "https://api.devnet.solana.com";
 
-export function useRpcLatency() {
-  const endpoint =
-    process.env.NEXT_PUBLIC_RPCFAST_ENDPOINT?.trim() || FALLBACK;
-
-  const connection = useMemo(
-    () => new Connection(endpoint, "confirmed"),
-    [endpoint],
-  );
-
+export function useRpcLatency(intervalMs = 30_000) {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  const measure = useCallback(async () => {
-    const start = performance.now();
-    try {
-      await connection.getLatestBlockhash("confirmed");
-      setFailed(false);
-      setLatencyMs(Math.round(performance.now() - start));
-    } catch {
-      setFailed(true);
-      setLatencyMs(null);
-    }
-  }, [connection]);
+  const [status, setStatus] = useState<Status>("good");
+  const connRef = useRef<Connection | null>(null);
 
   useEffect(() => {
-    void measure();
-    const id = window.setInterval(() => {
-      void measure();
-    }, 30_000);
-    return () => window.clearInterval(id);
-  }, [measure]);
+    if (!connRef.current) {
+      connRef.current = new Connection(ENDPOINT, "confirmed");
+    }
+    const conn = connRef.current;
 
-  const status: RpcHealthStatus = failed
-    ? "down"
-    : latencyMs == null
-      ? "degraded"
-      : latencyMs < 200
-        ? "good"
-        : latencyMs < 500
-          ? "degraded"
-          : "degraded";
+    async function ping() {
+      const start = performance.now();
+      try {
+        await conn.getSlot();
+        const elapsed = Math.round(performance.now() - start);
+        setLatencyMs(elapsed);
+        setStatus(elapsed < 400 ? "good" : elapsed < 1200 ? "degraded" : "down");
+      } catch {
+        setLatencyMs(null);
+        setStatus("down");
+      }
+    }
 
-  if (failed) {
-    return { latencyMs: null as number | null, status: "down" as const };
-  }
+    ping();
+    const id = setInterval(ping, intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
 
   return { latencyMs, status };
 }

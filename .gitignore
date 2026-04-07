@@ -1,1 +1,9 @@
-node_modules/\n.next/\n.env\n.env.local
+node_modules/
+.next/
+.env
+.env.local
+dist/
+target/
+*.so
+.anchor/
+test-ledger/
