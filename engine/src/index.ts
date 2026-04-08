@@ -1,61 +1,135 @@
 import "dotenv/config";
-import { CronJob } from "cron";
-import { MarketScanner } from "./jobs/market-scanner.js";
-import { PositionManager } from "./jobs/position-manager.js";
-import { YieldRouter } from "./jobs/yield-router.js";
-import { NavCalculator } from "./jobs/nav-calculator.js";
+import cron from "node-cron";
+import express from "express";
+import { runMarketScanner } from "./jobs/market-scanner.js";
+import { runPositionManager } from "./jobs/position-manager.js";
+import { runYieldRouter } from "./jobs/yield-router.js";
+import { runNavCalculator, getAllNavs } from "./jobs/nav-calculator.js";
+import { getActivePositions, getTradeHistory } from "./jobs/position-manager.js";
+import { getAllVaultConfigs, CONFIG } from "./config.js";
+import { createLogger } from "./utils/logger.js";
+import type { EngineHealth } from "./types/index.js";
 
-console.log("🔮 Spectra Engine starting...");
+const log = createLogger("engine");
+const startTime = Date.now();
 
-const scanner = new MarketScanner();
-const positionManager = new PositionManager();
-const yieldRouter = new YieldRouter();
-const navCalc = new NavCalculator();
+let lastScan: string | null = null;
+let lastNavSync: string | null = null;
+let lastPositionCheck: string | null = null;
+let lastYieldRoute: string | null = null;
 
-// Market scan: every 5 minutes
-new CronJob("*/5 * * * *", async () => {
-  console.log("[cron] Running market scanner...");
+// ---------------------------------------------------------------------------
+// Cron jobs
+// ---------------------------------------------------------------------------
+
+cron.schedule("*/30 * * * *", async () => {
+  log.info("[cron] Market scanner");
   try {
-    await scanner.run();
+    await runMarketScanner();
+    lastScan = new Date().toISOString();
   } catch (err) {
-    console.error("[market-scanner] Error:", err);
+    log.error("Market scanner failed", err);
   }
-}, null, true);
+});
 
-// Position management: every 15 minutes
-new CronJob("*/15 * * * *", async () => {
-  console.log("[cron] Running position manager...");
+cron.schedule("*/15 * * * *", async () => {
+  log.info("[cron] Position manager");
   try {
-    await positionManager.run();
+    await runPositionManager();
+    lastPositionCheck = new Date().toISOString();
   } catch (err) {
-    console.error("[position-manager] Error:", err);
+    log.error("Position manager failed", err);
   }
-}, null, true);
+});
 
-// Yield routing: every hour
-new CronJob("0 * * * *", async () => {
-  console.log("[cron] Running yield router...");
+cron.schedule("0 * * * *", async () => {
+  log.info("[cron] Yield router");
   try {
-    await yieldRouter.run();
+    await runYieldRouter();
+    lastYieldRoute = new Date().toISOString();
   } catch (err) {
-    console.error("[yield-router] Error:", err);
+    log.error("Yield router failed", err);
   }
-}, null, true);
+});
 
-// NAV calculation: every 10 minutes
-new CronJob("*/10 * * * *", async () => {
-  console.log("[cron] Running NAV calculator...");
+cron.schedule("5,35 * * * *", async () => {
+  log.info("[cron] NAV calculator");
   try {
-    await navCalc.run();
+    await runNavCalculator();
+    lastNavSync = new Date().toISOString();
   } catch (err) {
-    console.error("[nav-calculator] Error:", err);
+    log.error("NAV calculator failed", err);
   }
-}, null, true);
+});
 
-// Run initial scan on startup
-(async () => {
-  console.log("[startup] Running initial market scan and NAV calculation...");
-  await scanner.run();
-  await navCalc.run();
-  console.log("✅ Spectra Engine running. Cron jobs active.");
-})();
+// ---------------------------------------------------------------------------
+// Express health check + API
+// ---------------------------------------------------------------------------
+
+const app = express();
+app.use(express.json());
+
+app.get("/health", (_req, res) => {
+  const vaults = getAllVaultConfigs();
+  let totalPositions = 0;
+  for (const v of vaults) {
+    totalPositions += getActivePositions(v.strategyType).length;
+  }
+
+  const health: EngineHealth = {
+    status: "ok",
+    uptime: Math.floor((Date.now() - startTime) / 1000),
+    lastScan,
+    lastNavSync,
+    lastPositionCheck,
+    lastYieldRoute,
+    vaultCount: vaults.length,
+    totalPositions,
+  };
+
+  res.json(health);
+});
+
+app.get("/api/navs", (_req, res) => {
+  res.json(getAllNavs());
+});
+
+app.get("/api/positions/:vaultId", (req, res) => {
+  res.json(getActivePositions(req.params.vaultId));
+});
+
+app.get("/api/trades", (_req, res) => {
+  res.json(getTradeHistory());
+});
+
+app.listen(CONFIG.HEALTH_PORT, () => {
+  log.info(`Health endpoint listening on http://localhost:${CONFIG.HEALTH_PORT}/health`);
+});
+
+// ---------------------------------------------------------------------------
+// Startup
+// ---------------------------------------------------------------------------
+
+async function bootstrap() {
+  log.info("Spectra Engine starting...");
+
+  try {
+    log.info("Running initial market scan...");
+    await runMarketScanner();
+    lastScan = new Date().toISOString();
+  } catch (err) {
+    log.error("Initial market scan failed (non-fatal)", err);
+  }
+
+  try {
+    log.info("Running initial NAV calculation...");
+    await runNavCalculator();
+    lastNavSync = new Date().toISOString();
+  } catch (err) {
+    log.error("Initial NAV calculation failed (non-fatal)", err);
+  }
+
+  log.info("Spectra Engine running. Cron jobs active.");
+}
+
+bootstrap();

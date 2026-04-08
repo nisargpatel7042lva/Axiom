@@ -1,93 +1,82 @@
-import { CONFIG } from "../config.js";
+import { jupiterLend } from "../services/jupiter-lend.js";
+import { getTokenBalance } from "../services/solana.js";
+import { getAllVaultConfigs, CONFIG } from "../config.js";
+import { deriveVaultPda } from "../services/vault-contract.js";
+import { createLogger } from "../utils/logger.js";
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import type { LendingPosition } from "../types/index.js";
 
-interface LendingPosition {
-  vaultId: string;
-  depositedUsdc: number;
-  accruedYield: number;
-  apy: number;
-}
+const log = createLogger("yield-router");
 
-export class YieldRouter {
-  private lendingPositions: Map<string, LendingPosition> = new Map();
+const lendingState = new Map<string, LendingPosition>();
 
-  async run(): Promise<void> {
-    console.log("[yield-router] Routing idle USDC to Jupiter Lend...");
+export async function runYieldRouter(): Promise<void> {
+  log.info("Routing idle USDC to Jupiter Lend...");
 
-    for (const [vaultId, vaultConfig] of Object.entries(CONFIG.VAULTS)) {
-      const lendingTarget = vaultConfig.lendingAllocation;
+  for (const vaultConfig of getAllVaultConfigs()) {
+    const vaultId = vaultConfig.strategyType;
 
-      // Check current vault USDC balance (idle funds)
-      const idleUsdc = await this.getIdleUsdc(vaultId);
+    try {
+      const idleUsdc = await getIdleUsdc(vaultConfig.id);
+      const lendBalance = await jupiterLend.getEarnBalance();
+      const estimatedNav = idleUsdc + lendBalance;
 
-      // Calculate how much should go to lending
-      const vaultNav = await this.getVaultNav(vaultId);
-      const targetLendingAmount = vaultNav * lendingTarget;
-      const currentLending = this.lendingPositions.get(vaultId)?.depositedUsdc ?? 0;
-      const deficit = targetLendingAmount - currentLending;
+      const targetLend = estimatedNav * vaultConfig.lendAllocationPct;
+      const currentLend = lendBalance;
+      const deficit = targetLend - currentLend;
 
-      if (deficit > 100 && idleUsdc > 100) {
-        const toDeposit = Math.min(deficit, idleUsdc);
-        console.log(
-          `[yield-router] Depositing $${toDeposit.toFixed(2)} to Jupiter Lend for vault ${vaultId}`,
-        );
-        await this.depositToLend(vaultId, toDeposit);
+      const minBuffer = estimatedNav * CONFIG.IDLE_BUFFER_PCT;
+
+      if (deficit > 100 && idleUsdc - deficit > minBuffer) {
+        const toDeposit = Math.min(deficit, idleUsdc - minBuffer);
+        if (toDeposit > 50) {
+          log.info(`[${vaultConfig.name}] Depositing $${toDeposit.toFixed(2)} to Jupiter Lend`);
+          await jupiterLend.depositToEarn(toDeposit);
+          updateLendingState(vaultId, currentLend + toDeposit);
+        }
       } else if (deficit < -100) {
-        const toWithdraw = Math.abs(deficit);
-        console.log(
-          `[yield-router] Withdrawing $${toWithdraw.toFixed(2)} from Jupiter Lend for vault ${vaultId}`,
+        const toWithdraw = Math.min(Math.abs(deficit), currentLend);
+        if (toWithdraw > 50) {
+          log.info(`[${vaultConfig.name}] Withdrawing $${toWithdraw.toFixed(2)} from Jupiter Lend`);
+          await jupiterLend.withdrawFromEarn(toWithdraw);
+          updateLendingState(vaultId, currentLend - toWithdraw);
+        }
+      } else {
+        log.info(
+          `[${vaultConfig.name}] Lending allocation on target (current: $${currentLend.toFixed(2)}, target: $${targetLend.toFixed(2)})`,
         );
-        await this.withdrawFromLend(vaultId, toWithdraw);
       }
+    } catch (err) {
+      log.error(`[${vaultConfig.name}] Yield routing error`, err);
     }
   }
 
-  private async getIdleUsdc(_vaultId: string): Promise<number> {
-    // In production: read from on-chain treasury token account
-    return 10_000;
-  }
+  log.info("Yield routing complete");
+}
 
-  private async getVaultNav(_vaultId: string): Promise<number> {
-    // In production: read from on-chain vault state
-    return 100_000;
+async function getIdleUsdc(vaultId: number): Promise<number> {
+  try {
+    const [vaultPda] = deriveVaultPda(vaultId);
+    const usdcMint = new PublicKey(CONFIG.USDC_MINT);
+    const ata = getAssociatedTokenAddressSync(usdcMint, vaultPda, true);
+    return await getTokenBalance(ata);
+  } catch {
+    log.debug(`Could not read idle USDC for vault ${vaultId}, returning 0`);
+    return 0;
   }
+}
 
-  private async depositToLend(
-    vaultId: string,
-    amount: number,
-  ): Promise<void> {
-    // In production: use @jup-ag/lend SDK
-    // const { getDepositIxs } = await import("@jup-ag/lend/earn");
-    // const ixs = await getDepositIxs({ amount, mint: USDC_MINT });
-    // ... build and send transaction
+function updateLendingState(vaultId: string, balance: number): void {
+  lendingState.set(vaultId, {
+    vaultId,
+    depositedUsdc: balance,
+    currentBalance: balance,
+    apy: 0.065,
+    lastUpdated: new Date().toISOString(),
+  });
+}
 
-    const current = this.lendingPositions.get(vaultId) ?? {
-      vaultId,
-      depositedUsdc: 0,
-      accruedYield: 0,
-      apy: 0.065,
-    };
-    current.depositedUsdc += amount;
-    this.lendingPositions.set(vaultId, current);
-    console.log(
-      `[yield-router] Deposited $${amount.toFixed(2)} for vault ${vaultId}. Total lending: $${current.depositedUsdc.toFixed(2)}`,
-    );
-  }
-
-  private async withdrawFromLend(
-    vaultId: string,
-    amount: number,
-  ): Promise<void> {
-    // In production: use @jup-ag/lend SDK
-    const current = this.lendingPositions.get(vaultId);
-    if (!current) return;
-    current.depositedUsdc = Math.max(0, current.depositedUsdc - amount);
-    this.lendingPositions.set(vaultId, current);
-    console.log(
-      `[yield-router] Withdrew $${amount.toFixed(2)} for vault ${vaultId}. Remaining lending: $${current.depositedUsdc.toFixed(2)}`,
-    );
-  }
-
-  getLendingPosition(vaultId: string): LendingPosition | undefined {
-    return this.lendingPositions.get(vaultId);
-  }
+export function getLendingState(vaultId: string): LendingPosition | undefined {
+  return lendingState.get(vaultId);
 }

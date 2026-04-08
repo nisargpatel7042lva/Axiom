@@ -1,103 +1,194 @@
-import axios from "axios";
-import { CONFIG } from "../config.js";
+import { jupiterPrediction } from "../services/jupiter-prediction.js";
+import { jupiterLend } from "../services/jupiter-lend.js";
+import { getAuthority, signAndSend } from "../services/solana.js";
+import { getOpportunities, getStrategy } from "./market-scanner.js";
+import { getAllVaultConfigs, CONFIG } from "../config.js";
+import { createLogger } from "../utils/logger.js";
+import type {
+  ActivePosition,
+  PredictionPosition,
+  ScoredOpportunity,
+  TradeLog,
+  VaultStrategyType,
+} from "../types/index.js";
 
-interface VaultPosition {
-  vaultId: string;
-  marketId: string;
-  side: "yes" | "no";
-  shares: number;
-  avgEntryPrice: number;
-  currentPrice: number;
-  pnl: number;
-}
+const log = createLogger("position-manager");
 
-export class PositionManager {
-  private positions: Map<string, VaultPosition[]> = new Map();
+/** In-memory ledger of positions managed by the engine. */
+const activePositions = new Map<string, ActivePosition[]>();
+const tradeHistory: TradeLog[] = [];
 
-  async run(): Promise<void> {
-    console.log("[position-manager] Checking positions...");
+export async function runPositionManager(): Promise<void> {
+  log.info("Running position check...");
+  const authority = getAuthority();
+  const ownerPubkey = authority.publicKey.toBase58();
 
-    for (const [vaultId, vaultConfig] of Object.entries(CONFIG.VAULTS)) {
-      const vaultPositions = this.positions.get(vaultId) ?? [];
+  let onChainPositions: PredictionPosition[] = [];
+  try {
+    onChainPositions = await jupiterPrediction.getPositions(ownerPubkey);
+  } catch (err) {
+    log.error("Failed to fetch positions from Jupiter", err);
+  }
 
-      // Check for resolved markets — harvest profits
-      for (const pos of vaultPositions) {
-        const resolved = await this.checkIfResolved(pos.marketId);
-        if (resolved) {
-          console.log(
-            `[position-manager] Market ${pos.marketId} resolved. Harvesting for vault ${vaultId}`,
-          );
-          await this.harvestPosition(vaultId, pos);
-        }
+  for (const vaultConfig of getAllVaultConfigs()) {
+    const vaultId = vaultConfig.strategyType;
+    const strategy = getStrategy(vaultId);
+    const positions = activePositions.get(vaultId) ?? [];
+
+    // 1. Check for resolved markets → harvest winnings
+    for (const pos of [...positions]) {
+      const onChain = onChainPositions.find((p) => p.marketId === pos.marketId);
+
+      if (onChain?.market.status === "resolved") {
+        log.info(`Market resolved: ${pos.title} (${pos.marketId})`);
+        removePosition(vaultId, pos.marketId);
+        logTrade(vaultId, "harvest", pos);
+        continue;
       }
 
-      // Check position sizing vs allocation limits
-      const totalExposure = vaultPositions.reduce(
-        (sum, p) => sum + p.shares * p.currentPrice,
-        0,
-      );
-      console.log(
-        `[position-manager] Vault ${vaultId}: ${vaultPositions.length} positions, $${totalExposure.toFixed(2)} exposure`,
-      );
+      // 2. Check if strategy says we should exit
+      if (onChain) {
+        const currentPrice = onChain.currentPrice;
+        const marketData = { buyYesPriceUsd: currentPrice } as any;
+        if (strategy.shouldExit(currentPrice, pos.avgEntryPrice, marketData)) {
+          log.info(`Exit signal for ${pos.title} (entry: ${pos.avgEntryPrice}, current: ${currentPrice})`);
+          await closePosition(ownerPubkey, pos);
+          removePosition(vaultId, pos.marketId);
+          logTrade(vaultId, "close", pos);
+        }
+      }
     }
+
+    // 3. Look for new opportunities from the scanner
+    const opportunities = getOpportunities(vaultId);
+    const currentPositionMarkets = new Set((activePositions.get(vaultId) ?? []).map((p) => p.marketId));
+    const newOpps = opportunities.filter((o) => !currentPositionMarkets.has(o.marketId));
+
+    if (newOpps.length === 0) {
+      log.info(`[${vaultConfig.name}] No new opportunities`);
+      continue;
+    }
+
+    // 4. Open positions for top opportunities (up to 3 per cycle)
+    const maxNewPositions = 3;
+    for (const opp of newOpps.slice(0, maxNewPositions)) {
+      const positionSizeUsdc = strategy.calculatePositionSize(getEstimatedNav(vaultId));
+
+      if (positionSizeUsdc < 10) {
+        log.info(`[${vaultConfig.name}] Position size too small ($${positionSizeUsdc.toFixed(2)}), skipping`);
+        continue;
+      }
+
+      log.info(
+        `[${vaultConfig.name}] Opening ${opp.side} on "${opp.title}" — $${positionSizeUsdc.toFixed(2)}`,
+      );
+
+      await openPosition(ownerPubkey, vaultId, opp, positionSizeUsdc);
+    }
+
+    const updatedPositions = activePositions.get(vaultId) ?? [];
+    log.info(`[${vaultConfig.name}] ${updatedPositions.length} active positions`);
   }
 
-  private async checkIfResolved(marketId: string): Promise<boolean> {
-    try {
-      const { data } = await axios.get(
-        `${CONFIG.JUPITER_PREDICTION_API}/markets/${marketId}`,
-        { timeout: 5_000 },
-      );
-      return data.status === "resolved";
-    } catch {
-      return false;
-    }
-  }
+  log.info("Position check complete");
+}
 
-  private async harvestPosition(
-    vaultId: string,
-    position: VaultPosition,
-  ): Promise<void> {
-    // In production: redeem resolved prediction tokens, convert to USDC
-    console.log(
-      `[position-manager] Harvesting ${position.shares} shares from market ${position.marketId} for vault ${vaultId}`,
-    );
+async function openPosition(
+  ownerPubkey: string,
+  vaultId: VaultStrategyType,
+  opp: ScoredOpportunity,
+  usdcAmount: number,
+): Promise<void> {
+  try {
+    const result = await jupiterPrediction.createOrder({
+      ownerPubkey,
+      marketId: opp.marketId,
+      isYes: opp.side === "yes",
+      isBuy: true,
+      depositAmount: (usdcAmount * 1e6).toString(),
+      depositMint: CONFIG.USDC_MINT,
+    });
 
-    const vaultPositions = this.positions.get(vaultId) ?? [];
-    this.positions.set(
+    const sig = await signAndSend(result.transaction);
+
+    const pos: ActivePosition = {
       vaultId,
-      vaultPositions.filter((p) => p.marketId !== position.marketId),
-    );
-  }
+      marketId: opp.marketId,
+      eventId: opp.eventId,
+      title: opp.title,
+      side: opp.side,
+      contracts: usdcAmount / opp.price,
+      avgEntryPrice: opp.price,
+      currentPrice: opp.price,
+      usdcDeployed: usdcAmount,
+      pnlUsd: 0,
+      openedAt: new Date().toISOString(),
+    };
 
-  async openPosition(
-    vaultId: string,
-    marketId: string,
-    side: "yes" | "no",
-    usdcAmount: number,
-  ): Promise<void> {
-    console.log(
-      `[position-manager] Opening ${side} position on ${marketId} for vault ${vaultId}: $${usdcAmount}`,
-    );
+    const positions = activePositions.get(vaultId) ?? [];
+    positions.push(pos);
+    activePositions.set(vaultId, positions);
 
-    // In production: POST to Jupiter Prediction API to create order
-    try {
-      await axios.post(
-        `${CONFIG.JUPITER_PREDICTION_API}/orders`,
-        {
-          marketId,
-          side,
-          amount: usdcAmount,
-          type: "market",
-        },
-        { timeout: 10_000 },
-      );
-    } catch (err) {
-      console.error(`[position-manager] Failed to open position:`, err);
-    }
+    logTrade(vaultId, "open", pos, sig);
+    log.info(`Opened position on ${opp.title}: ${sig}`);
+  } catch (err) {
+    log.error(`Failed to open position on ${opp.title}`, err);
   }
+}
 
-  getPositions(vaultId: string): VaultPosition[] {
-    return this.positions.get(vaultId) ?? [];
+async function closePosition(
+  ownerPubkey: string,
+  pos: ActivePosition,
+): Promise<void> {
+  try {
+    const result = await jupiterPrediction.sellPosition({
+      ownerPubkey,
+      marketId: pos.marketId,
+      isYes: pos.side === "yes",
+      contracts: pos.contracts.toString(),
+    });
+    await signAndSend(result.transaction);
+  } catch (err) {
+    log.error(`Failed to close position on ${pos.title}`, err);
   }
+}
+
+function removePosition(vaultId: string, marketId: string): void {
+  const positions = activePositions.get(vaultId) ?? [];
+  activePositions.set(
+    vaultId,
+    positions.filter((p) => p.marketId !== marketId),
+  );
+}
+
+function logTrade(
+  vaultId: string,
+  action: TradeLog["action"],
+  pos: ActivePosition,
+  txSignature: string | null = null,
+): void {
+  tradeHistory.push({
+    timestamp: new Date().toISOString(),
+    vaultId,
+    action,
+    marketId: pos.marketId,
+    side: pos.side,
+    amount: pos.usdcDeployed,
+    price: pos.currentPrice,
+    txSignature,
+  });
+}
+
+function getEstimatedNav(_vaultId: string): number {
+  // Pulled from NAV calculator's cached results in production.
+  // Fallback estimate for bootstrap phase.
+  return 100_000;
+}
+
+export function getActivePositions(vaultId: string): ActivePosition[] {
+  return activePositions.get(vaultId) ?? [];
+}
+
+export function getTradeHistory(): TradeLog[] {
+  return tradeHistory;
 }

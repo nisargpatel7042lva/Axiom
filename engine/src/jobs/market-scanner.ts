@@ -1,119 +1,66 @@
-import axios from "axios";
-import { CONFIG } from "../config.js";
+import { jupiterPrediction } from "../services/jupiter-prediction.js";
+import { getAllVaultConfigs } from "../config.js";
+import { SafeConsensusStrategy } from "../strategies/safe-consensus.js";
+import { MacroContrarianStrategy } from "../strategies/macro-contrarian.js";
+import { YieldMaximizerStrategy } from "../strategies/yield-maximizer.js";
+import { createLogger } from "../utils/logger.js";
+import type { BaseStrategy } from "../strategies/base-strategy.js";
+import type { ScoredOpportunity, VaultStrategyType } from "../types/index.js";
 
-interface PredictionEvent {
-  id: string;
-  title: string;
-  category: string;
-  probability: number;
-  volume: number;
-  endDate: string;
-  markets: PredictionMarket[];
-}
+const log = createLogger("market-scanner");
 
-interface PredictionMarket {
-  id: string;
-  yesPrice: number;
-  noPrice: number;
-  volume24h: number;
-  liquidity: number;
-}
+const strategies: Record<VaultStrategyType, BaseStrategy> = {
+  "safe-consensus": new SafeConsensusStrategy(),
+  "macro-contrarian": new MacroContrarianStrategy(),
+  "yield-maximizer": new YieldMaximizerStrategy(),
+};
 
-export interface ScoredOpportunity {
-  eventId: string;
-  marketId: string;
-  title: string;
-  category: string;
-  probability: number;
-  volume: number;
-  side: "yes" | "no";
-  expectedValue: number;
-  vaultFit: string[];
-}
+/**
+ * In-memory store of the most recent scan results per vault strategy.
+ * Position manager reads from this to decide what to open.
+ */
+const latestOpportunities = new Map<VaultStrategyType, ScoredOpportunity[]>();
 
-export class MarketScanner {
-  private opportunities: ScoredOpportunity[] = [];
+export async function runMarketScanner(): Promise<void> {
+  log.info("Starting market scan...");
 
-  async run(): Promise<ScoredOpportunity[]> {
-    console.log("[market-scanner] Fetching prediction events...");
+  let events;
+  try {
+    events = await jupiterPrediction.getActiveEvents();
+  } catch (err) {
+    log.error("Failed to fetch events", err);
+    return;
+  }
 
-    try {
-      const { data } = await axios.get<{ events: PredictionEvent[] }>(
-        `${CONFIG.JUPITER_PREDICTION_API}/events`,
-        { timeout: 10_000 },
-      );
+  log.info(`Fetched ${events.length} active events`);
 
-      const events = data.events ?? [];
-      console.log(`[market-scanner] Found ${events.length} events`);
+  for (const vaultConfig of getAllVaultConfigs()) {
+    const strategy = strategies[vaultConfig.strategyType];
+    const opportunities = strategy.scoreEvents(events);
 
-      this.opportunities = [];
+    const top = opportunities.slice(0, 20);
+    latestOpportunities.set(vaultConfig.strategyType, top);
 
-      for (const event of events) {
-        for (const market of event.markets ?? []) {
-          const scored = this.scoreOpportunity(event, market);
-          if (scored) {
-            this.opportunities.push(scored);
-          }
-        }
+    log.info(
+      `[${vaultConfig.name}] ${top.length} opportunities (top score: ${top[0]?.score.toFixed(3) ?? "n/a"})`,
+    );
+
+    if (top.length > 0) {
+      for (const opp of top.slice(0, 3)) {
+        log.info(
+          `  - ${opp.title} | ${opp.side.toUpperCase()} @ $${opp.price.toFixed(2)} | score ${opp.score.toFixed(3)}`,
+        );
       }
-
-      this.opportunities.sort((a, b) => b.expectedValue - a.expectedValue);
-      console.log(
-        `[market-scanner] ${this.opportunities.length} scored opportunities`,
-      );
-
-      return this.opportunities;
-    } catch (err) {
-      console.error("[market-scanner] API call failed:", err);
-      return this.opportunities;
     }
   }
 
-  private scoreOpportunity(
-    event: PredictionEvent,
-    market: PredictionMarket,
-  ): ScoredOpportunity | null {
-    const prob = event.probability;
-    const vaultFit: string[] = [];
+  log.info("Market scan complete");
+}
 
-    // Safe Consensus: >85% probability
-    if (prob >= 0.85) {
-      vaultFit.push("safe-consensus");
-    }
+export function getOpportunities(strategyType: VaultStrategyType): ScoredOpportunity[] {
+  return latestOpportunities.get(strategyType) ?? [];
+}
 
-    // Macro Contrarian: 40-65% mispriced events
-    if (prob >= 0.4 && prob <= 0.65) {
-      vaultFit.push("macro-contrarian");
-    }
-
-    // Yield Maximizer: >75% conviction
-    if (prob >= 0.75) {
-      vaultFit.push("yield-maximizer");
-    }
-
-    if (vaultFit.length === 0) return null;
-
-    const side = prob > 0.5 ? "yes" : "no";
-    const price = side === "yes" ? market.yesPrice : market.noPrice;
-    const impliedProb = price;
-    const expectedValue = prob - impliedProb;
-
-    if (expectedValue <= 0) return null;
-
-    return {
-      eventId: event.id,
-      marketId: market.id,
-      title: event.title,
-      category: event.category,
-      probability: prob,
-      volume: market.volume24h,
-      side,
-      expectedValue,
-      vaultFit,
-    };
-  }
-
-  getOpportunities(): ScoredOpportunity[] {
-    return this.opportunities;
-  }
+export function getStrategy(strategyType: VaultStrategyType): BaseStrategy {
+  return strategies[strategyType];
 }
