@@ -7,6 +7,9 @@
   --spectra-border: #1a2235;
   --spectra-accent: #00e5c3;
   --spectra-accent-hover: #33ebd3;
+  --spectra-indigo: #6366f1;
+  --spectra-violet: #a855f7;
+  --spectra-sky: #0ea5e9;
   --spectra-red: #ef4444;
   --spectra-amber: #f59e0b;
   --spectra-text: #e8edf5;
@@ -19,6 +22,9 @@
   --color-spectra-card: var(--spectra-card);
   --color-spectra-border: var(--spectra-border);
   --color-spectra-accent: var(--spectra-accent);
+  --color-spectra-indigo: var(--spectra-indigo);
+  --color-spectra-violet: var(--spectra-violet);
+  --color-spectra-sky: var(--spectra-sky);
   --color-spectra-red: var(--spectra-red);
   --color-spectra-amber: var(--spectra-amber);
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
@@ -70,10 +76,42 @@ body {
   50% { opacity: 0.8; }
 }
 
+@keyframes spectra-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .glow-accent {
   box-shadow: 0 0 20px rgba(0, 229, 195, 0.15), 0 0 60px rgba(0, 229, 195, 0.05);
 }
 
 .glow-accent-strong {
   box-shadow: 0 0 30px rgba(0, 229, 195, 0.25), 0 0 80px rgba(0, 229, 195, 0.1);
+}
+
+.glow-spectra {
+  box-shadow:
+    0 0 20px rgba(0, 229, 195, 0.12),
+    0 0 40px rgba(99, 102, 241, 0.08),
+    0 0 60px rgba(168, 85, 247, 0.05);
+}
+
+.spectra-gradient-text {
+  background: linear-gradient(135deg, #00e5c3, #6366f1, #a855f7);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: spectra-shift 8s ease-in-out infinite;
+}
+
+.spectra-gradient-bg {
+  background: linear-gradient(135deg, #00e5c3, #6366f1, #a855f7);
+  background-size: 200% 200%;
+  animation: spectra-shift 8s ease-in-out infinite;
+}
+
+.spectra-border-glow {
+  border-image: linear-gradient(135deg, rgba(0, 229, 195, 0.3), rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3)) 1;
 }
