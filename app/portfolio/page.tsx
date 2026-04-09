@@ -24,8 +24,10 @@ import {
 } from "recharts";
 
 import { Topbar } from "@/components/layout/Topbar";
-import { VAULT_CONFIGS, MOCK_VAULT_STATES } from "@/constants";
+import { VAULT_CONFIGS, MOCK_VAULT_STATES, USDC_MINT_DEVNET } from "@/constants";
 import { formatUsd, formatPercent } from "@/components/format";
+import { useWalletBalances } from "@/hooks/useWalletBalances";
+import { useJupiterPrice } from "@/hooks/useJupiterPrice";
 import type { UserVaultPosition } from "@/types";
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
@@ -74,6 +76,8 @@ function generatePortfolioData() {
 
 export default function PortfolioPage() {
   const { connected } = useWallet();
+  const { usdcBalance } = useWalletBalances();
+  const { price: usdcPrice } = useJupiterPrice(USDC_MINT_DEVNET);
   const portfolioData = useMemo(() => generatePortfolioData(), []);
 
   const totalValue = MOCK_POSITIONS.reduce((s, p) => s + p.currentValue, 0);
@@ -166,6 +170,19 @@ export default function PortfolioPage() {
               of {VAULT_CONFIGS.length} available
             </div>
           </div>
+          {usdcBalance > 0 && (
+            <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-5">
+              <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
+                Wallet USDC
+              </div>
+              <div className="mt-2 font-[family-name:var(--font-space-mono)] text-2xl font-bold text-[#e8edf5]">
+                {formatUsd(usdcBalance)}
+              </div>
+              <div className="text-[10px] text-[#8b9cb3]">
+                via Dune SIM
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Portfolio Chart */}

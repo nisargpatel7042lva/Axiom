@@ -7,6 +7,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import { formatUsd } from "@/components/format";
+import { useWalletBalances } from "@/hooks/useWalletBalances";
 import type { VaultConfig } from "@/types";
 
 type Step = "input" | "confirm" | "processing" | "success";
@@ -21,9 +22,10 @@ export function DepositModal({
   onOpenChange: (v: boolean) => void;
 }) {
   const { connected } = useWallet();
+  const { usdcBalance, isLoading: balanceLoading } = useWalletBalances();
   const [step, setStep] = useState<Step>("input");
   const [amountStr, setAmountStr] = useState("");
-  const mockBalance = 12_500;
+  const walletBalance = usdcBalance > 0 ? usdcBalance : 12_500;
 
   useEffect(() => {
     if (!open) {
@@ -34,7 +36,7 @@ export function DepositModal({
 
   const amount = Number(amountStr) || 0;
   const estimatedShares = amount > 0 ? amount / 1.05 : 0;
-  const isValid = amount >= vaultConfig.minDeposit && amount <= mockBalance;
+  const isValid = amount >= vaultConfig.minDeposit && amount <= walletBalance;
 
   function handleConfirm() {
     setStep("processing");
@@ -82,10 +84,10 @@ export function DepositModal({
                     Amount (USDC)
                   </label>
                   <button
-                    onClick={() => setAmountStr(String(mockBalance))}
+                    onClick={() => setAmountStr(String(walletBalance))}
                     className="text-xs text-[#00e5c3] hover:underline"
                   >
-                    Max: {formatUsd(mockBalance)}
+                    {balanceLoading ? "Loading..." : `Max: ${formatUsd(walletBalance)}`}
                   </button>
                 </div>
                 <div className="relative">

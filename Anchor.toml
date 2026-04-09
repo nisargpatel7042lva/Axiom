@@ -1,9 +1,11 @@
+[toolchain]
+
 [features]
 seeds = false
 skip-lint = false
 
 [programs.devnet]
-spectra_vault = "SpVau1tXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+spectra_vault = "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH"
 
 [registry]
 url = "https://api.apr.dev"
@@ -11,6 +13,8 @@ url = "https://api.apr.dev"
 [provider]
 cluster = "devnet"
 wallet = "~/.config/solana/id.json"
+# For production: replace with RPC Fast endpoint
+# cluster = "https://your-endpoint.rpcfast.com"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npx ts-mocha -p ./tsconfig.anchor.json -t 1000000 tests/**/*.ts"

@@ -21,8 +21,8 @@ class JupiterPredictionService {
       timeout: 15_000,
       headers: {
         "Content-Type": "application/json",
-        ...(CONFIG.JUPITER_PREDICTION_API_KEY && {
-          "x-api-key": CONFIG.JUPITER_PREDICTION_API_KEY,
+        ...(CONFIG.JUPITER_API_KEY && {
+          "x-api-key": CONFIG.JUPITER_API_KEY,
         }),
       },
     });

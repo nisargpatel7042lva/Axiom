@@ -1,4 +1,5 @@
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
+import { jupiterPrice } from "../services/jupiter-price.js";
 import { jupiterLend } from "../services/jupiter-lend.js";
 import { getAuthority, getTokenBalance } from "../services/solana.js";
 import {
@@ -45,6 +46,10 @@ export async function runNavCalculator(): Promise<void> {
 }
 
 async function computeVaultNav(vaultId: string, onChainVaultId: number): Promise<NavBreakdown> {
+  // 0. Validate USDC price via Jupiter Price API (sanity check)
+  const usdcPrice = await jupiterPrice.getUsdcPrice();
+  log.debug(`USDC price validation: $${usdcPrice.toFixed(4)}`);
+
   // 1. Value active prediction positions at current market prices
   const predictionPositionsValue = await valuePredictionPositions(vaultId);
 
@@ -55,7 +60,8 @@ async function computeVaultNav(vaultId: string, onChainVaultId: number): Promise
   // 3. Idle USDC in vault token account
   const idleUsdc = await getIdleUsdcBalance(onChainVaultId);
 
-  const totalNav = predictionPositionsValue + lendingBalance + idleUsdc;
+  // Apply USDC price correction (should be ~1.0 but protects against depegs)
+  const totalNav = (predictionPositionsValue + lendingBalance + idleUsdc) * usdcPrice;
 
   // 4. Get total shares for PPS calculation
   const totalShares = await getTotalShares(onChainVaultId);

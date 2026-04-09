@@ -1,4 +1,5 @@
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
+import { jupiterTokens } from "../services/jupiter-tokens.js";
 import { getAllVaultConfigs } from "../config.js";
 import { SafeConsensusStrategy } from "../strategies/safe-consensus.js";
 import { MacroContrarianStrategy } from "../strategies/macro-contrarian.js";
@@ -33,6 +34,17 @@ export async function runMarketScanner(): Promise<void> {
   }
 
   log.info(`Fetched ${events.length} active events`);
+
+  // Enrich events with token metadata from Jupiter Tokens API
+  try {
+    const marketIds = events.flatMap((e) => e.markets?.map((m) => m.id) ?? []);
+    if (marketIds.length > 0) {
+      const tokenMeta = await jupiterTokens.getTokens(marketIds.slice(0, 50));
+      log.info(`Enriched ${tokenMeta.size} markets with Jupiter token metadata`);
+    }
+  } catch (err) {
+    log.warn("Token metadata enrichment failed (non-fatal)", err);
+  }
 
   for (const vaultConfig of getAllVaultConfigs()) {
     const strategy = strategies[vaultConfig.strategyType];

@@ -23,6 +23,8 @@ export function requiredPublicEnv(name: `NEXT_PUBLIC_${string}`): string {
   return requiredEnv(name);
 }
 
+// ── Solana RPC (RPC Fast preferred) ────────────────────────────────
+
 export function getSolanaRpcUrl(): string {
   return (
     optionalEnv("NEXT_PUBLIC_SOLANA_RPC_URL") ??
@@ -30,8 +32,28 @@ export function getSolanaRpcUrl(): string {
   );
 }
 
+// ── Jupiter Developer Platform ─────────────────────────────────────
+
 export function getJupiterApiKey(): string | undefined {
-  return optionalEnv("JUPITER_API_KEY");
+  return (
+    optionalEnv("JUPITER_API_KEY") ??
+    optionalEnv("NEXT_PUBLIC_JUPITER_API_KEY")
+  );
+}
+
+// ── Dune SIM ───────────────────────────────────────────────────────
+
+export function getDuneSimApiKey(): string | undefined {
+  return (
+    optionalEnv("DUNE_SIM_API_KEY") ??
+    optionalEnv("NEXT_PUBLIC_DUNE_SIM_API_KEY")
+  );
+}
+
+// ── RPC Fast gRPC (optional streaming) ─────────────────────────────
+
+export function getRpcFastGrpcUrl(): string | undefined {
+  return optionalEnv("RPC_FAST_GRPC_URL");
 }
 
 export const env = {
@@ -40,5 +62,11 @@ export const env = {
   },
   get jupiterApiKey() {
     return getJupiterApiKey();
+  },
+  get duneSimApiKey() {
+    return getDuneSimApiKey();
+  },
+  get rpcFastGrpcUrl() {
+    return getRpcFastGrpcUrl();
   },
 } as const;

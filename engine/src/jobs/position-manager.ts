@@ -1,4 +1,5 @@
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
+import { jupiterTrigger, type TriggerOrder } from "../services/jupiter-trigger.js";
 import { jupiterLend } from "../services/jupiter-lend.js";
 import { getAuthority, signAndSend } from "../services/solana.js";
 import { getOpportunities, getStrategy } from "./market-scanner.js";
@@ -69,7 +70,18 @@ export async function runPositionManager(): Promise<void> {
       continue;
     }
 
-    // 4. Open positions for top opportunities (up to 3 per cycle)
+    // 4. Check pending trigger (limit) orders
+    try {
+      const triggerOrders = await jupiterTrigger.getOrders(ownerPubkey);
+      const filledOrders = triggerOrders.filter((o) => o.status === "filled");
+      if (filledOrders.length > 0) {
+        log.info(`[${vaultConfig.name}] ${filledOrders.length} trigger orders filled`);
+      }
+    } catch (err) {
+      log.debug("Trigger order check failed (non-fatal)", err);
+    }
+
+    // 5. Open positions for top opportunities (up to 3 per cycle)
     const maxNewPositions = 3;
     for (const opp of newOpps.slice(0, maxNewPositions)) {
       const positionSizeUsdc = strategy.calculatePositionSize(getEstimatedNav(vaultId));
@@ -79,11 +91,22 @@ export async function runPositionManager(): Promise<void> {
         continue;
       }
 
-      log.info(
-        `[${vaultConfig.name}] Opening ${opp.side} on "${opp.title}" — $${positionSizeUsdc.toFixed(2)}`,
-      );
+      // Use limit order via Trigger API if price is above our target
+      // (try to get a better entry), otherwise use market order
+      const USE_LIMIT_ORDERS = opp.price > 0.70 && opp.price < 0.95;
 
-      await openPosition(ownerPubkey, vaultId, opp, positionSizeUsdc);
+      if (USE_LIMIT_ORDERS) {
+        const targetPrice = opp.price * 0.97; // try to enter 3% below current
+        log.info(
+          `[${vaultConfig.name}] Setting limit entry on "${opp.title}" @ $${targetPrice.toFixed(3)} — $${positionSizeUsdc.toFixed(2)}`,
+        );
+        await openLimitPosition(ownerPubkey, opp, positionSizeUsdc, targetPrice);
+      } else {
+        log.info(
+          `[${vaultConfig.name}] Market-ordering ${opp.side} on "${opp.title}" — $${positionSizeUsdc.toFixed(2)}`,
+        );
+        await openPosition(ownerPubkey, vaultId, opp, positionSizeUsdc);
+      }
     }
 
     const updatedPositions = activePositions.get(vaultId) ?? [];
@@ -133,6 +156,29 @@ async function openPosition(
     log.info(`Opened position on ${opp.title}: ${sig}`);
   } catch (err) {
     log.error(`Failed to open position on ${opp.title}`, err);
+  }
+}
+
+async function openLimitPosition(
+  ownerPubkey: string,
+  opp: ScoredOpportunity,
+  usdcAmount: number,
+  targetPrice: number,
+): Promise<void> {
+  try {
+    const result = await jupiterTrigger.createLimitEntry({
+      ownerPubkey,
+      usdcMint: CONFIG.USDC_MINT,
+      predictionTokenMint: opp.marketId,
+      usdcAmount,
+      targetPrice,
+      expiresInHours: 24,
+    });
+
+    await signAndSend(result.transaction);
+    log.info(`Limit order placed for "${opp.title}" @ $${targetPrice.toFixed(3)} (order: ${result.orderId})`);
+  } catch (err) {
+    log.error(`Failed to create limit entry for ${opp.title}, falling back to market order`, err);
   }
 }
 

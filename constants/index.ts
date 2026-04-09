@@ -20,6 +20,11 @@ export const USDC_DECIMALS = 6;
 export const API_ENDPOINTS = {
   JUPITER_PREDICTION: "https://api.jup.ag/prediction/v1",
   JUPITER_LEND: "https://api.jup.ag/lend/v1",
+  JUPITER_PRICE: "https://api.jup.ag/price/v2",
+  JUPITER_TOKENS: "https://api.jup.ag/tokens/v1",
+  JUPITER_TRIGGER: "https://api.jup.ag/trigger/v1",
+  DUNE_SIM: "https://api.sim.dune.com/v1",
+  ENGINE_HEALTH: "http://localhost:3001/health",
 } as const;
 
 export const PERFORMANCE_FEE_BPS = 1000; // 10% above high-water mark

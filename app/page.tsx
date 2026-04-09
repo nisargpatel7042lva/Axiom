@@ -235,10 +235,10 @@ export default function Home() {
       <footer className="border-t border-white/5 bg-[#080c14]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-6 md:px-6">
           <span className="font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
-            Spectra Vaults — Colosseum Hackathon 2025
+            Spectra Vaults — Colosseum Hackathon 2026
           </span>
           <span className="text-xs text-[#8b9cb3]">
-            Powered by Jupiter · Solana
+            Powered by Jupiter · RPC Fast · Dune SIM · Solana
           </span>
         </div>
       </footer>

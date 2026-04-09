@@ -28,6 +28,7 @@ import { DepositModal } from "@/components/vault/DepositModal";
 import { WithdrawModal } from "@/components/vault/WithdrawModal";
 import { getVaultConfig, MOCK_VAULT_STATES } from "@/constants";
 import { formatUsd, formatPercent } from "@/components/format";
+import { useTransactionHistory } from "@/hooks/useTransactionHistory";
 import type { VaultId, VaultActivity } from "@/types";
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
@@ -86,6 +87,7 @@ export default function VaultDetailPage({
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [chartRange, setChartRange] = useState<"7d" | "30d" | "90d">("30d");
+  const { transactions: duneTxns } = useTransactionHistory(10);
 
   const perfData = useMemo(() => generatePerformanceData(id), [id]);
 
@@ -439,6 +441,40 @@ export default function VaultDetailPage({
                 );
               })}
             </div>
+
+            {/* Dune SIM live transactions */}
+            {duneTxns.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-3 flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-50" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
+                  </span>
+                  Live Wallet Transactions (Dune SIM)
+                </div>
+                {duneTxns.slice(0, 5).map((tx) => (
+                  <div key={tx.hash} className="flex items-start gap-3 py-2 border-t border-white/5">
+                    <Activity className="mt-0.5 size-3.5 text-[#8b9cb3]" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-[#e8edf5] truncate font-[family-name:var(--font-space-mono)]">
+                        {tx.hash.slice(0, 8)}…{tx.hash.slice(-6)}
+                      </p>
+                      <span className="text-[10px] text-[#8b9cb3]">
+                        {new Date(tx.block_time).toLocaleString()}
+                      </span>
+                    </div>
+                    <a
+                      href={`https://solscan.io/tx/${tx.hash}?cluster=devnet`}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-[10px] text-[#00e5c3] hover:underline inline-flex items-center gap-0.5"
+                    >
+                      <ExternalLink className="size-2.5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
       </main>

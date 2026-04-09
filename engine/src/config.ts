@@ -4,10 +4,16 @@ export const CONFIG = {
   RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
   KEYPAIR_PATH: process.env.VAULT_AUTHORITY_KEYPAIR_PATH || "./keypair.json",
 
-  JUPITER_PREDICTION_BASE: "https://api.jup.ag/prediction/v1",
-  JUPITER_PREDICTION_API_KEY: process.env.JUPITER_PREDICTION_API_KEY || "",
+  // Single Jupiter Developer Platform API key for all Jupiter APIs
+  JUPITER_API_KEY: process.env.JUPITER_API_KEY || process.env.JUPITER_PREDICTION_API_KEY || "",
 
-  VAULT_PROGRAM_ID: process.env.VAULT_PROGRAM_ID || "SpVau1tXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  // Jupiter API base URLs (all routed through single developer key)
+  JUPITER_PREDICTION_BASE: "https://api.jup.ag/prediction/v1",
+  JUPITER_PRICE_BASE: "https://api.jup.ag/price/v2",
+  JUPITER_TOKENS_BASE: "https://api.jup.ag/tokens/v1",
+  JUPITER_TRIGGER_BASE: "https://api.jup.ag/trigger/v1",
+
+  VAULT_PROGRAM_ID: process.env.VAULT_PROGRAM_ID || "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH",
   USDC_MINT: process.env.USDC_MINT || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 
   HEALTH_PORT: parseInt(process.env.HEALTH_PORT || "3001", 10),
