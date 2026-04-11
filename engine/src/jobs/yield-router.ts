@@ -32,14 +32,14 @@ export async function runYieldRouter(): Promise<void> {
         const toDeposit = Math.min(deficit, idleUsdc - minBuffer);
         if (toDeposit > 50) {
           log.info(`[${vaultConfig.name}] Depositing $${toDeposit.toFixed(2)} to Jupiter Lend`);
-          await jupiterLend.depositToEarn(toDeposit);
+          await jupiterLend.sendDepositToEarn(toDeposit);
           updateLendingState(vaultId, currentLend + toDeposit);
         }
       } else if (deficit < -100) {
         const toWithdraw = Math.min(Math.abs(deficit), currentLend);
         if (toWithdraw > 50) {
           log.info(`[${vaultConfig.name}] Withdrawing $${toWithdraw.toFixed(2)} from Jupiter Lend`);
-          await jupiterLend.withdrawFromEarn(toWithdraw);
+          await jupiterLend.sendWithdrawFromEarn(toWithdraw);
           updateLendingState(vaultId, currentLend - toWithdraw);
         }
       } else {

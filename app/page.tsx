@@ -1,14 +1,22 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Zap, Lock, BarChart3, RefreshCw } from "lucide-react";
+import {
+  ArrowRight,
+  Zap,
+  Lock,
+  BarChart3,
+  RefreshCw,
+  Shield,
+  Target,
+  Gem,
+} from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { MorphingText } from "@/components/ui/morphing-text";
-import { VaultCard } from "@/components/vault/VaultCard";
-import { ProtocolStats } from "@/components/vault/ProtocolStats";
-import { VAULT_CONFIGS, MOCK_VAULT_STATES } from "@/constants";
+import { VAULT_CONFIGS } from "@/constants";
 
 const ColorBends = dynamic(() => import("@/components/ui/ColorBends"), {
   ssr: false,
@@ -59,6 +67,12 @@ const fadeUp = {
   }),
 };
 
+const VAULT_TEASER_ICONS: Record<string, React.ReactNode> = {
+  "safe-consensus": <Shield className="size-5" />,
+  "macro-contrarian": <Target className="size-5" />,
+  "yield-maximizer": <Gem className="size-5" />,
+};
+
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-[#080c14]">
@@ -107,7 +121,7 @@ export default function Home() {
 
           {/* Hero content */}
           <div
-            className="relative mx-auto max-w-7xl px-4 pb-28 pt-24 md:px-6 md:pt-32"
+            className="relative mx-auto max-w-7xl px-4 pb-28 pt-28 md:px-6 md:pt-36"
             style={{ zIndex: 2, minHeight: "85vh", display: "flex", alignItems: "center" }}
           >
             <motion.div
@@ -147,68 +161,89 @@ export default function Home() {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <a
-                  href="#vaults"
+                <Link
+                  href="/vaults"
                   className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00e5c3] to-[#00e5c3]/90 px-6 py-3.5 text-sm font-bold text-[#080c14] transition-all hover:shadow-[0_0_30px_rgba(0,229,195,0.3)] hover:scale-[1.02]"
                 >
                   Explore Vaults
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                </a>
-                <a
-                  href="https://github.com"
-                  target="_blank"
-                  rel="noopener"
+                </Link>
+                <Link
+                  href="/about"
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-medium text-[#e8edf5] backdrop-blur-md transition-all hover:border-[#6366f1]/40 hover:bg-white/10"
                 >
-                  Read Docs
-                </a>
+                  About Spectra
+                </Link>
               </div>
             </motion.div>
           </div>
         </section>
 
-        {/* Stats */}
-        <section className="mx-auto max-w-7xl px-4 md:px-6 -mt-10 relative z-10">
+        {/* Strategies teaser → dedicated /vaults page */}
+        <section className="mx-auto max-w-7xl px-4 md:px-6 -mt-10 relative z-10 pb-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
+            transition={{ delay: 0.25, duration: 0.5 }}
+            className="rounded-2xl border border-[#1a2235] bg-[#0d1420]/90 p-6 shadow-xl backdrop-blur-md md:p-8"
           >
-            <ProtocolStats />
-          </motion.div>
-        </section>
-
-        {/* Vault Catalog */}
-        <section
-          id="vaults"
-          className="mx-auto max-w-7xl px-4 py-16 md:px-6 md:py-20"
-        >
-          <div className="mb-10">
-            <h2 className="text-2xl font-bold text-[#e8edf5] md:text-3xl">
-              Vault Catalog
-            </h2>
-            <p className="mt-2 text-sm text-[#8b9cb3]">
-              Choose a strategy that matches your risk appetite. Each vault is a
-              diversified portfolio managed by our autonomous engine.
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {VAULT_CONFIGS.map((config, i) => (
-              <motion.div
-                key={config.id}
-                custom={i}
-                initial="hidden"
-                animate="visible"
-                variants={fadeUp}
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[#e8edf5] md:text-2xl">
+                  Three on-chain strategies
+                </h2>
+                <p className="mt-2 max-w-xl text-sm text-[#8b9cb3]">
+                  Live TVL, PPS, and deposit / withdraw live on the Vaults page — powered by your
+                  devnet RPC.
+                </p>
+              </div>
+              <Link
+                href="/vaults"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#00e5c3] px-5 py-2.5 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
               >
-                <VaultCard
-                  config={config}
-                  state={MOCK_VAULT_STATES[config.id]}
-                />
-              </motion.div>
-            ))}
-          </div>
+                Open Vaults
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {VAULT_CONFIGS.map((config, i) => (
+                <motion.div
+                  key={config.id}
+                  custom={i}
+                  initial="hidden"
+                  animate="visible"
+                  variants={fadeUp}
+                >
+                  <Link
+                    href={`/vaults/${config.id}`}
+                    className="group block rounded-xl border border-white/10 bg-[#080c14]/80 p-4 transition-all hover:border-[#00e5c3]/35 hover:bg-[#080c14]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex size-10 items-center justify-center rounded-lg"
+                        style={{
+                          backgroundColor: `${config.accentColor}22`,
+                          color: config.accentColor,
+                        }}
+                      >
+                        {VAULT_TEASER_ICONS[config.id]}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-[#e8edf5] group-hover:text-white truncate">
+                          {config.name}
+                        </div>
+                        <div className="text-xs text-[#8b9cb3]">{config.ticker}</div>
+                      </div>
+                      <ArrowRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[#8b9cb3]">
+                      {config.description}
+                    </p>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
         </section>
 
         {/* How it works */}
@@ -309,13 +344,26 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 bg-[#080c14]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-6 md:px-6">
-          <span className="font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
-            Spectra Vaults — Colosseum Hackathon 2026
-          </span>
-          <span className="text-xs text-[#8b9cb3]">
-            Powered by Jupiter · RPC Fast · Dune SIM · Solana
-          </span>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-6">
+          <div>
+            <span className="font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
+              Spectra Vaults — Colosseum Hackathon 2026
+            </span>
+            <p className="mt-1 text-xs text-[#8b9cb3]/80">
+              Powered by Jupiter · RPC · Dune SIM · Solana
+            </p>
+          </div>
+          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-[#8b9cb3]">
+            <Link href="/vaults" className="hover:text-[#00e5c3]">
+              Vaults
+            </Link>
+            <Link href="/about" className="hover:text-[#00e5c3]">
+              About
+            </Link>
+            <Link href="/portfolio" className="hover:text-[#00e5c3]">
+              Portfolio
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

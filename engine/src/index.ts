@@ -22,13 +22,16 @@ let lastYieldRoute: string | null = null;
 // Cron jobs
 // ---------------------------------------------------------------------------
 
+// PROMPT: scanner every 30m; NAV every 30m after scanner (same tick)
 cron.schedule("*/30 * * * *", async () => {
-  log.info("[cron] Market scanner");
+  log.info("[cron] Market scanner + NAV (sequential)");
   try {
     await runMarketScanner();
     lastScan = new Date().toISOString();
+    await runNavCalculator();
+    lastNavSync = new Date().toISOString();
   } catch (err) {
-    log.error("Market scanner failed", err);
+    log.error("Market scanner / NAV cycle failed", err);
   }
 });
 
@@ -49,16 +52,6 @@ cron.schedule("0 * * * *", async () => {
     lastYieldRoute = new Date().toISOString();
   } catch (err) {
     log.error("Yield router failed", err);
-  }
-});
-
-cron.schedule("5,35 * * * *", async () => {
-  log.info("[cron] NAV calculator");
-  try {
-    await runNavCalculator();
-    lastNavSync = new Date().toISOString();
-  } catch (err) {
-    log.error("NAV calculator failed", err);
   }
 });
 
@@ -122,7 +115,7 @@ async function bootstrap() {
   }
 
   try {
-    log.info("Running initial NAV calculation...");
+    log.info("Running initial NAV (after scan)...");
     await runNavCalculator();
     lastNavSync = new Date().toISOString();
   } catch (err) {

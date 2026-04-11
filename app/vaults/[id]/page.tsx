@@ -13,6 +13,7 @@ import {
   PieChart,
   Clock,
   ExternalLink,
+  PauseCircle,
 } from "lucide-react";
 import {
   AreaChart,
@@ -22,57 +23,25 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
+import BN from "bn.js";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { DepositModal } from "@/components/vault/DepositModal";
 import { WithdrawModal } from "@/components/vault/WithdrawModal";
-import { getVaultConfig, MOCK_VAULT_STATES } from "@/constants";
-import { formatUsd, formatPercent } from "@/components/format";
+import { getVaultConfig } from "@/constants";
+import { formatUsd, formatPercent, formatShares } from "@/components/format";
 import { useTransactionHistory } from "@/hooks/useTransactionHistory";
-import type { VaultId, VaultActivity } from "@/types";
+import { useDevnetVaults } from "@/hooks/useDevnetVaults";
+import { usePpsSessionHistory } from "@/hooks/usePpsSessionHistory";
+import { useVaultUserShares } from "@/hooks/useVaultUserShares";
+import { parseActivityFeed } from "@/lib/services/dune-sim";
+import type { VaultId } from "@/types";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
   "safe-consensus": <Shield className="size-6" />,
   "macro-contrarian": <Target className="size-6" />,
   "yield-maximizer": <Gem className="size-6" />,
-};
-
-function generatePerformanceData(vaultId: string) {
-  const base = vaultId === "macro-contrarian" ? 1.0 : vaultId === "yield-maximizer" ? 1.0 : 1.0;
-  const volatility = vaultId === "macro-contrarian" ? 0.015 : vaultId === "yield-maximizer" ? 0.005 : 0.003;
-  const trend = vaultId === "macro-contrarian" ? 0.003 : vaultId === "yield-maximizer" ? 0.002 : 0.001;
-
-  const points = [];
-  let price = base;
-  const now = Date.now();
-
-  for (let i = 90; i >= 0; i--) {
-    const noise = (Math.random() - 0.4) * volatility;
-    price = Math.max(base * 0.95, price + trend + noise);
-    points.push({
-      date: new Date(now - i * 86_400_000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      pps: Number(price.toFixed(4)),
-    });
-  }
-  return points;
-}
-
-const MOCK_ACTIVITIES: VaultActivity[] = [
-  { id: "1", type: "prediction_buy", amount: 5200, description: "Bought YES on 'ETH > $4000 by June' @ 0.72", timestamp: new Date(Date.now() - 3_600_000).toISOString() },
-  { id: "2", type: "lend_deposit", amount: 15000, description: "Deployed 15,000 USDC to Jupiter Lend", timestamp: new Date(Date.now() - 7_200_000).toISOString() },
-  { id: "3", type: "prediction_sell", amount: 3100, description: "Sold YES on 'BTC > $100k by May' @ 0.91 (profit)", timestamp: new Date(Date.now() - 14_400_000).toISOString() },
-  { id: "4", type: "deposit", amount: 10000, description: "User deposit: 10,000 USDC", timestamp: new Date(Date.now() - 28_800_000).toISOString() },
-  { id: "5", type: "lend_withdraw", amount: 8000, description: "Withdrew 8,000 USDC from Jupiter Lend for rebalance", timestamp: new Date(Date.now() - 43_200_000).toISOString() },
-];
-
-const ACTIVITY_ICONS: Record<string, string> = {
-  deposit: "text-[#00e5c3]",
-  withdraw: "text-[#ef4444]",
-  prediction_buy: "text-[#00e5c3]",
-  prediction_sell: "text-[#f59e0b]",
-  lend_deposit: "text-[#8b5cf6]",
-  lend_withdraw: "text-[#8b5cf6]",
-  fee_collection: "text-[#8b9cb3]",
 };
 
 export default function VaultDetailPage({
@@ -83,20 +52,46 @@ export default function VaultDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const config = getVaultConfig(id);
-  const state = MOCK_VAULT_STATES[id];
+  const vaultKey = id as VaultId;
+
+  const { byVaultId, loading, refetch } = useDevnetVaults();
+  const row = config ? byVaultId[vaultKey] : undefined;
+  const state = row?.ui ?? null;
+  const snapshot = row?.snapshot;
+  const onChain = snapshot?.onChain ?? null;
+  const custodyUsdc =
+    snapshot != null
+      ? Number(snapshot.custodyLamports.toString(10)) / 10 ** 6
+      : 0;
+  const navDrift = custodyUsdc - (state?.nav ?? 0);
+
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [chartRange, setChartRange] = useState<"7d" | "30d" | "90d">("30d");
-  const { transactions: duneTxns } = useTransactionHistory(10);
+  const { transactions: duneTxns } = useTransactionHistory(12);
 
-  const perfData = useMemo(() => generatePerformanceData(id), [id]);
+  const { chartData: sessionPps } = usePpsSessionHistory(
+    state?.pricePerShare ?? null,
+    22_000
+  );
 
   const chartData = useMemo(() => {
-    const sliceMap = { "7d": 7, "30d": 30, "90d": 90 };
-    return perfData.slice(-sliceMap[chartRange]);
-  }, [perfData, chartRange]);
+    const sliceMap = { "7d": 12, "30d": 36, "90d": 72 };
+    const n = sliceMap[chartRange];
+    return sessionPps.slice(-Math.min(sessionPps.length, n));
+  }, [sessionPps, chartRange]);
 
-  if (!config || !state) {
+  const parsedActivity = useMemo(
+    () => parseActivityFeed(duneTxns),
+    [duneTxns],
+  );
+
+  const { data: userSharesLamports, isLoading: sharesLoading } =
+    useVaultUserShares(config?.chainVaultId ?? null);
+
+  const sharesBn = userSharesLamports ?? new BN(0);
+
+  if (!config) {
     return (
       <div className="flex min-h-screen flex-col bg-[#080c14]">
         <Topbar />
@@ -107,18 +102,29 @@ export default function VaultDetailPage({
     );
   }
 
+  const kpiLoading = loading && !state;
+
   return (
     <div className="flex min-h-screen flex-col bg-[#080c14]">
       <Topbar />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-[6rem] md:px-6 md:pb-10">
         <button
-          onClick={() => router.back()}
+          type="button"
+          onClick={() => router.push("/vaults")}
           className="mb-6 flex items-center gap-2 text-sm text-[#8b9cb3] hover:text-[#e8edf5] transition-colors"
         >
           <ArrowLeft className="size-4" />
-          Back to Vaults
+          Back to catalog
         </button>
+
+        {!snapshot && !loading && (
+          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            This vault account is not initialized on the current RPC (devnet). Deploy
+            `initialize_vault` for chain id{" "}
+            <span className="font-mono">{config.chainVaultId}</span> to see live metrics.
+          </div>
+        )}
 
         {/* Vault Header */}
         <motion.div
@@ -137,7 +143,7 @@ export default function VaultDetailPage({
               <h1 className="text-2xl font-bold text-[#e8edf5] md:text-3xl">
                 {config.name}
               </h1>
-              <div className="mt-1 flex items-center gap-3">
+              <div className="mt-1 flex flex-wrap items-center gap-3">
                 <span className="font-[family-name:var(--font-space-mono)] text-sm text-[#8b9cb3]">
                   {config.ticker}
                 </span>
@@ -148,25 +154,37 @@ export default function VaultDetailPage({
                     color: config.accentColor,
                   }}
                 >
-                  {config.riskLevel === "low" ? "Low Risk" : config.riskLevel === "medium" ? "Medium Risk" : "High Risk"}
+                  {config.riskLevel === "low"
+                    ? "Low Risk"
+                    : config.riskLevel === "medium"
+                      ? "Medium Risk"
+                      : "High Risk"}
                 </span>
+                {onChain?.isPaused && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
+                    <PauseCircle className="size-3.5" />
+                    Paused
+                  </span>
+                )}
               </div>
-              <p className="mt-3 max-w-xl text-sm text-[#8b9cb3]">
-                {config.strategy}
-              </p>
+              <p className="mt-3 max-w-xl text-sm text-[#8b9cb3]">{config.strategy}</p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
+              type="button"
               onClick={() => setShowDeposit(true)}
-              className="rounded-xl bg-[#00e5c3] px-6 py-3 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3]"
+              disabled={!onChain || onChain.isPaused}
+              className="rounded-xl bg-[#00e5c3] px-6 py-3 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Deposit USDC
             </button>
             <button
+              type="button"
               onClick={() => setShowWithdraw(true)}
-              className="rounded-xl border border-[#1a2235] bg-[#0d1420] px-6 py-3 text-sm font-medium text-[#e8edf5] transition-colors hover:border-[#00e5c3]/30"
+              disabled={!onChain || onChain.isPaused}
+              className="rounded-xl border border-[#1a2235] bg-[#0d1420] px-6 py-3 text-sm font-medium text-[#e8edf5] transition-colors hover:border-[#00e5c3]/30 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Withdraw
             </button>
@@ -181,25 +199,23 @@ export default function VaultDetailPage({
           className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5"
         >
           {[
-            { label: "NAV", value: formatUsd(state.nav) },
+            { label: "NAV (synced)", value: state ? formatUsd(state.nav) : null },
             {
               label: "Price / Share",
-              value: `$${state.pricePerShare.toFixed(3)}`,
+              value: state ? `$${state.pricePerShare.toFixed(4)}` : null,
               color: config.accentColor,
             },
             {
-              label: "24h Return",
-              value: `${state.last24hReturn >= 0 ? "+" : ""}${formatPercent(state.last24hReturn)}`,
-              color: state.last24hReturn >= 0 ? "#00e5c3" : "#ef4444",
+              label: "Custody USDC",
+              value: snapshot ? formatUsd(custodyUsdc) : null,
             },
             {
-              label: "Sharpe Ratio",
-              value: state.sharpeRatio.toFixed(2),
+              label: "Total shares",
+              value: state ? formatShares(state.totalShares) : null,
             },
             {
-              label: "Max Drawdown",
-              value: formatPercent(state.maxDrawdown),
-              color: "#ef4444",
+              label: "Performance fee",
+              value: onChain ? `${onChain.performanceFeeBps / 100}%` : null,
             },
           ].map(({ label, value, color }) => (
             <div
@@ -210,10 +226,14 @@ export default function VaultDetailPage({
                 {label}
               </div>
               <div
-                className="mt-1 font-[family-name:var(--font-space-mono)] text-lg font-bold"
+                className="mt-1 font-[family-name:var(--font-space-mono)] text-lg font-bold min-h-[1.75rem]"
                 style={{ color: color ?? "#e8edf5" }}
               >
-                {value}
+                {kpiLoading || value == null ? (
+                  <Skeleton className="mt-1 h-6 w-24 bg-white/5" />
+                ) : (
+                  value
+                )}
               </div>
             </div>
           ))}
@@ -226,17 +246,21 @@ export default function VaultDetailPage({
           transition={{ delay: 0.2 }}
           className="mt-8 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div className="flex items-center gap-2">
               <Activity className="size-4 text-[#8b9cb3]" />
-              <h3 className="text-sm font-semibold text-[#e8edf5]">
-                Price Per Share
-              </h3>
+              <div>
+                <h3 className="text-sm font-semibold text-[#e8edf5]">Price per share</h3>
+                <p className="text-[10px] text-[#8b9cb3]">
+                  Live samples from this browser session (devnet polls)
+                </p>
+              </div>
             </div>
             <div className="flex gap-1">
               {(["7d", "30d", "90d"] as const).map((range) => (
                 <button
                   key={range}
+                  type="button"
                   onClick={() => setChartRange(range)}
                   className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
                     chartRange === range
@@ -250,54 +274,60 @@ export default function VaultDetailPage({
             </div>
           </div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id={`gradient-${id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={config.accentColor} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={config.accentColor} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="date"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#8b9cb3", fontSize: 10 }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  domain={["dataMin - 0.01", "dataMax + 0.01"]}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#8b9cb3", fontSize: 10 }}
-                  tickFormatter={(v: number) => `$${v.toFixed(2)}`}
-                  width={55}
-                />
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: "#0d1420",
-                    border: "1px solid #1a2235",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: "#8b9cb3" }}
-                  formatter={(value: number) => [`$${value.toFixed(4)}`, "PPS"]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="pps"
-                  stroke={config.accentColor}
-                  strokeWidth={2}
-                  fill={`url(#gradient-${id})`}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartData.length >= 2 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id={`gradient-${id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={config.accentColor} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={config.accentColor} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#8b9cb3", fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    domain={["auto", "auto"]}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#8b9cb3", fontSize: 10 }}
+                    tickFormatter={(v: number) => `$${v.toFixed(3)}`}
+                    width={55}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: "#0d1420",
+                      border: "1px solid #1a2235",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#8b9cb3" }}
+                    formatter={(value: number) => [`$${value.toFixed(4)}`, "PPS"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="pps"
+                    stroke={config.accentColor}
+                    strokeWidth={2}
+                    fill={`url(#gradient-${id})`}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-[#8b9cb3]">
+                {loading
+                  ? "Loading vault…"
+                  : "Chart fills as PPS updates are sampled while you keep this page open."}
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Two-column: Allocation + Activity */}
         <div className="mt-8 grid gap-6 lg:grid-cols-5">
-          {/* NAV Breakdown */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -306,87 +336,68 @@ export default function VaultDetailPage({
           >
             <div className="flex items-center gap-2 mb-4">
               <PieChart className="size-4 text-[#8b9cb3]" />
-              <h3 className="text-sm font-semibold text-[#e8edf5]">
-                NAV Breakdown
-              </h3>
+              <h3 className="text-sm font-semibold text-[#e8edf5]">On-chain liquidity</h3>
             </div>
             <div className="space-y-3">
               {[
-                {
-                  label: "Active Predictions",
-                  value: state.nav - state.lendingDeployed - state.idleUsdc,
-                  color: config.accentColor,
-                  count: state.activePredictions,
-                },
-                {
-                  label: "Jupiter Lend",
-                  value: state.lendingDeployed,
-                  color: `${config.accentColor}80`,
-                },
-                {
-                  label: "Idle USDC",
-                  value: state.idleUsdc,
-                  color: "#1a2235",
-                },
-              ].map(({ label, value, color, count }) => (
-                <div key={label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="inline-block size-3 rounded-sm"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-sm text-[#8b9cb3]">
-                      {label}
-                      {count != null && (
-                        <span className="ml-1 text-[10px]">
-                          ({count} positions)
-                        </span>
-                      )}
-                    </span>
-                  </div>
+                { label: "Reported NAV (program)", value: state?.nav ?? 0 },
+                { label: "USDC in vault ATA", value: custodyUsdc },
+                { label: "Custody − NAV", value: navDrift },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-[#8b9cb3]">{label}</span>
                   <span className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
-                    {formatUsd(value)}
+                    {kpiLoading && !snapshot ? (
+                      <Skeleton className="h-4 w-20 bg-white/5" />
+                    ) : (
+                      formatUsd(value)
+                    )}
                   </span>
                 </div>
               ))}
-              <div className="border-t border-white/5 pt-3 flex items-center justify-between">
-                <span className="text-sm font-medium text-[#e8edf5]">
-                  Total NAV
-                </span>
-                <span className="font-[family-name:var(--font-space-mono)] text-sm font-bold text-[#00e5c3]">
-                  {formatUsd(state.nav)}
-                </span>
-              </div>
+              <p className="text-[10px] leading-relaxed text-[#8b9cb3] pt-2 border-t border-white/5">
+                NAV follows `total_assets` from the program. The vault token account may differ until
+                the engine runs `sync_nav` or after user flows settle.
+              </p>
             </div>
 
             <div className="mt-5 pt-4 border-t border-white/5">
               <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-3">
-                Vault Parameters
+                Vault parameters
               </div>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[#8b9cb3]">Min Deposit</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-[#8b9cb3]">Min deposit</span>
                   <span className="text-[#e8edf5]">{formatUsd(config.minDeposit)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#8b9cb3]">Management Fee</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-[#8b9cb3]">Management fee</span>
                   <span className="text-[#00e5c3]">0%</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#8b9cb3]">Performance Fee</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-[#8b9cb3]">Performance fee</span>
                   <span className="text-[#e8edf5]">{config.performanceFeeBps / 100}% above HWM</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#8b9cb3]">High Water Mark</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-[#8b9cb3]">High water mark</span>
                   <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">
-                    ${state.highWaterMark.toFixed(3)}
+                    {state ? `$${state.highWaterMark.toFixed(4)}` : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-[#8b9cb3]">Your shares</span>
+                  <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">
+                    {sharesLoading ? (
+                      <Skeleton className="inline-block h-4 w-16 bg-white/5" />
+                    ) : (
+                      `${formatShares(Number(sharesBn.toString(10)) / 1e9)} ${config.ticker}`
+                    )}
                   </span>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Recent Activity */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -395,85 +406,40 @@ export default function VaultDetailPage({
           >
             <div className="flex items-center gap-2 mb-4">
               <Clock className="size-4 text-[#8b9cb3]" />
-              <h3 className="text-sm font-semibold text-[#e8edf5]">
-                Recent Activity
-              </h3>
+              <h3 className="text-sm font-semibold text-[#e8edf5]">Activity</h3>
             </div>
-            <div className="space-y-0">
-              {MOCK_ACTIVITIES.map((activity, i) => {
-                const elapsed = Date.now() - new Date(activity.timestamp).getTime();
-                const hours = Math.floor(elapsed / 3_600_000);
-                const timeLabel = hours < 1 ? "< 1h ago" : `${hours}h ago`;
 
-                return (
+            {parsedActivity.length > 0 ? (
+              <div className="space-y-0">
+                {parsedActivity.map((item, i) => (
                   <div
-                    key={activity.id}
+                    key={item.hash}
                     className={`flex items-start gap-3 py-3 ${i > 0 ? "border-t border-white/5" : ""}`}
                   >
-                    <div className={`mt-0.5 ${ACTIVITY_ICONS[activity.type] ?? "text-[#8b9cb3]"}`}>
-                      <Activity className="size-4" />
-                    </div>
+                    <Activity className="mt-0.5 size-4 text-[#00e5c3]" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[#e8edf5] truncate">
-                        {activity.description}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
-                          {formatUsd(activity.amount)}
-                        </span>
-                        <span className="text-xs text-[#8b9cb3]">
-                          {timeLabel}
-                        </span>
-                        {activity.txSignature && (
-                          <a
-                            href={`https://solscan.io/tx/${activity.txSignature}?cluster=devnet`}
-                            target="_blank"
-                            rel="noopener"
-                            className="text-xs text-[#00e5c3] hover:underline inline-flex items-center gap-0.5"
-                          >
-                            <ExternalLink className="size-3" />
-                            Tx
-                          </a>
-                        )}
+                      <p className="text-sm text-[#e8edf5]">{item.action}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-[#8b9cb3]">
+                        <span>{new Date(item.timestamp).toLocaleString()}</span>
+                        <a
+                          href={`https://solscan.io/tx/${item.hash}?cluster=devnet`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-[#00e5c3] hover:underline"
+                        >
+                          <ExternalLink className="size-3" />
+                          Solscan
+                        </a>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Dune SIM live transactions */}
-            {duneTxns.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-white/5">
-                <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-3 flex items-center gap-1.5">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-50" />
-                    <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
-                  </span>
-                  Live Wallet Transactions (Dune SIM)
-                </div>
-                {duneTxns.slice(0, 5).map((tx) => (
-                  <div key={tx.hash} className="flex items-start gap-3 py-2 border-t border-white/5">
-                    <Activity className="mt-0.5 size-3.5 text-[#8b9cb3]" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-[#e8edf5] truncate font-[family-name:var(--font-space-mono)]">
-                        {tx.hash.slice(0, 8)}…{tx.hash.slice(-6)}
-                      </p>
-                      <span className="text-[10px] text-[#8b9cb3]">
-                        {new Date(tx.block_time).toLocaleString()}
-                      </span>
-                    </div>
-                    <a
-                      href={`https://solscan.io/tx/${tx.hash}?cluster=devnet`}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-[10px] text-[#00e5c3] hover:underline inline-flex items-center gap-0.5"
-                    >
-                      <ExternalLink className="size-2.5" />
-                    </a>
-                  </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-sm text-[#8b9cb3]">
+                Connect your wallet to load recent transactions via Dune SIM. On-chain vault events
+                will appear here when your wallet has activity.
+              </p>
             )}
           </motion.div>
         </div>
@@ -481,14 +447,22 @@ export default function VaultDetailPage({
 
       <DepositModal
         vaultConfig={config}
+        chainVaultId={config.chainVaultId}
+        onChainVault={onChain}
+        uiVaultState={state}
         open={showDeposit}
         onOpenChange={setShowDeposit}
+        onDeposited={() => void refetch()}
       />
       <WithdrawModal
         vaultConfig={config}
-        vaultState={state}
+        chainVaultId={config.chainVaultId}
+        onChainVault={onChain}
+        uiVaultState={state}
+        userSharesLamports={sharesBn}
         open={showWithdraw}
         onOpenChange={setShowWithdraw}
+        onWithdrawn={() => void refetch()}
       />
     </div>
   );

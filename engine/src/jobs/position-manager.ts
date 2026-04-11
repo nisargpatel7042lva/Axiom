@@ -1,8 +1,12 @@
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
-import { jupiterTrigger, type TriggerOrder } from "../services/jupiter-trigger.js";
+import { jupiterTrigger } from "../services/jupiter-trigger.js";
 import { jupiterLend } from "../services/jupiter-lend.js";
-import { getAuthority, signAndSend } from "../services/solana.js";
+import { getAuthority, signAndSend, getTokenBalance } from "../services/solana.js";
+import { deriveVaultPda } from "../services/vault-contract.js";
 import { getOpportunities, getStrategy } from "./market-scanner.js";
+import { getNav } from "./nav-calculator.js";
 import { getAllVaultConfigs, CONFIG } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 import type {
@@ -95,12 +99,14 @@ export async function runPositionManager(): Promise<void> {
       // (try to get a better entry), otherwise use market order
       const USE_LIMIT_ORDERS = opp.price > 0.70 && opp.price < 0.95;
 
+      await ensureVaultLiquidity(vaultConfig.id, positionSizeUsdc);
+
       if (USE_LIMIT_ORDERS) {
         const targetPrice = opp.price * 0.97; // try to enter 3% below current
         log.info(
           `[${vaultConfig.name}] Setting limit entry on "${opp.title}" @ $${targetPrice.toFixed(3)} — $${positionSizeUsdc.toFixed(2)}`,
         );
-        await openLimitPosition(ownerPubkey, opp, positionSizeUsdc, targetPrice);
+        await openLimitPosition(ownerPubkey, vaultId, opp, positionSizeUsdc, targetPrice);
       } else {
         log.info(
           `[${vaultConfig.name}] Market-ordering ${opp.side} on "${opp.title}" — $${positionSizeUsdc.toFixed(2)}`,
@@ -161,6 +167,7 @@ async function openPosition(
 
 async function openLimitPosition(
   ownerPubkey: string,
+  vaultId: VaultStrategyType,
   opp: ScoredOpportunity,
   usdcAmount: number,
   targetPrice: number,
@@ -179,6 +186,7 @@ async function openLimitPosition(
     log.info(`Limit order placed for "${opp.title}" @ $${targetPrice.toFixed(3)} (order: ${result.orderId})`);
   } catch (err) {
     log.error(`Failed to create limit entry for ${opp.title}, falling back to market order`, err);
+    await openPosition(ownerPubkey, vaultId, opp, usdcAmount);
   }
 }
 
@@ -225,10 +233,37 @@ function logTrade(
   });
 }
 
-function getEstimatedNav(_vaultId: string): number {
-  // Pulled from NAV calculator's cached results in production.
-  // Fallback estimate for bootstrap phase.
+function getEstimatedNav(vaultId: string): number {
+  const nav = getNav(vaultId);
+  if (nav && nav.totalNav > 0) return nav.totalNav;
   return 100_000;
+}
+
+/** PROMPT: withdraw USDC from Jupiter Lend if vault idle balance is insufficient to open. */
+async function ensureVaultLiquidity(onChainVaultId: number, neededUsdc: number): Promise<void> {
+  const idle = await readVaultIdleUsdc(onChainVaultId);
+  const shortfall = neededUsdc - idle;
+  if (shortfall <= 1) return;
+
+  log.info(
+    `Idle USDC $${idle.toFixed(2)} < needed $${neededUsdc.toFixed(2)} — withdrawing $${shortfall.toFixed(2)} from Jupiter Lend`,
+  );
+  try {
+    await jupiterLend.sendWithdrawFromEarn(shortfall);
+  } catch (err) {
+    log.error("withdrawFromEarn for position open failed", err);
+  }
+}
+
+async function readVaultIdleUsdc(onChainVaultId: number): Promise<number> {
+  try {
+    const [vaultPda] = deriveVaultPda(onChainVaultId);
+    const usdcMint = new PublicKey(CONFIG.USDC_MINT);
+    const ata = getAssociatedTokenAddressSync(usdcMint, vaultPda, true);
+    return await getTokenBalance(ata);
+  } catch {
+    return 0;
+  }
 }
 
 export function getActivePositions(vaultId: string): ActivePosition[] {

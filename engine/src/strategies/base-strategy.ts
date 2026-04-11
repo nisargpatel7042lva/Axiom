@@ -22,11 +22,6 @@ export abstract class BaseStrategy {
   abstract passesFilter(event: PredictionEvent, market: PredictionMarket): boolean;
 
   /**
-   * Strategy-specific scoring weight (combined with base score).
-   */
-  abstract strategyScore(event: PredictionEvent, market: PredictionMarket): number;
-
-  /**
    * Determine which side to take.
    */
   abstract recommendedSide(event: PredictionEvent, market: PredictionMarket): "yes" | "no";
@@ -37,8 +32,8 @@ export abstract class BaseStrategy {
   abstract shouldExit(currentPrice: number, entryPrice: number, market: PredictionMarket): boolean;
 
   /**
-   * Full scoring pipeline: filter → score → rank.
-   * Returns scored opportunities sorted by score descending.
+   * PROMPT scoring: probability × volume_weight × time_to_resolution_score
+   * Strategy differentiation comes from passesFilter(), not a separate multiplier.
    */
   scoreEvents(events: PredictionEvent[]): ScoredOpportunity[] {
     const opportunities: ScoredOpportunity[] = [];
@@ -51,18 +46,18 @@ export abstract class BaseStrategy {
         const daysToResolution = this.daysUntil(event.endDate);
         const side = this.recommendedSide(event, market);
         const price = side === "yes" ? market.buyYesPriceUsd : market.buyNoPriceUsd;
+        const probability = market.buyYesPriceUsd;
 
         const volumeWeight = this.normalizeVolume(market.volumeTotal);
         const timeWeight = this.timeToResolutionScore(daysToResolution);
-        const stratWeight = this.strategyScore(event, market);
-        const score = price * volumeWeight * timeWeight * stratWeight;
+        const score = probability * volumeWeight * timeWeight;
 
         opportunities.push({
           eventId: event.id,
           marketId: market.id,
           title: event.title || market.title,
           category: event.category,
-          probability: market.buyYesPriceUsd,
+          probability,
           volume: market.volume24h,
           volumeTotal: market.volumeTotal,
           side,
@@ -82,10 +77,6 @@ export abstract class BaseStrategy {
     return opportunities;
   }
 
-  // ------------------------------------------------------------------
-  // Shared helpers
-  // ------------------------------------------------------------------
-
   protected daysUntil(dateStr: string): number {
     const target = new Date(dateStr).getTime();
     const now = Date.now();
@@ -93,8 +84,7 @@ export abstract class BaseStrategy {
   }
 
   /**
-   * Normalize volume into 0–1 range using a logarithmic scale.
-   * $100k maps to ~0.5, $1M maps to ~1.0.
+   * Volume weight 0–1 (log scale). PROMPT uses "volume_weight" in the score product.
    */
   protected normalizeVolume(volume: number): number {
     if (volume <= 0) return 0;
@@ -102,8 +92,7 @@ export abstract class BaseStrategy {
   }
 
   /**
-   * Markets resolving soon score higher (more capital-efficient).
-   * <3 days → 1.0, 30 days → 0.5, >90 days → 0.2.
+   * Time-to-resolution score — sooner = higher weight.
    */
   protected timeToResolutionScore(days: number): number {
     if (days <= 3) return 1.0;
@@ -113,9 +102,6 @@ export abstract class BaseStrategy {
     return 0.2;
   }
 
-  /**
-   * Calculate position size in USDC based on vault NAV and max position %.
-   */
   calculatePositionSize(vaultNav: number): number {
     return vaultNav * this.config.maxPositionPct;
   }

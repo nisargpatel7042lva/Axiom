@@ -6,6 +6,8 @@ export type RiskLevel = "low" | "medium" | "high";
 
 export interface VaultConfig {
   id: VaultId;
+  /** On-chain `vault_id` (u64) used by the Anchor program PDAs. */
+  chainVaultId: number;
   name: string;
   ticker: string;
   description: string;

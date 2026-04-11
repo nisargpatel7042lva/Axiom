@@ -44,8 +44,9 @@ export function useWithdraw(vaultId: number) {
 
         await connection.confirmTransaction(sig, "confirmed");
 
-        queryClient.invalidateQueries({ queryKey: ["spectra-vault", vaultId] });
-        queryClient.invalidateQueries({ queryKey: ["spectra-portfolio"] });
+        queryClient.invalidateQueries({ queryKey: ["devnet-vault-dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["wallet-vault-positions"] });
+        queryClient.invalidateQueries({ queryKey: ["vault-user-shares"] });
 
         return sig;
       } catch (e) {

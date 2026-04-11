@@ -27,21 +27,6 @@ export class MacroContrarianStrategy extends BaseStrategy {
     );
   }
 
-  strategyScore(event: PredictionEvent, market: PredictionMarket): number {
-    const prob = market.buyYesPriceUsd;
-
-    // Contrarian signal: the closer to 50/50, the more potential for edge
-    const midpointProximity = 1 - Math.abs(prob - 0.5) * 2; // peaks at 0.5
-    const volumeSignal = market.volume24h > 100_000 ? 1.2 : 1.0;
-
-    // Higher weight for political/economic markets where crowds tend to overreact
-    const categoryBoost =
-      event.category?.toLowerCase() === "politics" ? 1.3 :
-      event.category?.toLowerCase() === "economics" ? 1.2 : 1.0;
-
-    return midpointProximity * volumeSignal * categoryBoost;
-  }
-
   recommendedSide(event: PredictionEvent, market: PredictionMarket): "yes" | "no" {
     // Contrarian takes the less popular side — if crowd says >50% YES, we lean NO
     // But only when the mispricing favors that side.

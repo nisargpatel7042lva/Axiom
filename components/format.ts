@@ -38,6 +38,15 @@ export function formatFeesTicker(value: number | Decimal): string {
   return n.toFixed(6);
 }
 
+/** Vault share tokens (9 decimals on-chain) — display up to 4 fractional digits. */
+export function formatShares(value: number): string {
+  if (!Number.isFinite(value)) return "0.0000";
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: 4,
+    minimumFractionDigits: 0,
+  });
+}
+
 export function decimalFromUnknown(v: string | number | Decimal): Decimal {
   if (v instanceof Decimal) return v;
   return new Decimal(v);

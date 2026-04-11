@@ -24,14 +24,6 @@ export class SafeConsensusStrategy extends BaseStrategy {
     );
   }
 
-  strategyScore(_event: PredictionEvent, market: PredictionMarket): number {
-    const prob = market.buyYesPriceUsd;
-    // Prefer very high probability and high liquidity
-    const certaintyBonus = prob >= 0.92 ? 1.3 : 1.0;
-    const liquidityBonus = market.liquidity > 500_000 ? 1.2 : 1.0;
-    return certaintyBonus * liquidityBonus;
-  }
-
   recommendedSide(_event: PredictionEvent, market: PredictionMarket): "yes" | "no" {
     // Safe consensus always buys the dominant side
     return market.buyYesPriceUsd >= 0.5 ? "yes" : "no";

@@ -1,4 +1,11 @@
-import { PublicKey, TransactionInstruction, Transaction } from "@solana/web3.js";
+import {
+  PublicKey,
+  TransactionInstruction,
+  Transaction,
+  type Connection,
+  type Keypair,
+} from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
 import { createLogger } from "../utils/logger.js";
 import { withRetry } from "../utils/retry.js";
 import { getConnection, getAuthority, getTokenBalance } from "./solana.js";
@@ -6,126 +13,145 @@ import { CONFIG } from "../config.js";
 
 const log = createLogger("jupiter-lend");
 
+let getDepositIxsFn: ((args: unknown) => Promise<TransactionInstruction[]>) | null = null;
+let getWithdrawIxsFn: ((args: unknown) => Promise<TransactionInstruction[]>) | null = null;
+let sdkLoaded = false;
+let sdkLoadAttempted = false;
+
+async function ensureSdk(): Promise<boolean> {
+  if (sdkLoadAttempted) return sdkLoaded;
+  sdkLoadAttempted = true;
+  try {
+    const lendModule = await (Function('return import("@jup-ag/lend/earn")')() as Promise<{
+      getDepositIxs: (args: unknown) => Promise<TransactionInstruction[]>;
+      getWithdrawIxs: (args: unknown) => Promise<TransactionInstruction[]>;
+    }>);
+    getDepositIxsFn = lendModule.getDepositIxs;
+    getWithdrawIxsFn = lendModule.getWithdrawIxs;
+    sdkLoaded = true;
+    log.info("Jupiter Lend SDK loaded");
+  } catch {
+    log.warn("Jupiter Lend SDK not available — instruction builders return []");
+  }
+  return sdkLoaded;
+}
+
 /**
- * Jupiter Lend (Earn) service.
- *
- * In production, this calls the @jup-ag/lend SDK. During devnet testing
- * the SDK may not be available — the service falls back to no-op logging
- * so the engine never crashes.
+ * Jupiter Lend Earn — deposit instructions (PROMPT spec).
+ * Uses getDepositIxs from @jup-ag/lend/earn.
  */
-class JupiterLendService {
-  private sdkAvailable = false;
-  private getDepositIxsFn: any = null;
-  private getWithdrawIxsFn: any = null;
+export async function depositToEarn(
+  connection: Connection,
+  signer: Keypair,
+  amount: BN,
+): Promise<TransactionInstruction[]> {
+  await ensureSdk();
+  if (!getDepositIxsFn) return [];
 
-  constructor() {
-    this.tryLoadSdk();
-  }
+  const ixs = await getDepositIxsFn({
+    connection,
+    signer: signer.publicKey,
+    asset: new PublicKey(CONFIG.USDC_MINT),
+    amount,
+  });
+  return ixs;
+}
 
-  private async tryLoadSdk() {
-    try {
-      // @jup-ag/lend is an optional dependency — may not be installed on devnet
-      const lendModule = await (Function('return import("@jup-ag/lend/earn")')() as Promise<any>);
-      this.getDepositIxsFn = lendModule.getDepositIxs;
-      this.getWithdrawIxsFn = lendModule.getWithdrawIxs;
-      this.sdkAvailable = true;
-      log.info("Jupiter Lend SDK loaded");
-    } catch {
-      log.warn("Jupiter Lend SDK not available — lending operations will be no-ops");
+/**
+ * Jupiter Lend Earn — withdraw instructions (PROMPT spec).
+ */
+export async function withdrawFromEarn(
+  connection: Connection,
+  signer: Keypair,
+  amount: BN,
+): Promise<TransactionInstruction[]> {
+  await ensureSdk();
+  if (!getWithdrawIxsFn) return [];
+
+  const ixs = await getWithdrawIxsFn({
+    connection,
+    signer: signer.publicKey,
+    asset: new PublicKey(CONFIG.USDC_MINT),
+    amount,
+  });
+  return ixs;
+}
+
+/**
+ * Read aggregate USDC token balance for the signer (best-effort Earn position).
+ */
+export async function getEarnBalance(
+  connection: Connection,
+  signer: Keypair,
+): Promise<number> {
+  try {
+    const accounts = await connection.getTokenAccountsByOwner(signer.publicKey, {
+      mint: new PublicKey(CONFIG.USDC_MINT),
+    });
+    let total = 0;
+    for (const { pubkey } of accounts.value) {
+      total += await getTokenBalance(pubkey);
     }
+    return total;
+  } catch (err) {
+    log.error("getEarnBalance failed", err);
+    return 0;
   }
+}
 
-  async depositToEarn(amountUsdc: number): Promise<string | null> {
-    if (!this.sdkAvailable) {
+// ---------------------------------------------------------------------------
+// High-level helpers (send transactions) — used by yield-router / engine
+// ---------------------------------------------------------------------------
+
+class JupiterLendService {
+  async sendDepositToEarn(amountUsdc: number): Promise<string | null> {
+    const connection = getConnection();
+    const authority = getAuthority();
+    const amount = new BN(Math.floor(amountUsdc * 1e6));
+    const ixs = await depositToEarn(connection, authority, amount);
+    if (ixs.length === 0) {
       log.info(`[mock] Would deposit ${amountUsdc} USDC to Jupiter Earn`);
       return null;
     }
 
-    return withRetry(
-      async () => {
-        const connection = getConnection();
-        const authority = getAuthority();
-        const amountLamports = BigInt(Math.floor(amountUsdc * 1e6));
-
-        const ixs: TransactionInstruction[] = await this.getDepositIxsFn({
-          connection,
-          signer: authority.publicKey,
-          asset: new PublicKey(CONFIG.USDC_MINT),
-          amount: amountLamports,
-        });
-
-        const tx = new Transaction().add(...ixs);
-        tx.feePayer = authority.publicKey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        tx.recentBlockhash = blockhash;
-        tx.sign(authority);
-
-        const sig = await connection.sendRawTransaction(tx.serialize());
-        await connection.confirmTransaction(sig, "confirmed");
-        log.info(`Deposited ${amountUsdc} USDC to Jupiter Earn: ${sig}`);
-        return sig;
-      },
-      "depositToEarn",
-    );
+    return withRetry(async () => {
+      const tx = new Transaction().add(...ixs);
+      tx.feePayer = authority.publicKey;
+      const { blockhash } = await connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.sign(authority);
+      const sig = await connection.sendRawTransaction(tx.serialize());
+      await connection.confirmTransaction(sig, "confirmed");
+      log.info(`Deposited ${amountUsdc} USDC to Jupiter Earn: ${sig}`);
+      return sig;
+    }, "depositToEarn-send");
   }
 
-  async withdrawFromEarn(amountUsdc: number): Promise<string | null> {
-    if (!this.sdkAvailable) {
+  async sendWithdrawFromEarn(amountUsdc: number): Promise<string | null> {
+    const connection = getConnection();
+    const authority = getAuthority();
+    const amount = new BN(Math.floor(amountUsdc * 1e6));
+    const ixs = await withdrawFromEarn(connection, authority, amount);
+    if (ixs.length === 0) {
       log.info(`[mock] Would withdraw ${amountUsdc} USDC from Jupiter Earn`);
       return null;
     }
 
-    return withRetry(
-      async () => {
-        const connection = getConnection();
-        const authority = getAuthority();
-        const amountLamports = BigInt(Math.floor(amountUsdc * 1e6));
-
-        const ixs: TransactionInstruction[] = await this.getWithdrawIxsFn({
-          connection,
-          signer: authority.publicKey,
-          asset: new PublicKey(CONFIG.USDC_MINT),
-          amount: amountLamports,
-        });
-
-        const tx = new Transaction().add(...ixs);
-        tx.feePayer = authority.publicKey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        tx.recentBlockhash = blockhash;
-        tx.sign(authority);
-
-        const sig = await connection.sendRawTransaction(tx.serialize());
-        await connection.confirmTransaction(sig, "confirmed");
-        log.info(`Withdrew ${amountUsdc} USDC from Jupiter Earn: ${sig}`);
-        return sig;
-      },
-      "withdrawFromEarn",
-    );
+    return withRetry(async () => {
+      const tx = new Transaction().add(...ixs);
+      tx.feePayer = authority.publicKey;
+      const { blockhash } = await connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.sign(authority);
+      const sig = await connection.sendRawTransaction(tx.serialize());
+      await connection.confirmTransaction(sig, "confirmed");
+      log.info(`Withdrew ${amountUsdc} USDC from Jupiter Earn: ${sig}`);
+      return sig;
+    }, "withdrawFromEarn-send");
   }
 
   async getEarnBalance(): Promise<number> {
-    if (!this.sdkAvailable) {
-      log.debug("Lend SDK unavailable, returning 0 for earn balance");
-      return 0;
-    }
-
-    try {
-      const connection = getConnection();
-      const authority = getAuthority();
-      // The earn position is typically an ATA; the exact derivation depends on
-      // the Jupiter Lend program. This is a best-effort read.
-      const accounts = await connection.getTokenAccountsByOwner(authority.publicKey, {
-        mint: new PublicKey(CONFIG.USDC_MINT),
-      });
-      let total = 0;
-      for (const { pubkey } of accounts.value) {
-        total += await getTokenBalance(pubkey);
-      }
-      return total;
-    } catch (err) {
-      log.error("Failed to read earn balance", err);
-      return 0;
-    }
+    return getEarnBalance(getConnection(), getAuthority());
   }
 }
 

@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
 import { jupiterTokens } from "../services/jupiter-tokens.js";
 import { getAllVaultConfigs } from "../config.js";
@@ -66,7 +68,30 @@ export async function runMarketScanner(): Promise<void> {
     }
   }
 
+  await persistOpportunitiesSnapshot();
+
   log.info("Market scan complete");
+}
+
+/** PROMPT: store top opportunities in a simple JSON file (in addition to memory). */
+async function persistOpportunitiesSnapshot(): Promise<void> {
+  try {
+    const dir = path.join(process.cwd(), "data");
+    await fs.mkdir(dir, { recursive: true });
+    const snapshot: Record<string, ScoredOpportunity[]> = {};
+    for (const [key, opps] of latestOpportunities.entries()) {
+      snapshot[key] = opps;
+    }
+    const file = path.join(dir, "opportunities.json");
+    await fs.writeFile(
+      file,
+      JSON.stringify({ updatedAt: new Date().toISOString(), vaults: snapshot }, null, 2),
+      "utf-8",
+    );
+    log.info(`Wrote opportunity snapshot to ${file}`);
+  } catch (err) {
+    log.warn("Failed to persist opportunities.json (non-fatal)", err);
+  }
 }
 
 export function getOpportunities(strategyType: VaultStrategyType): ScoredOpportunity[] {

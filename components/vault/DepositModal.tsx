@@ -2,46 +2,104 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Wallet, ArrowRight, Check, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import dynamic from "next/dynamic";
+import BN from "bn.js";
 
-import { formatUsd } from "@/components/format";
+import { formatUsd, formatShares } from "@/components/format";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
-import type { VaultConfig } from "@/types";
+import { useDeposit } from "@/lib/spectra/hooks/use-deposit";
+import { previewDeposit } from "@/lib/spectra/vault-client";
+import type { VaultState as OnChainVault } from "@/lib/spectra/types";
+import { USDC_DECIMALS } from "@/lib/spectra/constants";
+import type { VaultConfig, VaultState } from "@/types";
+
+const WalletMultiButton = dynamic(
+  () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
+  { ssr: false },
+);
 
 type Step = "input" | "confirm" | "processing" | "success";
 
 export function DepositModal({
   vaultConfig,
+  chainVaultId,
+  onChainVault,
+  uiVaultState,
   open,
   onOpenChange,
+  onDeposited,
 }: {
   vaultConfig: VaultConfig;
+  chainVaultId: number;
+  onChainVault: OnChainVault | null;
+  uiVaultState: VaultState | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onDeposited?: () => void;
 }) {
   const { connected } = useWallet();
   const { usdcBalance, isLoading: balanceLoading } = useWalletBalances();
+  const { deposit, loading: txLoading } = useDeposit(chainVaultId);
+
   const [step, setStep] = useState<Step>("input");
   const [amountStr, setAmountStr] = useState("");
-  const walletBalance = usdcBalance > 0 ? usdcBalance : 12_500;
+  const [lastSig, setLastSig] = useState<string | null>(null);
+
+  const walletBalance = usdcBalance;
 
   useEffect(() => {
     if (!open) {
       setStep("input");
       setAmountStr("");
+      setLastSig(null);
     }
   }, [open]);
 
   const amount = Number(amountStr) || 0;
-  const estimatedShares = amount > 0 ? amount / 1.05 : 0;
-  const isValid = amount >= vaultConfig.minDeposit && amount <= walletBalance;
+  const lamports = useMemo(
+    () => new BN(Math.floor(amount * 10 ** USDC_DECIMALS)),
+    [amount],
+  );
 
-  function handleConfirm() {
+  const preview = useMemo(() => {
+    if (!onChainVault || amount <= 0) return null;
+    return previewDeposit(onChainVault, lamports);
+  }, [onChainVault, lamports, amount]);
+
+  const sharesHuman = preview
+    ? Number(preview.sharesToReceive.toString(10)) / 10 ** 9
+    : 0;
+
+  const ppsDisplay = uiVaultState?.pricePerShare ?? preview?.estimatedPPS ?? 1;
+
+  const isValid =
+    onChainVault != null &&
+    !onChainVault.isPaused &&
+    amount >= vaultConfig.minDeposit &&
+    amount > 0 &&
+    amount <= walletBalance;
+
+  async function handleConfirm() {
+    if (!onChainVault) return;
     setStep("processing");
-    setTimeout(() => setStep("success"), 2500);
+    try {
+      const sig = await deposit(lamports);
+      setLastSig(sig);
+      setStep("success");
+      onDeposited?.();
+    } catch {
+      setStep("confirm");
+    }
   }
+
+  const disabledReason =
+    onChainVault == null
+      ? "Vault account not found on this RPC (initialize on devnet first)."
+      : onChainVault.isPaused
+        ? "Vault is paused."
+        : null;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -54,7 +112,7 @@ export function DepositModal({
                 Deposit to {vaultConfig.name}
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-[#8b9cb3]">
-                Deposit USDC and receive {vaultConfig.ticker} vault tokens.
+                Deposit USDC and receive {vaultConfig.ticker} vault tokens on devnet.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -67,6 +125,12 @@ export function DepositModal({
               </button>
             </Dialog.Close>
           </div>
+
+          {disabledReason && (
+            <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+              {disabledReason}
+            </p>
+          )}
 
           {!connected ? (
             <div className="mt-6 flex flex-col items-center gap-4 py-8">
@@ -84,10 +148,15 @@ export function DepositModal({
                     Amount (USDC)
                   </label>
                   <button
-                    onClick={() => setAmountStr(String(walletBalance))}
+                    type="button"
+                    onClick={() =>
+                      setAmountStr(
+                        walletBalance > 0 ? String(Math.floor(walletBalance * 100) / 100) : "0",
+                      )
+                    }
                     className="text-xs text-[#00e5c3] hover:underline"
                   >
-                    {balanceLoading ? "Loading..." : `Max: ${formatUsd(walletBalance)}`}
+                    {balanceLoading ? "Loading…" : `Max: ${formatUsd(walletBalance)}`}
                   </button>
                 </div>
                 <div className="relative">
@@ -121,19 +190,20 @@ export function DepositModal({
                   <div className="flex justify-between">
                     <span className="text-[#8b9cb3]">You receive (est.)</span>
                     <span className="font-[family-name:var(--font-space-mono)] text-[#00e5c3]">
-                      ~{estimatedShares.toFixed(2)} {vaultConfig.ticker}
+                      {preview ? formatShares(sharesHuman) : "—"} {vaultConfig.ticker}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8b9cb3]">Current PPS</span>
                     <span className="font-[family-name:var(--font-space-mono)]">
-                      $1.050
+                      ${ppsDisplay.toFixed(4)}
                     </span>
                   </div>
                 </div>
               )}
 
               <button
+                type="button"
                 onClick={() => setStep("confirm")}
                 disabled={!isValid}
                 className="w-full rounded-xl bg-[#00e5c3] py-3.5 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:opacity-40 disabled:cursor-not-allowed"
@@ -155,7 +225,7 @@ export function DepositModal({
                   <div className="text-right">
                     <div className="text-xs text-[#8b9cb3]">Receiving</div>
                     <div className="font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#00e5c3]">
-                      ~{estimatedShares.toFixed(2)}
+                      {preview ? formatShares(sharesHuman) : "—"}
                     </div>
                     <div className="text-xs text-[#8b9cb3]">{vaultConfig.ticker}</div>
                   </div>
@@ -164,40 +234,33 @@ export function DepositModal({
 
               <div className="rounded-xl border border-white/5 bg-[#080c14] p-4 space-y-2 text-xs text-[#8b9cb3]">
                 <p>
-                  By confirming, you authorize the vault program to transfer
-                  USDC from your wallet and mint {vaultConfig.ticker} tokens to
-                  your account.
-                </p>
-                <p>
-                  Vault tokens can be redeemed anytime for your proportional
-                  share of NAV.
+                  By confirming, you authorize the vault program to transfer USDC from your wallet
+                  and mint {vaultConfig.ticker} to your Token-2022 account.
                 </p>
               </div>
 
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setStep("input")}
                   className="flex-1 rounded-xl border border-[#1a2235] py-3 text-sm font-medium text-[#e8edf5] hover:bg-white/5"
                 >
                   Back
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirm}
-                  className="flex-1 rounded-xl bg-[#00e5c3] py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
+                  disabled={txLoading}
+                  className="flex-1 rounded-xl bg-[#00e5c3] py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3] disabled:opacity-50"
                 >
-                  Confirm Deposit
+                  {txLoading ? "Signing…" : "Confirm Deposit"}
                 </button>
               </div>
             </div>
           ) : step === "processing" ? (
             <div className="mt-6 flex flex-col items-center gap-4 py-12">
               <Loader2 className="size-10 animate-spin text-[#00e5c3]" />
-              <p className="text-sm text-[#8b9cb3]">
-                Processing your deposit...
-              </p>
-              <p className="text-xs text-[#8b9cb3]">
-                Sending transaction to Solana
-              </p>
+              <p className="text-sm text-[#8b9cb3]">Confirm the transaction in your wallet…</p>
             </div>
           ) : (
             <div className="mt-6 flex flex-col items-center gap-4 py-8">
@@ -205,14 +268,18 @@ export function DepositModal({
                 <Check className="size-7 text-[#00e5c3]" />
               </div>
               <div className="text-center">
-                <p className="text-lg font-semibold text-[#e8edf5]">
-                  Deposit Successful
-                </p>
+                <p className="text-lg font-semibold text-[#e8edf5]">Deposit submitted</p>
                 <p className="mt-1 text-sm text-[#8b9cb3]">
-                  You received ~{estimatedShares.toFixed(2)} {vaultConfig.ticker}
+                  {preview ? formatShares(sharesHuman) : "—"} {vaultConfig.ticker} (est.)
                 </p>
+                {lastSig && (
+                  <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
+                    {lastSig}
+                  </p>
+                )}
               </div>
               <button
+                type="button"
                 onClick={() => onOpenChange(false)}
                 className="mt-2 rounded-xl bg-[#00e5c3] px-8 py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
               >

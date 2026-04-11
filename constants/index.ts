@@ -32,6 +32,7 @@ export const PERFORMANCE_FEE_BPS = 1000; // 10% above high-water mark
 export const VAULT_CONFIGS: VaultConfig[] = [
   {
     id: "safe-consensus",
+    chainVaultId: 1,
     name: "Safe Consensus",
     ticker: "spSAFE",
     description:
@@ -48,6 +49,7 @@ export const VAULT_CONFIGS: VaultConfig[] = [
   },
   {
     id: "macro-contrarian",
+    chainVaultId: 2,
     name: "Macro Contrarian",
     ticker: "spMACRO",
     description:
@@ -64,6 +66,7 @@ export const VAULT_CONFIGS: VaultConfig[] = [
   },
   {
     id: "yield-maximizer",
+    chainVaultId: 3,
     name: "Yield Maximizer",
     ticker: "spYIELD",
     description:
@@ -79,63 +82,6 @@ export const VAULT_CONFIGS: VaultConfig[] = [
     performanceFeeBps: 1000,
   },
 ];
-
-export const MOCK_VAULT_STATES: Record<string, import("@/types").VaultState> = {
-  "safe-consensus": {
-    vaultId: "safe-consensus",
-    totalDeposits: 245_000,
-    totalShares: 240_196,
-    nav: 252_400,
-    pricePerShare: 1.051,
-    activePredictions: 12,
-    lendingDeployed: 73_500,
-    idleUsdc: 24_500,
-    highWaterMark: 1.051,
-    performanceSinceInception: 5.1,
-    last24hReturn: 0.08,
-    last7dReturn: 0.52,
-    last30dReturn: 2.1,
-    sharpeRatio: 2.4,
-    maxDrawdown: -1.2,
-    updatedAt: new Date().toISOString(),
-  },
-  "macro-contrarian": {
-    vaultId: "macro-contrarian",
-    totalDeposits: 89_000,
-    totalShares: 82_407,
-    nav: 98_200,
-    pricePerShare: 1.192,
-    activePredictions: 8,
-    lendingDeployed: 8_900,
-    idleUsdc: 8_900,
-    highWaterMark: 1.192,
-    performanceSinceInception: 19.2,
-    last24hReturn: 0.34,
-    last7dReturn: 1.87,
-    last30dReturn: 7.4,
-    sharpeRatio: 1.6,
-    maxDrawdown: -8.5,
-    updatedAt: new Date().toISOString(),
-  },
-  "yield-maximizer": {
-    vaultId: "yield-maximizer",
-    totalDeposits: 178_000,
-    totalShares: 170_673,
-    nav: 191_200,
-    pricePerShare: 1.12,
-    activePredictions: 6,
-    lendingDeployed: 124_600,
-    idleUsdc: 0,
-    highWaterMark: 1.12,
-    performanceSinceInception: 12.0,
-    last24hReturn: 0.15,
-    last7dReturn: 0.94,
-    last30dReturn: 3.8,
-    sharpeRatio: 2.1,
-    maxDrawdown: -3.1,
-    updatedAt: new Date().toISOString(),
-  },
-};
 
 export function getVaultConfig(id: string): VaultConfig | undefined {
   return VAULT_CONFIGS.find((v) => v.id === id);

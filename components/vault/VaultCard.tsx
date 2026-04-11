@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, TrendingUp, Shield, Target, Gem } from "lucide-react";
+import { ArrowUpRight, TrendingUp, Shield, Target, Gem, Radio } from "lucide-react";
 import type { VaultConfig, VaultState } from "@/types";
-import { formatUsd, formatPercent } from "@/components/format";
+import { formatUsd, formatShares } from "@/components/format";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const RISK_BADGE: Record<string, { label: string; className: string }> = {
   low: { label: "Low Risk", className: "bg-[#00e5c3]/15 text-[#00e5c3]" },
@@ -20,9 +21,14 @@ const VAULT_ICONS: Record<string, React.ReactNode> = {
 export function VaultCard({
   config,
   state,
+  loading,
+  online,
 }: {
   config: VaultConfig;
-  state: VaultState;
+  state: VaultState | null;
+  loading?: boolean;
+  /** Whether the on-chain vault account exists on this cluster. */
+  online?: boolean;
 }) {
   const risk = RISK_BADGE[config.riskLevel];
 
@@ -39,16 +45,16 @@ export function VaultCard({
         />
 
         <div className="relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
               <div
-                className="flex size-10 items-center justify-center rounded-xl"
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl"
                 style={{ backgroundColor: `${config.accentColor}20`, color: config.accentColor }}
               >
                 {VAULT_ICONS[config.id] ?? <TrendingUp className="size-5" />}
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-[#e8edf5]">
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-[#e8edf5] truncate">
                   {config.name}
                 </h3>
                 <span className="font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
@@ -56,7 +62,7 @@ export function VaultCard({
                 </span>
               </div>
             </div>
-            <ArrowUpRight className="size-5 text-[#8b9cb3] transition-all group-hover:text-[#00e5c3] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <ArrowUpRight className="size-5 shrink-0 text-[#8b9cb3] transition-all group-hover:text-[#00e5c3] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </div>
 
           <p className="mt-3 text-sm leading-relaxed text-[#8b9cb3] line-clamp-2">
@@ -70,41 +76,64 @@ export function VaultCard({
             <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-[#8b9cb3]">
               {config.targetApy.min}–{config.targetApy.max}% Target APY
             </span>
+            {online === true && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#00e5c3]/10 px-2 py-0.5 text-[10px] font-medium text-[#00e5c3]">
+                <Radio className="size-3" />
+                Devnet
+              </span>
+            )}
+            {online === false && !loading && (
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                Not initialized
+              </span>
+            )}
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-5">
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
-                TVL
+                TVL (NAV)
               </div>
               <div className="mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
-                {formatUsd(state.nav)}
+                {loading || state == null ? (
+                  <Skeleton className="h-5 w-16 bg-white/5" />
+                ) : (
+                  formatUsd(state.nav)
+                )}
               </div>
             </div>
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
                 PPS
               </div>
-              <div className="mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold" style={{ color: config.accentColor }}>
-                ${state.pricePerShare.toFixed(3)}
+              <div
+                className="mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold"
+                style={{ color: config.accentColor }}
+              >
+                {loading || state == null ? (
+                  <Skeleton className="h-5 w-14 bg-white/5" />
+                ) : (
+                  `$${state.pricePerShare.toFixed(4)}`
+                )}
               </div>
             </div>
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
-                30d Return
+                Share supply
               </div>
-              <div className={`mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold ${
-                state.last30dReturn >= 0 ? "text-[#00e5c3]" : "text-[#ef4444]"
-              }`}>
-                {state.last30dReturn >= 0 ? "+" : ""}
-                {formatPercent(state.last30dReturn)}
+              <div className="mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
+                {loading || state == null ? (
+                  <Skeleton className="h-5 w-20 bg-white/5" />
+                ) : (
+                  formatShares(state.totalShares)
+                )}
               </div>
             </div>
           </div>
 
           <div className="mt-4">
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-[#8b9cb3] mb-2">
-              Allocation
+              Target allocation (strategy)
             </div>
             <div className="flex h-1.5 overflow-hidden rounded-full bg-[#1a2235]">
               <div
@@ -126,7 +155,7 @@ export function VaultCard({
                 style={{ width: `${config.allocation.idle}%` }}
               />
             </div>
-            <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[#8b9cb3]">
+            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-[#8b9cb3]">
               <span className="flex items-center gap-1">
                 <span className="inline-block size-1.5 rounded-full" style={{ backgroundColor: config.accentColor }} />
                 Predictions {config.allocation.predictions}%

@@ -25,15 +25,6 @@ export class YieldMaximizerStrategy extends BaseStrategy {
     );
   }
 
-  strategyScore(_event: PredictionEvent, market: PredictionMarket): number {
-    const prob = market.buyYesPriceUsd;
-    // Favour high probability and fast resolution for capital efficiency.
-    // Yield = (1 / price - 1) annualized. Quick resolution means faster compounding.
-    const impliedYield = 1 / prob - 1;
-    const liquidityBonus = market.liquidity > 300_000 ? 1.15 : 1.0;
-    return impliedYield * liquidityBonus;
-  }
-
   recommendedSide(_event: PredictionEvent, market: PredictionMarket): "yes" | "no" {
     return market.buyYesPriceUsd >= 0.5 ? "yes" : "no";
   }
