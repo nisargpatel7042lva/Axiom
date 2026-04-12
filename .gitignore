@@ -13,3 +13,19 @@ PROMPT.md
 
 # Colosseum / hackathon: local AI judge prompts, scores, private review notes (not for git)
 .colosseum/
+
+# TypeScript incremental build cache (local only)
+*.tsbuildinfo
+
+# Editor / agent tooling (not submission artifacts)
+.claude/
+.cursor/
+
+# Internal setup notes (not for judges)
+posthog-setup-report.md
+
+# Copied agent skills / research aids (optional locally; not required for the demo)
+.agents/
+
+# Nested program build output (if Anchor writes under programs/)
+programs/**/target/
