@@ -119,6 +119,15 @@ Spectra/
 └── Anchor.toml
 ```
 
+## Private Colosseum / judge files (local only)
+
+The directory **`.colosseum/`** is **gitignored**. Use it for:
+
+- A paste-ready **project prompt** (`PROJECT_PROMPT.md`)
+- **AI judge prompts**, rubrics, and score JSON (`COLOSSEUM_JUDGE_AND_RATING.md`, dated score files)
+
+On this machine, those starter files are created under `.colosseum/` when you set up the repo; they are **not committed**. For a new clone, create `.colosseum/` yourself or copy the same content from a teammate.
+
 ## Submission
 
 - **Hackathon**: Colosseum — DeFi Track

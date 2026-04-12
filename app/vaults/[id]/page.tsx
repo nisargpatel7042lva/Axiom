@@ -120,9 +120,11 @@ export default function VaultDetailPage({
 
         {!snapshot && !loading && (
           <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            This vault account is not initialized on the current RPC (devnet). Deploy
-            `initialize_vault` for chain id{" "}
-            <span className="font-mono">{config.chainVaultId}</span> to see live metrics.
+            This vault account is not initialized on the current RPC (devnet). From the
+            repo root, deploy the program then run{" "}
+            <span className="font-mono">npm run init:vaults:devnet</span> (bootstraps vault id{" "}
+            <span className="font-mono">{config.chainVaultId}</span>
+            ) so on-chain state exists for live metrics.
           </div>
         )}
 

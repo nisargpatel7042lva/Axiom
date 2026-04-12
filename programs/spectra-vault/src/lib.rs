@@ -13,22 +13,34 @@ declare_id!("JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH");
 pub mod spectra_vault {
     use super::*;
 
-    pub fn initialize_vault(
-        ctx: Context<InitializeVault>,
+    pub fn bootstrap_vault(
+        ctx: Context<BootstrapVault>,
         vault_id: u64,
         strategy_type: u8,
         performance_fee_bps: u16,
+    ) -> Result<()> {
+        instructions::initialize::bootstrap_vault_handler(
+            ctx,
+            vault_id,
+            strategy_type,
+            performance_fee_bps,
+        )
+    }
+
+    pub fn create_asset_vault(ctx: Context<CreateAssetVault>) -> Result<()> {
+        instructions::initialize::create_asset_vault_handler(ctx)
+    }
+
+    pub fn initialize_strategy_config(
+        ctx: Context<InitializeStrategyConfig>,
         min_probability: u16,
         max_probability: u16,
         max_position_pct: u16,
         lend_allocation_pct: u16,
         categories: Vec<String>,
     ) -> Result<()> {
-        instructions::initialize::handler(
+        instructions::initialize_strategy::handler(
             ctx,
-            vault_id,
-            strategy_type,
-            performance_fee_bps,
             min_probability,
             max_probability,
             max_position_pct,

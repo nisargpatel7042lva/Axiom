@@ -72,6 +72,20 @@ export interface VaultConfig {
   categories: string[];
 }
 
+export type AiScoreSource = "llm" | "rules_fallback";
+
+/** AI / rules layer output attached after PROMPT 5 scoring. */
+export interface ScoredOpportunityAiMeta {
+  marketId: string;
+  conviction: number;
+  mispricing_signal: number;
+  resolution_clarity: number;
+  reasoning: string;
+  recommended_side: "YES" | "NO" | "SKIP";
+  risk_flags: string[];
+  source: AiScoreSource;
+}
+
 export interface ScoredOpportunity {
   eventId: string;
   marketId: string;
@@ -86,6 +100,8 @@ export interface ScoredOpportunity {
   score: number;
   daysToResolution: number;
   vaultFit: VaultStrategyType[];
+  /** Populated when AI scoring (or rules fallback) runs in market-scanner. */
+  ai?: ScoredOpportunityAiMeta;
 }
 
 // ---------------------------------------------------------------------------

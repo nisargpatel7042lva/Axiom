@@ -19,6 +19,20 @@ export const CONFIG = {
   HEALTH_PORT: parseInt(process.env.HEALTH_PORT || "3001", 10),
 
   IDLE_BUFFER_PCT: 0.05,
+
+  /** PROMPT 5 — AI market scorer */
+  AI_ENABLED: process.env.AI_ENABLED !== "false",
+  AI_PROVIDER: ((raw: string | undefined): "anthropic" | "openai" => {
+    const p = (raw || "anthropic").toLowerCase();
+    return p === "openai" ? "openai" : "anthropic";
+  })(process.env.AI_PROVIDER),
+  AI_API_KEY: process.env.AI_API_KEY || "",
+  AI_MODEL:
+    process.env.AI_MODEL ||
+    ((process.env.AI_PROVIDER || "anthropic").toLowerCase() === "openai"
+      ? "gpt-4o-mini"
+      : "claude-3-5-haiku-20241022"),
+  AI_MAX_CALLS_PER_HOUR: parseInt(process.env.AI_MAX_CALLS_PER_HOUR || "50", 10),
 } as const;
 
 export const VAULT_CONFIGS: Record<VaultStrategyType, VaultConfig> = {

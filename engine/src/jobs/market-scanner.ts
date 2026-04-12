@@ -7,6 +7,7 @@ import { SafeConsensusStrategy } from "../strategies/safe-consensus.js";
 import { MacroContrarianStrategy } from "../strategies/macro-contrarian.js";
 import { YieldMaximizerStrategy } from "../strategies/yield-maximizer.js";
 import { createLogger } from "../utils/logger.js";
+import { scoreOpportunitiesWithAi } from "../ai/market-scorer.js";
 import type { BaseStrategy } from "../strategies/base-strategy.js";
 import type { ScoredOpportunity, VaultStrategyType } from "../types/index.js";
 
@@ -50,9 +51,17 @@ export async function runMarketScanner(): Promise<void> {
 
   for (const vaultConfig of getAllVaultConfigs()) {
     const strategy = strategies[vaultConfig.strategyType];
-    const opportunities = strategy.scoreEvents(events);
+    const ruleScored = strategy.scoreEvents(events);
 
-    const top = opportunities.slice(0, 20);
+    let top: ScoredOpportunity[];
+    try {
+      top = await scoreOpportunitiesWithAi(vaultConfig.strategyType, ruleScored, events);
+    } catch (err) {
+      log.warn(`[${vaultConfig.name}] AI scoring failed; using rules-only opportunities`, err);
+      top = ruleScored.slice(0, 20);
+    }
+
+    top = top.slice(0, 20);
     latestOpportunities.set(vaultConfig.strategyType, top);
 
     log.info(

@@ -9,7 +9,9 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "init:vaults:devnet": "npx tsx scripts/init-vaults-devnet.ts",
+    "sync:idl": "node scripts/sync-idl.mjs"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",

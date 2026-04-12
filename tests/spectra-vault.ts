@@ -102,11 +102,32 @@ describe("spectra-vault", () => {
   // ─── INITIALIZE ───────────────────────────────────────────────────────────
 
   it("initializes a vault", async () => {
-    const tx = await program.methods
-      .initializeVault(
-        VAULT_ID,
-        STRATEGY_SAFE,
-        PERFORMANCE_FEE_BPS,
+    await program.methods
+      .bootstrapVault(VAULT_ID, STRATEGY_SAFE, PERFORMANCE_FEE_BPS)
+      .accounts({
+        admin: admin.publicKey,
+        vault: vaultPda,
+        assetMint: usdcMint,
+        sharesMint: sharesMintPda,
+        token2022Program: TOKEN_2022_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+
+    await program.methods
+      .createAssetVault()
+      .accounts({
+        admin: admin.publicKey,
+        vault: vaultPda,
+        assetMint: usdcMint,
+        assetVault: assetVaultPda,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+
+    await program.methods
+      .initializeStrategyConfig(
         8500, // min_probability 85%
         10000, // max_probability 100%
         1000, // max_position 10%
@@ -116,12 +137,7 @@ describe("spectra-vault", () => {
       .accounts({
         admin: admin.publicKey,
         vault: vaultPda,
-        assetMint: usdcMint,
-        sharesMint: sharesMintPda,
-        assetVault: assetVaultPda,
         strategyConfig: strategyPda,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        token2022Program: TOKEN_2022_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
       .rpc();

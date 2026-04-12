@@ -10,3 +10,6 @@ test-ledger/
 engine/data/
 
 PROMPT.md
+
+# Colosseum / hackathon: local AI judge prompts, scores, private review notes (not for git)
+.colosseum/
