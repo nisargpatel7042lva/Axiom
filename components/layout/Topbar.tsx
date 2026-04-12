@@ -48,6 +48,7 @@ export function Topbar() {
         blueOffset={16}
         mixBlendMode="screen"
         forceDark
+        contentOverflow="visible"
         className="max-w-5xl shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
       >
         <div className="flex min-h-[3.75rem] w-full flex-wrap items-center justify-between gap-y-3 px-3 py-3 sm:min-h-[4rem] sm:flex-nowrap sm:px-5 sm:py-3.5">

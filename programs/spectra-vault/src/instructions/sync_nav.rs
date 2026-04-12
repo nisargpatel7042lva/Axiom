@@ -1,11 +1,9 @@
 use anchor_lang::prelude::*;
 
+use crate::constants::PPS_PRECISION;
 use crate::errors::SpectraError;
 use crate::events::NavSyncEvent;
-use crate::state::VaultState;
-
-/// 10^9 — bridges the share-decimals / asset-decimals gap in PPS calculation
-const PPS_PRECISION: u128 = 1_000_000_000;
+use crate::ix_accounts::SyncNav;
 
 pub fn handler(ctx: Context<SyncNav>, new_total_assets: u64) -> Result<()> {
     let vault = &mut ctx.accounts.vault;
@@ -34,17 +32,4 @@ pub fn handler(ctx: Context<SyncNav>, new_total_assets: u64) -> Result<()> {
     });
 
     Ok(())
-}
-
-#[derive(Accounts)]
-pub struct SyncNav<'info> {
-    pub authority: Signer<'info>,
-
-    #[account(
-        mut,
-        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
-        bump = vault.bump,
-        has_one = authority @ SpectraError::Unauthorized,
-    )]
-    pub vault: Account<'info, VaultState>,
 }

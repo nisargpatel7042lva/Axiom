@@ -41,6 +41,11 @@ export interface GlassSurfaceProps {
     | "plus-lighter";
   /** When true, always use dark-theme glass (Spectra is dark-first). */
   forceDark?: boolean;
+  /**
+   * Use `visible` when children render popovers/dropdowns that must extend past
+   * the glass bounds (e.g. wallet-adapter menu). Default `hidden` keeps edges crisp.
+   */
+  contentOverflow?: "hidden" | "visible";
   className?: string;
   style?: React.CSSProperties;
 }
@@ -110,6 +115,7 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
   yChannel = "G",
   mixBlendMode = "difference",
   forceDark = true,
+  contentOverflow = "hidden",
   className = "",
   style = {},
 }) => {
@@ -296,8 +302,10 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
     };
   };
 
-  const glassSurfaceClasses =
-    "relative flex w-full min-w-0 items-stretch justify-stretch overflow-hidden transition-opacity duration-[260ms] ease-out";
+  const overflowClass =
+    contentOverflow === "visible" ? "overflow-visible" : "overflow-hidden";
+
+  const glassSurfaceClasses = `relative flex w-full min-w-0 items-stretch justify-stretch ${overflowClass} transition-opacity duration-[260ms] ease-out`;
 
   const focusVisibleClasses = isDarkMode
     ? "focus-visible:outline-2 focus-visible:outline-[#0A84FF] focus-visible:outline-offset-2"
