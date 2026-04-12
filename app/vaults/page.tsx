@@ -2,7 +2,9 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useEffect } from "react";
 import { ArrowLeft, Layers } from "lucide-react";
+import posthog from "posthog-js";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { VaultCard } from "@/components/vault/VaultCard";
@@ -22,6 +24,12 @@ const fadeUp = {
 export default function VaultsPage() {
   const { entries, totalTvl, onlineCount, avgPps, loading, error, refetch, isFetching } =
     useDevnetVaults();
+
+  useEffect(() => {
+    posthog.capture("vault_catalog_viewed", {
+      vault_count: VAULT_CONFIGS.length,
+    });
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#080c14]">

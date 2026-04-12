@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useState, useMemo } from "react";
+import { use, useState, useMemo, useEffect } from "react";
+import posthog from "posthog-js";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -90,6 +91,17 @@ export default function VaultDetailPage({
     useVaultUserShares(config?.chainVaultId ?? null);
 
   const sharesBn = userSharesLamports ?? new BN(0);
+
+  useEffect(() => {
+    if (!config) return;
+    posthog.capture("vault_detail_viewed", {
+      vault_id: config.id,
+      vault_name: config.name,
+      vault_ticker: config.ticker,
+      vault_risk_level: config.riskLevel,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   if (!config) {
     return (

@@ -7,6 +7,8 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
 import BN from "bn.js";
 
+import posthog from "posthog-js";
+
 import { formatUsd, formatShares } from "@/components/format";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
 import { useDeposit } from "@/lib/spectra/hooks/use-deposit";
@@ -84,12 +86,36 @@ export function DepositModal({
   async function handleConfirm() {
     if (!onChainVault) return;
     setStep("processing");
+    posthog.capture("deposit_confirmed", {
+      vault_id: vaultConfig.id,
+      vault_name: vaultConfig.name,
+      vault_ticker: vaultConfig.ticker,
+      amount_usdc: amount,
+      estimated_shares: sharesHuman,
+      price_per_share: ppsDisplay,
+    });
     try {
       const sig = await deposit(lamports);
       setLastSig(sig);
       setStep("success");
+      posthog.capture("deposit_completed", {
+        vault_id: vaultConfig.id,
+        vault_name: vaultConfig.name,
+        vault_ticker: vaultConfig.ticker,
+        amount_usdc: amount,
+        estimated_shares: sharesHuman,
+        price_per_share: ppsDisplay,
+        transaction_signature: sig,
+      });
       onDeposited?.();
-    } catch {
+    } catch (err) {
+      posthog.capture("deposit_failed", {
+        vault_id: vaultConfig.id,
+        vault_name: vaultConfig.name,
+        vault_ticker: vaultConfig.ticker,
+        amount_usdc: amount,
+      });
+      posthog.captureException(err);
       setStep("confirm");
     }
   }
@@ -204,7 +230,17 @@ export function DepositModal({
 
               <button
                 type="button"
-                onClick={() => setStep("confirm")}
+                onClick={() => {
+                  posthog.capture("deposit_review_opened", {
+                    vault_id: vaultConfig.id,
+                    vault_name: vaultConfig.name,
+                    vault_ticker: vaultConfig.ticker,
+                    amount_usdc: amount,
+                    estimated_shares: sharesHuman,
+                    price_per_share: ppsDisplay,
+                  });
+                  setStep("confirm");
+                }}
                 disabled={!isValid}
                 className="w-full rounded-xl bg-[#00e5c3] py-3.5 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:opacity-40 disabled:cursor-not-allowed"
               >
