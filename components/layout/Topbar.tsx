@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useWallet } from "@solana/wallet-adapter-react";
 
 import GlassSurface from "@/components/ui/GlassSurface";
+import { getNetwork } from "@/lib/spectra/constants";
 
 const WalletMultiButton = dynamic(
   () =>
@@ -25,9 +26,22 @@ function navActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function clusterLabel(): string {
+  switch (getNetwork()) {
+    case "mainnet-beta":
+      return "Mainnet";
+    case "testnet":
+      return "Testnet";
+    case "devnet":
+    default:
+      return "Devnet";
+  }
+}
+
 export function Topbar() {
   const pathname = usePathname();
   const { connected } = useWallet();
+  const cluster = clusterLabel();
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-3 pt-3 md:px-8">
@@ -87,7 +101,7 @@ export function Topbar() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-50" />
                   <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
                 </span>
-                <span className="text-[11px] font-medium text-white/60">Devnet</span>
+                <span className="text-[11px] font-medium text-white/60">{cluster}</span>
               </div>
             )}
             <WalletMultiButton

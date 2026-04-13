@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useConnection, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import BN from "bn.js";
@@ -15,10 +15,17 @@ export function useDeposit(vaultId: number) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const inFlight = useRef(false);
 
   const deposit = useCallback(
     async (amount: BN): Promise<string> => {
       setError(null);
+
+      if (inFlight.current) {
+        const err = new Error("Deposit already in progress");
+        setError(err);
+        throw err;
+      }
 
       if (!wallet) {
         const err = new Error("Wallet not connected");
@@ -34,6 +41,7 @@ export function useDeposit(vaultId: number) {
       }
 
       setLoading(true);
+      inFlight.current = true;
       try {
         const sig = await sendDeposit(
           program,
@@ -42,11 +50,10 @@ export function useDeposit(vaultId: number) {
           wallet.publicKey
         );
 
-        await connection.confirmTransaction(sig, "confirmed");
-
         queryClient.invalidateQueries({ queryKey: ["devnet-vault-dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["wallet-vault-positions"] });
         queryClient.invalidateQueries({ queryKey: ["vault-user-shares"] });
+        queryClient.invalidateQueries({ queryKey: ["onchain-usdc"] });
 
         return sig;
       } catch (e) {
@@ -54,10 +61,11 @@ export function useDeposit(vaultId: number) {
         setError(err);
         throw err;
       } finally {
+        inFlight.current = false;
         setLoading(false);
       }
     },
-    [connection, wallet, vaultId, queryClient]
+    [wallet, vaultId, queryClient]
   );
 
   return { deposit, loading, error };

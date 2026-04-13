@@ -35,7 +35,10 @@ export default function RootLayout({
       lang="en"
       className={`${dmSans.variable} ${spaceMono.variable} h-full bg-[#080c14] antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#080c14] text-[#e8edf5]">
+      <body
+        className="min-h-full flex flex-col bg-[#080c14] text-[#e8edf5]"
+        suppressHydrationWarning
+      >
         <QueryProvider>
           <WalletProvider>{children}</WalletProvider>
         </QueryProvider>

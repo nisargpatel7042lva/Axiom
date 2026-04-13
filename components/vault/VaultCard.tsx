@@ -1,15 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, TrendingUp, Shield, Target, Gem, Radio } from "lucide-react";
+import {
+  ArrowUpRight,
+  TrendingUp,
+  Shield,
+  Target,
+  Gem,
+  Radio,
+  Info,
+} from "lucide-react";
 import type { VaultConfig, VaultState } from "@/types";
-import { formatUsd, formatShares } from "@/components/format";
+import { formatUsd, formatUsdCompact, formatShares } from "@/components/format";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ExposureVenues } from "@/components/vault/ExposureVenues";
 
 const RISK_BADGE: Record<string, { label: string; className: string }> = {
   low: { label: "Low Risk", className: "bg-[#00e5c3]/15 text-[#00e5c3]" },
   medium: { label: "Medium Risk", className: "bg-[#8b5cf6]/15 text-[#8b5cf6]" },
   high: { label: "High Risk", className: "bg-[#f59e0b]/15 text-[#f59e0b]" },
+};
+
+const GRADE_BADGE: Record<string, string> = {
+  A: "bg-[#00e5c3]/15 text-[#00e5c3] ring-1 ring-[#00e5c3]/25",
+  B: "bg-[#8b5cf6]/15 text-[#a78bfa] ring-1 ring-[#8b5cf6]/25",
+  C: "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25",
 };
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
@@ -31,6 +46,9 @@ export function VaultCard({
   online?: boolean;
 }) {
   const risk = RISK_BADGE[config.riskLevel];
+  const cap = Math.max(1, config.targetCapacityUsd);
+  const fillPct =
+    state != null ? Math.min(100, Math.round((state.nav / cap) * 1000) / 10) : 0;
 
   return (
     <Link href={`/vaults/${config.id}`} className="group block">
@@ -73,6 +91,12 @@ export function VaultCard({
             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${risk.className}`}>
               {risk.label}
             </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-bold font-[family-name:var(--font-space-mono)] ${GRADE_BADGE[config.riskSheet.grade] ?? "bg-white/10 text-[#8b9cb3]"}`}
+              title={config.riskSheet.headline}
+            >
+              Spectra {config.riskSheet.grade}
+            </span>
             <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-[#8b9cb3]">
               {config.targetApy.min}–{config.targetApy.max}% Target APY
             </span>
@@ -87,6 +111,47 @@ export function VaultCard({
                 Not initialized
               </span>
             )}
+          </div>
+
+          <div className="mt-5 border-t border-white/5 pt-5">
+            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-2">
+              <span>NAV vs target capacity</span>
+              <span
+                className="inline-flex text-[#8b9cb3]"
+                title="NAV is read from on-chain total assets. Target capacity is a communications / risk-budget figure for the product narrative — not necessarily enforced as a hard cap in the demo program."
+              >
+                <Info className="size-3.5" aria-hidden />
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
+                {loading || state == null ? (
+                  <Skeleton className="h-5 w-36 bg-white/5" />
+                ) : (
+                  <>
+                    {formatUsdCompact(state.nav)}
+                    <span className="text-[#8b9cb3] font-normal"> / </span>
+                    {formatUsdCompact(config.targetCapacityUsd)}
+                  </>
+                )}
+              </div>
+              {state != null && !loading && (
+                <span className="text-[11px] font-medium text-[#8b9cb3]">{fillPct}%</span>
+              )}
+            </div>
+            <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-[#1a2235]">
+              {loading || state == null ? (
+                <Skeleton className="h-2 w-full rounded-full bg-white/5" />
+              ) : (
+                <div
+                  className="rounded-full transition-all"
+                  style={{
+                    width: `${fillPct}%`,
+                    backgroundColor: config.accentColor,
+                  }}
+                />
+              )}
+            </div>
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-5">
@@ -172,6 +237,8 @@ export function VaultCard({
               )}
             </div>
           </div>
+
+          <ExposureVenues venues={config.exposureVenues} accentColor={config.accentColor} />
         </div>
       </div>
     </Link>

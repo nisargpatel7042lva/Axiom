@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance } from "axios";
 
-const DUNE_SIM_BASE = "https://api.sim.dune.com/v1";
+/** Sim SVM routes live under `/beta/svm`, not `/v1/.../solana/...`. */
+const DUNE_SIM_BASE = "https://api.sim.dune.com";
 
 function getApiKey(): string {
   const key =
@@ -62,6 +63,97 @@ export interface DuneTokenInfo {
   total_supply: string | null;
 }
 
+/** Response shape for `GET /beta/svm/balances/{address}` (see Sim docs). */
+interface SvmBalanceItem {
+  chain: string;
+  address: string;
+  amount: string;
+  decimals?: number;
+  symbol?: string;
+  name?: string;
+  price_usd?: number | null;
+  value_usd?: number | null;
+  uri?: string | null;
+}
+
+interface SvmBalancesResponse {
+  balances?: SvmBalanceItem[];
+}
+
+/** Response shape for `GET /beta/svm/transactions/{address}`. */
+interface SvmTransactionRow {
+  address: string;
+  block_slot: number;
+  block_time: number;
+  chain: string;
+  raw_transaction?: {
+    slot?: number;
+    meta?: {
+      err?: unknown;
+      logMessages?: string[];
+    };
+    transaction?: { signatures?: string[] };
+  };
+}
+
+interface SvmTransactionsResponse {
+  transactions?: SvmTransactionRow[];
+}
+
+function mapSvmBalanceToTokenBalance(b: SvmBalanceItem): TokenBalance {
+  return {
+    chain: b.chain,
+    address: b.address,
+    amount: b.amount,
+    decimals: typeof b.decimals === "number" ? b.decimals : 9,
+    symbol: b.symbol ?? "",
+    name: b.name ?? "",
+    price_usd: b.price_usd ?? null,
+    value_usd: b.value_usd ?? null,
+    logo_url: b.uri ?? null,
+  };
+}
+
+function svmTxSuccess(meta: { err?: unknown } | undefined): boolean {
+  const err = meta?.err;
+  if (err === undefined || err === null) return true;
+  if (typeof err === "object" && err !== null && "Ok" in err) return true;
+  return false;
+}
+
+function inferIxFromLogs(
+  logs: string[] | undefined,
+): DuneTransaction["decoded"] {
+  if (!logs?.length) return null;
+  const blob = logs.join(" ").toLowerCase();
+  if (blob.includes("withdraw")) return { name: "withdraw", inputs: {} };
+  if (blob.includes("deposit")) return { name: "deposit", inputs: {} };
+  if (blob.includes("sync_nav") || blob.includes("sync nav"))
+    return { name: "sync_nav", inputs: {} };
+  if (blob.includes("swap") || blob.includes("jupiter"))
+    return { name: "swap", inputs: {} };
+  return null;
+}
+
+function mapSvmTransactionToDune(tx: SvmTransactionRow): DuneTransaction {
+  const sig =
+    tx.raw_transaction?.transaction?.signatures?.[0] ??
+    `slot-${tx.block_slot}`;
+  const ms = Math.floor(tx.block_time / 1000);
+  const logs = tx.raw_transaction?.meta?.logMessages;
+  return {
+    hash: sig,
+    block_number: tx.block_slot,
+    block_time: Number.isFinite(ms) ? new Date(ms).toISOString() : "",
+    from: tx.address,
+    to: "",
+    value: "0",
+    success: svmTxSuccess(tx.raw_transaction?.meta),
+    transaction_type: "svm",
+    decoded: inferIxFromLogs(logs),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Service functions
 // ---------------------------------------------------------------------------
@@ -75,10 +167,11 @@ export async function getWalletBalances(
 ): Promise<TokenBalance[]> {
   const client = createClient();
   try {
-    const { data } = await client.get<{ balances: TokenBalance[] }>(
-      `/balances/solana/${address}`,
+    const { data } = await client.get<SvmBalancesResponse>(
+      `/beta/svm/balances/${encodeURIComponent(address)}`,
+      { params: { chains: "solana" } },
     );
-    return data.balances ?? [];
+    return (data.balances ?? []).map(mapSvmBalanceToTokenBalance);
   } catch (err) {
     console.error("[dune-sim] getWalletBalances failed:", err);
     return [];
@@ -110,11 +203,11 @@ export async function getTransactionHistory(
 ): Promise<DuneTransaction[]> {
   const client = createClient();
   try {
-    const { data } = await client.get<{ transactions: DuneTransaction[] }>(
-      `/transactions/solana/${address}`,
-      { params: { limit } },
+    const { data } = await client.get<SvmTransactionsResponse>(
+      `/beta/svm/transactions/${encodeURIComponent(address)}`,
+      { params: { limit, chains: "solana" } },
     );
-    return data.transactions ?? [];
+    return (data.transactions ?? []).map(mapSvmTransactionToDune);
   } catch (err) {
     console.error("[dune-sim] getTransactionHistory failed:", err);
     return [];
@@ -128,16 +221,9 @@ export async function getTransactionHistory(
 export async function getTokenMetadata(
   mintAddress: string,
 ): Promise<DuneTokenInfo | null> {
-  const client = createClient();
-  try {
-    const { data } = await client.get<DuneTokenInfo>(
-      `/tokens/solana/${mintAddress}`,
-    );
-    return data;
-  } catch (err) {
-    console.error("[dune-sim] getTokenMetadata failed:", err);
-    return null;
-  }
+  // Sim documents SVM balances + transactions only; no stable mint-metadata route yet.
+  void mintAddress;
+  return null;
 }
 
 /**

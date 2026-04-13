@@ -42,11 +42,10 @@ export function useWithdraw(vaultId: number) {
           wallet.publicKey
         );
 
-        await connection.confirmTransaction(sig, "confirmed");
-
         queryClient.invalidateQueries({ queryKey: ["devnet-vault-dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["wallet-vault-positions"] });
         queryClient.invalidateQueries({ queryKey: ["vault-user-shares"] });
+        queryClient.invalidateQueries({ queryKey: ["onchain-usdc"] });
 
         return sig;
       } catch (e) {

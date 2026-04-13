@@ -4,6 +4,30 @@ export type VaultId = "safe-consensus" | "macro-contrarian" | "yield-maximizer";
 
 export type RiskLevel = "low" | "medium" | "high";
 
+/** Qualitative rubric for vault transparency (not a regulated credit rating). */
+export type SpectraGrade = "A" | "B" | "C";
+
+export type RiskDimensionStress = "low" | "moderate" | "elevated";
+
+export interface VaultRiskDimension {
+  id: string;
+  label: string;
+  stress: RiskDimensionStress;
+  rationale: string;
+}
+
+export interface VaultRiskSheet {
+  grade: SpectraGrade;
+  /** One-line summary shown next to the grade. */
+  headline: string;
+  dimensions: VaultRiskDimension[];
+}
+
+export interface VaultExposureVenue {
+  label: string;
+  role: string;
+}
+
 export interface VaultConfig {
   id: VaultId;
   /** On-chain `vault_id` (u64) used by the Anchor program PDAs. */
@@ -19,6 +43,11 @@ export interface VaultConfig {
   allocation: AllocationBreakdown;
   minDeposit: number;
   performanceFeeBps: number;
+  /** Soft capacity target for UI (marketing / risk budget); not a hard on-chain cap in the demo program. */
+  targetCapacityUsd: number;
+  /** Where economic risk actually sits — replaces opaque “hex tile” placeholders. */
+  exposureVenues: VaultExposureVenue[];
+  riskSheet: VaultRiskSheet;
 }
 
 export interface AllocationBreakdown {

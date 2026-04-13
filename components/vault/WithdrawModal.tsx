@@ -7,8 +7,6 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
 import BN from "bn.js";
 
-import posthog from "posthog-js";
-
 import { formatUsd, formatShares } from "@/components/format";
 import { useWithdraw } from "@/lib/spectra/hooks/use-withdraw";
 import { previewWithdraw } from "@/lib/spectra/vault-client";
@@ -86,36 +84,12 @@ export function WithdrawModal({
   async function handleConfirm() {
     if (!onChainVault) return;
     setStep("processing");
-    posthog.capture("withdraw_confirmed", {
-      vault_id: vaultConfig.id,
-      vault_name: vaultConfig.name,
-      vault_ticker: vaultConfig.ticker,
-      shares_redeemed: shares,
-      estimated_usdc_out: usdcOut,
-      price_per_share: uiVaultState?.pricePerShare ?? 0,
-    });
     try {
       const sig = await withdraw(sharesLamports);
       setLastSig(sig);
       setStep("success");
-      posthog.capture("withdraw_completed", {
-        vault_id: vaultConfig.id,
-        vault_name: vaultConfig.name,
-        vault_ticker: vaultConfig.ticker,
-        shares_redeemed: shares,
-        estimated_usdc_out: usdcOut,
-        price_per_share: uiVaultState?.pricePerShare ?? 0,
-        transaction_signature: sig,
-      });
       onWithdrawn?.();
-    } catch (err) {
-      posthog.capture("withdraw_failed", {
-        vault_id: vaultConfig.id,
-        vault_name: vaultConfig.name,
-        vault_ticker: vaultConfig.ticker,
-        shares_redeemed: shares,
-      });
-      posthog.captureException(err);
+    } catch {
       setStep("confirm");
     }
   }
@@ -238,17 +212,7 @@ export function WithdrawModal({
 
               <button
                 type="button"
-                onClick={() => {
-                  posthog.capture("withdraw_review_opened", {
-                    vault_id: vaultConfig.id,
-                    vault_name: vaultConfig.name,
-                    vault_ticker: vaultConfig.ticker,
-                    shares_to_redeem: shares,
-                    estimated_usdc_out: usdcOut,
-                    price_per_share: uiVaultState?.pricePerShare ?? 0,
-                  });
-                  setStep("confirm");
-                }}
+                onClick={() => setStep("confirm")}
                 disabled={!isValid}
                 className="w-full rounded-xl bg-[#00e5c3] py-3.5 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:opacity-40 disabled:cursor-not-allowed"
               >

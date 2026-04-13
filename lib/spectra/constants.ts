@@ -53,13 +53,39 @@ export const JUPITER_TOKENS_API = "https://api.jup.ag/tokens/v1/solana";
 export const JUPITER_TRIGGER_API = "https://api.jup.ag/trigger/v1";
 export const JUPITER_PREDICTION_API = "https://api.jup.ag/prediction/v1";
 
-export function getNetwork(): "devnet" | "mainnet-beta" {
-  const net = process.env.NEXT_PUBLIC_SOLANA_NETWORK ?? "devnet";
-  return net === "mainnet-beta" ? "mainnet-beta" : "devnet";
+export type SolanaCluster = "devnet" | "testnet" | "mainnet-beta";
+
+/**
+ * Cluster for RPC, mints, and explorers. Set `NEXT_PUBLIC_SOLANA_NETWORK` to
+ * `devnet`, `testnet`, or `mainnet-beta` (aliases: `mainnet` → mainnet-beta).
+ */
+export function getNetwork(): SolanaCluster {
+  const raw = (process.env.NEXT_PUBLIC_SOLANA_NETWORK ?? "devnet")
+    .toLowerCase()
+    .trim();
+  if (raw === "mainnet-beta" || raw === "mainnet") return "mainnet-beta";
+  if (raw === "testnet") return "testnet";
+  return "devnet";
 }
 
+/**
+ * USDC (or test USDC) mint for vault + wallet reads.
+ * Override with `NEXT_PUBLIC_USDC_MINT` when using a custom faucet mint (common on testnet).
+ */
 export function getUsdcMint(): PublicKey {
-  return getNetwork() === "mainnet-beta" ? USDC_MINT : DEVNET_USDC_MINT;
+  const mintOverride = process.env.NEXT_PUBLIC_USDC_MINT?.trim();
+  if (mintOverride) return new PublicKey(mintOverride);
+
+  switch (getNetwork()) {
+    case "mainnet-beta":
+      return USDC_MINT;
+    case "testnet":
+      // No single canonical test USDC; deploy your own SPL or set NEXT_PUBLIC_USDC_MINT.
+      return DEVNET_USDC_MINT;
+    case "devnet":
+    default:
+      return DEVNET_USDC_MINT;
+  }
 }
 
 export const VAULT_CATALOG: VaultMeta[] = [

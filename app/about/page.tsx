@@ -9,6 +9,7 @@ import {
   Wallet,
   LineChart,
   ArrowRight,
+  Scale,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -33,6 +34,11 @@ const sections = [
     icon: <LineChart className="size-5 text-[#0ea5e9]" />,
     title: "How to explore",
     body: "Start on the Vaults page for live TVL and PPS, open any strategy for charts and deposit/withdraw modals, and use Portfolio to see share balances and redeemable value for your connected wallet.",
+  },
+  {
+    icon: <Scale className="size-5 text-[#f472b6]" />,
+    title: "Yield transparency & Spectra grades",
+    body: "Each vault ships with a Spectra risk sheet: letter grade plus four stress dimensions (liquidity, model/oracle, counterparty stack, operational/engine). Grades are a disclosure rubric inspired by rating-agency clarity — not a regulated credit opinion. NAV vs target capacity and named venue chips show where economics live instead of hiding behind anonymous UI tiles.",
   },
 ];
 

@@ -6,6 +6,8 @@ import {
   TransactionSignature,
 } from "@solana/web3.js";
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID as SPL_ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
   getAccount,
   TOKEN_PROGRAM_ID as SPL_TOKEN_PROGRAM_ID,
@@ -26,6 +28,7 @@ import {
   PPS_PRECISION,
   getUsdcMint,
 } from "./constants";
+import { signSendAndConfirmLegacyTx } from "./sign-send-confirm";
 
 // ---------------------------------------------------------------------------
 // PDA derivation helpers
@@ -140,22 +143,34 @@ export async function deposit(
     TOKEN_2022_PROGRAM_ID
   );
 
-  return program.methods
+  const createUserUsdcAtaIx = createAssociatedTokenAccountIdempotentInstruction(
+    userPublicKey,
+    userAssetAccount,
+    userPublicKey,
+    assetMint,
+    SPL_TOKEN_PROGRAM_ID,
+    SPL_ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  const tx = await program.methods
     .deposit(amount)
     .accountsPartial({
       user: userPublicKey,
       vault: vaultPda,
-      asset_mint: assetMint,
-      shares_mint: sharesMint,
-      asset_vault: assetVault,
-      user_asset_account: userAssetAccount,
-      user_shares_account: userSharesAccount,
-      token_program: SPL_TOKEN_PROGRAM_ID,
-      token_2022_program: TOKEN_2022_PROGRAM_ID,
-      associated_token_program: ASSOCIATED_TOKEN_PROGRAM_ID,
-      system_program: SystemProgram.programId,
+      assetMint,
+      sharesMint,
+      assetVault,
+      userAssetAccount,
+      userSharesAccount,
+      tokenProgram: SPL_TOKEN_PROGRAM_ID,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
     })
-    .rpc();
+    .preInstructions([createUserUsdcAtaIx])
+    .transaction();
+
+  return signSendAndConfirmLegacyTx(program, tx);
 }
 
 // ---------------------------------------------------------------------------
@@ -187,20 +202,32 @@ export async function withdraw(
     TOKEN_2022_PROGRAM_ID
   );
 
-  return program.methods
+  const createUserUsdcAtaIx = createAssociatedTokenAccountIdempotentInstruction(
+    userPublicKey,
+    userAssetAccount,
+    userPublicKey,
+    assetMint,
+    SPL_TOKEN_PROGRAM_ID,
+    SPL_ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  const tx = await program.methods
     .withdraw(sharesAmount)
     .accountsPartial({
       user: userPublicKey,
       vault: vaultPda,
-      asset_mint: assetMint,
-      shares_mint: sharesMint,
-      asset_vault: assetVault,
-      user_asset_account: userAssetAccount,
-      user_shares_account: userSharesAccount,
-      token_program: SPL_TOKEN_PROGRAM_ID,
-      token_2022_program: TOKEN_2022_PROGRAM_ID,
+      assetMint,
+      sharesMint,
+      assetVault,
+      userAssetAccount,
+      userSharesAccount,
+      tokenProgram: SPL_TOKEN_PROGRAM_ID,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
     })
-    .rpc();
+    .preInstructions([createUserUsdcAtaIx])
+    .transaction();
+
+  return signSendAndConfirmLegacyTx(program, tx);
 }
 
 // ---------------------------------------------------------------------------

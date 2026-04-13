@@ -1,7 +1,6 @@
 "use client";
 
-import { use, useState, useMemo, useEffect } from "react";
-import posthog from "posthog-js";
+import { use, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -30,6 +29,9 @@ import { Topbar } from "@/components/layout/Topbar";
 import { DepositModal } from "@/components/vault/DepositModal";
 import { WithdrawModal } from "@/components/vault/WithdrawModal";
 import { getVaultConfig } from "@/constants";
+import { RiskRatingPanel } from "@/components/vault/RiskRatingPanel";
+import { VaultTransparencyPanel } from "@/components/vault/VaultTransparencyPanel";
+import { ExposureVenues } from "@/components/vault/ExposureVenues";
 import { formatUsd, formatPercent, formatShares } from "@/components/format";
 import { useTransactionHistory } from "@/hooks/useTransactionHistory";
 import { useDevnetVaults } from "@/hooks/useDevnetVaults";
@@ -91,17 +93,6 @@ export default function VaultDetailPage({
     useVaultUserShares(config?.chainVaultId ?? null);
 
   const sharesBn = userSharesLamports ?? new BN(0);
-
-  useEffect(() => {
-    if (!config) return;
-    posthog.capture("vault_detail_viewed", {
-      vault_id: config.id,
-      vault_name: config.name,
-      vault_ticker: config.ticker,
-      vault_risk_level: config.riskLevel,
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
 
   if (!config) {
     return (
@@ -338,6 +329,29 @@ export default function VaultDetailPage({
                   : "Chart fills as PPS updates are sampled while you keep this page open."}
               </div>
             )}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="mt-8 grid gap-6 lg:grid-cols-2"
+        >
+          <RiskRatingPanel name={config.name} riskSheet={config.riskSheet} />
+          <div className="space-y-6">
+            <VaultTransparencyPanel chainVaultId={config.chainVaultId} />
+            <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6">
+              <h3 className="text-sm font-semibold text-[#e8edf5] mb-1">Venue exposure</h3>
+              <p className="text-xs text-[#8b9cb3] mb-3">
+                Named venues replace anonymous tiles — you always know where risk is expressed.
+              </p>
+              <ExposureVenues
+                embedded
+                venues={config.exposureVenues}
+                accentColor={config.accentColor}
+              />
+            </div>
           </div>
         </motion.div>
 

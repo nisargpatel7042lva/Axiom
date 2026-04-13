@@ -7,8 +7,6 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
 import BN from "bn.js";
 
-import posthog from "posthog-js";
-
 import { formatUsd, formatShares } from "@/components/format";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
 import { useDeposit } from "@/lib/spectra/hooks/use-deposit";
@@ -48,6 +46,7 @@ export function DepositModal({
   const [step, setStep] = useState<Step>("input");
   const [amountStr, setAmountStr] = useState("");
   const [lastSig, setLastSig] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
 
   const walletBalance = usdcBalance;
 
@@ -56,6 +55,7 @@ export function DepositModal({
       setStep("input");
       setAmountStr("");
       setLastSig(null);
+      setTxError(null);
     }
   }, [open]);
 
@@ -85,37 +85,21 @@ export function DepositModal({
 
   async function handleConfirm() {
     if (!onChainVault) return;
+    setTxError(null);
     setStep("processing");
-    posthog.capture("deposit_confirmed", {
-      vault_id: vaultConfig.id,
-      vault_name: vaultConfig.name,
-      vault_ticker: vaultConfig.ticker,
-      amount_usdc: amount,
-      estimated_shares: sharesHuman,
-      price_per_share: ppsDisplay,
-    });
     try {
       const sig = await deposit(lamports);
       setLastSig(sig);
       setStep("success");
-      posthog.capture("deposit_completed", {
-        vault_id: vaultConfig.id,
-        vault_name: vaultConfig.name,
-        vault_ticker: vaultConfig.ticker,
-        amount_usdc: amount,
-        estimated_shares: sharesHuman,
-        price_per_share: ppsDisplay,
-        transaction_signature: sig,
-      });
       onDeposited?.();
-    } catch (err) {
-      posthog.capture("deposit_failed", {
-        vault_id: vaultConfig.id,
-        vault_name: vaultConfig.name,
-        vault_ticker: vaultConfig.ticker,
-        amount_usdc: amount,
-      });
-      posthog.captureException(err);
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e !== null && "message" in e
+            ? String((e as { message: unknown }).message)
+            : String(e);
+      setTxError(msg || "Transaction failed");
       setStep("confirm");
     }
   }
@@ -231,14 +215,7 @@ export function DepositModal({
               <button
                 type="button"
                 onClick={() => {
-                  posthog.capture("deposit_review_opened", {
-                    vault_id: vaultConfig.id,
-                    vault_name: vaultConfig.name,
-                    vault_ticker: vaultConfig.ticker,
-                    amount_usdc: amount,
-                    estimated_shares: sharesHuman,
-                    price_per_share: ppsDisplay,
-                  });
+                  setTxError(null);
                   setStep("confirm");
                 }}
                 disabled={!isValid}
@@ -274,6 +251,12 @@ export function DepositModal({
                   and mint {vaultConfig.ticker} to your Token-2022 account.
                 </p>
               </div>
+
+              {txError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200/95">
+                  {txError}
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
