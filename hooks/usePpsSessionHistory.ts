@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type PpsPoint = { date: string; pps: number; t: number };
 
@@ -8,21 +8,18 @@ const MAX_POINTS = 96;
 
 /**
  * Builds a lightweight session chart from live PPS polls (no fabricated history).
+ * Samples keep appending on schedule even when PPS is unchanged.
  */
 export function usePpsSessionHistory(livePps: number | null, pollMs = 20_000) {
   const [points, setPoints] = useState<PpsPoint[]>([]);
-  const lastRef = useRef<number | null>(null);
 
   const append = useCallback((pps: number) => {
     const t = Date.now();
-    if (lastRef.current != null && Math.abs(pps - lastRef.current) < 1e-9) {
-      return;
-    }
-    lastRef.current = pps;
     const date = new Date(t).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
+
     setPoints((prev) => {
       const next = [...prev, { date, pps, t }];
       return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next;

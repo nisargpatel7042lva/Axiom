@@ -7,11 +7,27 @@ function messageLooksLikeAlreadyProcessed(err: unknown): boolean {
   return msg.includes("already been processed");
 }
 
+async function ensureConfirmed(
+  connection: Program<Idl>["provider"]["connection"],
+  signature: TransactionSignature,
+  blockhash: string,
+  lastValidBlockHeight: number,
+): Promise<void> {
+  const result = await connection.confirmTransaction(
+    { signature, blockhash, lastValidBlockHeight },
+    "confirmed",
+  );
+
+  if (result.value.err) {
+    throw new Error(`Transaction ${signature} failed: ${JSON.stringify(result.value.err)}`);
+  }
+}
+
 /**
  * Signs with the Anchor wallet, sends the legacy transaction once (no resubmit
  * loop), then confirms with blockhash expiry. Handles "already been processed"
  * when the same signed bytes were already accepted (e.g. a prior send or RPC
- * retry) by treating a confirmed signature as success.
+ * retry) by treating an already-confirmed signature as success.
  */
 export async function signSendAndConfirmLegacyTx(
   program: Program<Idl>,
@@ -41,10 +57,7 @@ export async function signSendAndConfirmLegacyTx(
       skipPreflight: false,
       maxRetries: 0,
     });
-    await connection.confirmTransaction(
-      { signature: sig, blockhash, lastValidBlockHeight },
-      "confirmed",
-    );
+    await ensureConfirmed(connection, sig, blockhash, lastValidBlockHeight);
     return sig;
   } catch (err) {
     if (!messageLooksLikeAlreadyProcessed(err)) {
@@ -53,18 +66,11 @@ export async function signSendAndConfirmLegacyTx(
 
     const { value } = await connection.getSignatureStatuses([expectedSig]);
     const st = value[0];
-    if (st?.err) {
+    if (!st || st.err) {
       throw err;
     }
 
-    await connection.confirmTransaction(
-      {
-        signature: expectedSig,
-        blockhash,
-        lastValidBlockHeight,
-      },
-      "confirmed",
-    );
+    await ensureConfirmed(connection, expectedSig, blockhash, lastValidBlockHeight);
     return expectedSig;
   }
 }

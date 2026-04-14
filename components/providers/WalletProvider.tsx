@@ -5,8 +5,6 @@ import {
   WalletProvider as SolanaWalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
-import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { useMemo } from "react";
 
 import { SafePlayAgreementGate } from "@/components/legal/SafePlayAgreementGate";
@@ -17,10 +15,8 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const endpoint = useMemo(() => getSolanaRpcEndpoint(), []);
 
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [],
-  );
+  /** Empty: Wallet Standard wallets (Phantom, Solflare, etc.) are merged by `@solana/wallet-adapter-react`. */
+  const wallets = useMemo(() => [], []);
 
   return (
     <ConnectionProvider endpoint={endpoint}>

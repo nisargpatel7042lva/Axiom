@@ -11,8 +11,9 @@ import { formatUsd, formatShares } from "@/components/format";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
 import { useDeposit } from "@/lib/spectra/hooks/use-deposit";
 import { previewDeposit } from "@/lib/spectra/vault-client";
+import { recordPortfolioActivity } from "@/lib/portfolio/activity-log";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
-import { USDC_DECIMALS } from "@/lib/spectra/constants";
+import { USDC_DECIMALS, getNetwork } from "@/lib/spectra/constants";
 import type { VaultConfig, VaultState } from "@/types";
 
 const WalletMultiButton = dynamic(
@@ -21,6 +22,25 @@ const WalletMultiButton = dynamic(
 );
 
 type Step = "input" | "confirm" | "processing" | "success";
+
+function toUserFacingDepositError(err: unknown): string {
+  const raw =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object" && err !== null && "message" in err
+        ? String((err as { message: unknown }).message)
+        : String(err);
+
+  const lower = raw.toLowerCase();
+  if (lower.includes("user rejected") || lower.includes("walletsigntransactionerror") || lower.includes("rejected the request") || lower.includes("declined")) {
+    return "Transaction rejected in wallet. No funds were moved.";
+  }
+  if (lower.includes("already in progress")) {
+    return "A deposit request is already in progress. Please wait for it to finish.";
+  }
+
+  return raw || "Transaction failed. Please try again.";
+}
 
 export function DepositModal({
   vaultConfig,
@@ -39,7 +59,7 @@ export function DepositModal({
   onOpenChange: (v: boolean) => void;
   onDeposited?: () => void;
 }) {
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
   const { usdcBalance, isLoading: balanceLoading } = useWalletBalances();
   const { deposit, loading: txLoading } = useDeposit(chainVaultId);
 
@@ -90,16 +110,23 @@ export function DepositModal({
     try {
       const sig = await deposit(lamports);
       setLastSig(sig);
+
+      if (publicKey) {
+        recordPortfolioActivity({
+          wallet: publicKey.toBase58(),
+          vaultId: vaultConfig.id,
+          vaultName: vaultConfig.name,
+          ticker: vaultConfig.ticker,
+          kind: "deposit",
+          amountUsdc: amount,
+          txSig: sig,
+        });
+      }
+
       setStep("success");
       onDeposited?.();
     } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e !== null && "message" in e
-            ? String((e as { message: unknown }).message)
-            : String(e);
-      setTxError(msg || "Transaction failed");
+      setTxError(toUserFacingDepositError(e));
       setStep("confirm");
     }
   }
@@ -110,6 +137,10 @@ export function DepositModal({
       : onChainVault.isPaused
         ? "Vault is paused."
         : null;
+
+  const explorerClusterParam = getNetwork() === "mainnet-beta"
+    ? ""
+    : `?cluster=${getNetwork()}`;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -292,9 +323,19 @@ export function DepositModal({
                   {preview ? formatShares(sharesHuman) : "—"} {vaultConfig.ticker} (est.)
                 </p>
                 {lastSig && (
-                  <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
-                    {lastSig}
-                  </p>
+                  <>
+                    <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
+                      {lastSig}
+                    </p>
+                    <a
+                      href={`https://solscan.io/tx/${lastSig}${explorerClusterParam}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center text-xs text-[#00e5c3] hover:underline"
+                    >
+                      View on Solscan
+                    </a>
+                  </>
                 )}
               </div>
               <button

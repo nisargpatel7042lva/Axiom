@@ -10,6 +10,7 @@ import BN from "bn.js";
 import { formatUsd, formatShares } from "@/components/format";
 import { useWithdraw } from "@/lib/spectra/hooks/use-withdraw";
 import { previewWithdraw } from "@/lib/spectra/vault-client";
+import { recordPortfolioActivity } from "@/lib/portfolio/activity-log";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
 import type { VaultConfig, VaultState } from "@/types";
 
@@ -39,7 +40,7 @@ export function WithdrawModal({
   onOpenChange: (v: boolean) => void;
   onWithdrawn?: () => void;
 }) {
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
   const { withdraw, loading: txLoading } = useWithdraw(chainVaultId);
 
   const [step, setStep] = useState<Step>("input");
@@ -87,6 +88,19 @@ export function WithdrawModal({
     try {
       const sig = await withdraw(sharesLamports);
       setLastSig(sig);
+
+      if (publicKey) {
+        recordPortfolioActivity({
+          wallet: publicKey.toBase58(),
+          vaultId: vaultConfig.id,
+          vaultName: vaultConfig.name,
+          ticker: vaultConfig.ticker,
+          kind: "withdraw",
+          amountUsdc: usdcOut,
+          txSig: sig,
+        });
+      }
+
       setStep("success");
       onWithdrawn?.();
     } catch {
