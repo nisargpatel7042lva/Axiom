@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -66,13 +67,17 @@ export function Topbar() {
         className="max-w-5xl shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
       >
         <div className="flex min-h-[3.75rem] w-full flex-wrap items-center justify-between gap-y-3 px-3 py-3 sm:min-h-[4rem] sm:flex-nowrap sm:px-5 sm:py-3.5">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#00e5c3] via-[#6366f1] to-[#a855f7] shadow-lg shadow-[#00e5c3]/15">
-              <span className="text-sm font-bold text-white">S</span>
+          <Link href="/" className="flex shrink-0 items-center">
+            <div className="relative flex size-9 items-center justify-center">
+              <Image
+                src="/axiom-logo.png"
+                alt="Axiom"
+                width={36}
+                height={36}
+                className="object-contain"
+                priority
+              />
             </div>
-            <span className="font-[family-name:var(--font-space-mono)] text-[15px] font-bold tracking-wide spectra-gradient-text">
-              SPECTRA
-            </span>
           </Link>
 
           <nav className="order-3 flex w-full items-center justify-center gap-1 sm:order-none sm:absolute sm:left-1/2 sm:w-auto sm:-translate-x-1/2 md:justify-center">

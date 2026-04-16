@@ -14,6 +14,8 @@ import {
   Clock,
   ExternalLink,
   PauseCircle,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   AreaChart,
@@ -37,15 +39,47 @@ import { useTransactionHistory } from "@/hooks/useTransactionHistory";
 import { useDevnetVaults } from "@/hooks/useDevnetVaults";
 import { usePpsSessionHistory } from "@/hooks/usePpsSessionHistory";
 import { useVaultUserShares } from "@/hooks/useVaultUserShares";
+import { useSimulateYield } from "@/lib/spectra/hooks/use-simulate-yield";
 import { parseActivityFeed } from "@/lib/services/dune-sim";
 import type { VaultId } from "@/types";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { getNetwork } from "@/lib/spectra/constants";
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
   "safe-consensus": <Shield className="size-6" />,
   "macro-contrarian": <Target className="size-6" />,
   "yield-maximizer": <Gem className="size-6" />,
 };
+
+const CHART_RANGES = ["1m", "5m", "15m", "1d", "1y"] as const;
+type ChartRange = (typeof CHART_RANGES)[number];
+const RANGE_MS: Record<Exclude<ChartRange, "1y">, number> = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1d": 24 * 60 * 60_000,
+};
+
+function formatXAxisForRange(ts: number, range: ChartRange): string {
+  const d = new Date(ts);
+  if (range === "1m" || range === "5m" || range === "15m") {
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+  if (range === "1d") {
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default function VaultDetailPage({
   params,
@@ -70,7 +104,10 @@ export default function VaultDetailPage({
 
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
-  const [chartRange, setChartRange] = useState<"7d" | "30d" | "90d">("30d");
+  const [chartRange, setChartRange] = useState<ChartRange>("15m");
+  const [yieldBps, setYieldBps] = useState(300);
+  const [simSig, setSimSig] = useState<string | null>(null);
+  const [simError, setSimError] = useState<string | null>(null);
   const { transactions: duneTxns } = useTransactionHistory(12);
 
   const { chartData: sessionPps } = usePpsSessionHistory(
@@ -79,9 +116,12 @@ export default function VaultDetailPage({
   );
 
   const chartData = useMemo(() => {
-    const sliceMap = { "7d": 12, "30d": 36, "90d": 72 };
-    const n = sliceMap[chartRange];
-    return sessionPps.slice(-Math.min(sessionPps.length, n));
+    if (chartRange === "1y") return sessionPps;
+    const cutoff = Date.now() - RANGE_MS[chartRange];
+    const filtered = sessionPps.filter((point) => point.t >= cutoff);
+    // Keep at least the latest two points so chart renders when window is sparse.
+    if (filtered.length >= 2) return filtered;
+    return sessionPps.slice(-Math.min(sessionPps.length, 2));
   }, [sessionPps, chartRange]);
 
   const parsedActivity = useMemo(
@@ -93,6 +133,7 @@ export default function VaultDetailPage({
     useVaultUserShares(config?.chainVaultId ?? null);
 
   const sharesBn = userSharesLamports ?? new BN(0);
+  const { simulateYield, loading: simulatingYield } = useSimulateYield(config?.chainVaultId ?? 0);
 
   if (!config) {
     return (
@@ -106,6 +147,29 @@ export default function VaultDetailPage({
   }
 
   const kpiLoading = loading && !state;
+  const explorerClusterParam = getNetwork() === "mainnet-beta"
+    ? ""
+    : `?cluster=${getNetwork()}`;
+
+  async function handleSimulateYield() {
+    if (!onChain) return;
+    setSimError(null);
+    setSimSig(null);
+    try {
+      const sig = await simulateYield(onChain.totalAssets, yieldBps);
+      setSimSig(sig);
+      await refetch();
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e !== null && "message" in e
+            ? String((e as { message: unknown }).message)
+            : String(e);
+      setSimError(msg || "Failed to simulate yield");
+    }
+  }
+
 
   return (
     <div className="flex min-h-screen flex-col bg-[#080c14]">
@@ -176,7 +240,7 @@ export default function VaultDetailPage({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => setShowDeposit(true)}
@@ -193,8 +257,55 @@ export default function VaultDetailPage({
             >
               Withdraw
             </button>
+            <div className="flex items-center gap-2 rounded-xl border border-[#1a2235] bg-[#0d1420] px-2 py-2">
+              <select
+                value={yieldBps}
+                onChange={(e) => setYieldBps(Number(e.target.value))}
+                className="rounded-lg border border-[#1a2235] bg-[#080c14] px-2 py-1 text-xs text-[#e8edf5] focus:border-[#00e5c3]/50 focus:outline-none"
+              >
+                <option value={100}>+1.0%</option>
+                <option value={300}>+3.0%</option>
+                <option value={500}>+5.0%</option>
+                <option value={1000}>+10.0%</option>
+                <option value={-300}>-3.0%</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => void handleSimulateYield()}
+                disabled={!onChain || simulatingYield}
+                className="inline-flex items-center gap-1 rounded-lg bg-[#1e293b] px-3 py-1.5 text-xs font-semibold text-[#e8edf5] hover:bg-[#334155] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {simulatingYield ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Simulating
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-3.5" />
+                    Simulate Yield
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </motion.div>
+
+        {(simSig || simError) && (
+          <div
+            className={`mt-4 rounded-xl border px-4 py-3 text-xs ${
+              simError
+                ? "border-red-500/30 bg-red-500/10 text-red-200"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+            }`}
+          >
+            {simError ? (
+              <span>{simError}</span>
+            ) : (
+              <span>Simulated NAV update submitted: {simSig} · <a href={`https://solscan.io/tx/${simSig}${explorerClusterParam}`} target="_blank" rel="noopener noreferrer" className="text-[#00e5c3] hover:underline">View on Solscan</a></span>
+            )}
+          </div>
+        )}
 
         {/* KPI Row */}
         <motion.div
@@ -262,7 +373,7 @@ export default function VaultDetailPage({
               </div>
             </div>
             <div className="flex gap-1">
-              {(["7d", "30d", "90d"] as const).map((range) => (
+              {CHART_RANGES.map((range) => (
                 <button
                   key={range}
                   type="button"
@@ -281,7 +392,7 @@ export default function VaultDetailPage({
           <div className="h-64">
             {chartData.length >= 2 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart key={chartRange} data={chartData}>
                   <defs>
                     <linearGradient id={`gradient-${id}`} x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={config.accentColor} stopOpacity={0.3} />
@@ -294,6 +405,9 @@ export default function VaultDetailPage({
                     tickLine={false}
                     tick={{ fill: "#8b9cb3", fontSize: 10 }}
                     interval="preserveStartEnd"
+                    tickFormatter={(_value: string, index: number) =>
+                      formatXAxisForRange(chartData[index]?.t ?? Date.now(), chartRange)
+                    }
                   />
                   <YAxis
                     domain={["auto", "auto"]}

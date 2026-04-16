@@ -1,19 +1,19 @@
 /**
  * Bump this string when disclosure text changes so users re-acknowledge.
  */
-export const SAFE_PLAY_AGREEMENT_VERSION = "2026-04-12";
+export const SAFE_PLAY_AGREEMENT_VERSION = "2026-04-15";
 
 /**
  * Exact bytes the wallet signs (UTF-8). Must stay stable for a given version.
  */
 export function buildAgreementMessage(walletAddress: string): string {
-  return `SPECTRA VAULTS — SAFE PLAY USER ACKNOWLEDGMENT
+  return `AXIOM VAULTS — SAFE PLAY USER ACKNOWLEDGMENT
 Version: ${SAFE_PLAY_AGREEMENT_VERSION}
 
 By signing this message with my Solana wallet, I confirm that I have read and understood the following.
 
-WHAT SPECTRA DOES
-• Spectra is an interface to vault programs on Solana: you deposit USDC, receive vault share tokens, and may withdraw subject to on-chain rules.
+WHAT AXIOM DOES
+• Axiom is an interface to vault programs on Solana: you deposit USDC, receive vault share tokens, and may withdraw subject to on-chain rules.
 • Deposits, withdrawals, pauses, NAV updates, and fee collection happen only when I approve the corresponding Solana transactions in my wallet. No transaction runs without my explicit signature.
 • NAV and strategy behavior may be updated by the vault authority as designed by the program. I understand that reported vault value can change and that prediction-market-related strategies carry risk.
 
@@ -22,12 +22,12 @@ RISKS I ACCEPT
 • I am responsible for the wallet I connect, the network I use (e.g. devnet vs mainnet), and verifying addresses, amounts, and program IDs before signing.
 
 SAFE PLAY
-• I will only sign transactions I understand. I will use official Spectra links and verify I am on the intended cluster and site.
+• I will only sign transactions I understand. I will use official Axiom links and verify I am on the intended cluster and site.
 • If anything looks unexpected, I will not sign and will disconnect my wallet.
 
 Wallet address (binding): ${walletAddress}
 
-This message does not move funds by itself. It records my informed consent to use Spectra under these terms.`;
+This message does not move funds by itself. It records my informed consent to use Axiom under these terms.`;
 }
 
 /** Short bullets for the modal UI (subset of the signed document). */

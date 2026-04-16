@@ -230,6 +230,26 @@ export async function withdraw(
   return signSendAndConfirmLegacyTx(program, tx);
 }
 
+
+export async function syncNav(
+  program: Program<SpectraVault>,
+  vaultId: number,
+  newTotalAssets: BN,
+  authority: PublicKey
+): Promise<TransactionSignature> {
+  const [vaultPda] = deriveVaultPda(vaultId);
+
+  const tx = await program.methods
+    .syncNav(newTotalAssets)
+    .accountsPartial({
+      authority,
+      vault: vaultPda,
+    })
+    .transaction();
+
+  return signSendAndConfirmLegacyTx(program, tx);
+}
+
 // ---------------------------------------------------------------------------
 // Pure preview helpers (no RPC calls)
 // ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ export function VaultTransparencyPanel({
 
   const links = [
     {
-      label: "Spectra program",
+      label: "Axiom program",
       href: solscanAccount(SPECTRA_PROGRAM_ADDRESS, cluster),
       hint: "Upgrade authority & bytecode",
     },

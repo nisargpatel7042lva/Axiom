@@ -124,7 +124,7 @@ export default function VaultsPage() {
       <footer className="border-t border-white/5 bg-[#080c14]">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-[#8b9cb3] md:flex-row md:items-center md:justify-between md:px-6">
           <span className="font-[family-name:var(--font-space-mono)]">
-            Spectra Vaults — devnet
+            Axiom Vaults — devnet
           </span>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <Link href="/" className="hover:text-[#00e5c3]">

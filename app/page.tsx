@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -130,6 +131,33 @@ export default function Home() {
               transition={{ duration: 0.7 }}
               className="max-w-3xl w-full"
             >
+              {/* Logo above tagline */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="mb-6 flex items-center gap-3"
+              >
+                <div className="relative flex size-12 items-center justify-center">
+                  <Image
+                    src="/axiom-logo.png"
+                    alt="Axiom"
+                    width={48}
+                    height={48}
+                    className="object-contain"
+                    priority
+                  />
+                </div>
+                <Image
+                  src="/axiom-text.png"
+                  alt="Axiom"
+                  width={100}
+                  height={30}
+                  className="object-contain"
+                  priority
+                />
+              </motion.div>
+
               <div className="inline-flex items-center gap-2 rounded-full border border-[#00e5c3]/20 bg-[#00e5c3]/10 px-4 py-1.5 text-sm text-[#00e5c3] backdrop-blur-md">
                 <span className="relative flex size-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-50" />
@@ -172,7 +200,7 @@ export default function Home() {
                   href="/about"
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-medium text-[#e8edf5] backdrop-blur-md transition-all hover:border-[#6366f1]/40 hover:bg-white/10"
                 >
-                  About Spectra
+                  About Axiom
                 </Link>
               </div>
             </motion.div>
@@ -347,7 +375,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
             <span className="font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
-              Spectra Vaults — Colosseum Hackathon 2026
+              Axiom Vaults — Colosseum Hackathon 2026
             </span>
             <p className="mt-1 text-xs text-[#8b9cb3]/80">
               Powered by Jupiter · RPC · Dune SIM · Solana

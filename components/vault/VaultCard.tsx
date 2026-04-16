@@ -95,7 +95,7 @@ export function VaultCard({
               className={`rounded-full px-2 py-0.5 text-[11px] font-bold font-[family-name:var(--font-space-mono)] ${GRADE_BADGE[config.riskSheet.grade] ?? "bg-white/10 text-[#8b9cb3]"}`}
               title={config.riskSheet.headline}
             >
-              Spectra {config.riskSheet.grade}
+              Axiom {config.riskSheet.grade}
             </span>
             <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-[#8b9cb3]">
               {config.targetApy.min}–{config.targetApy.max}% Target APY

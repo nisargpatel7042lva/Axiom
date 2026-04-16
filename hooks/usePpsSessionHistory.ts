@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type PpsPoint = { date: string; pps: number; t: number };
 
-const MAX_POINTS = 96;
+// Keep enough in-memory points for ~24h at ~20-22s polling.
+const MAX_POINTS = 5000;
 
 /**
  * Builds a lightweight session chart from live PPS polls (no fabricated history).

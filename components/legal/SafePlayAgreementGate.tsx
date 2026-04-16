@@ -58,7 +58,7 @@ export function SafePlayAgreementGate({
                   </Dialog.Title>
                 </div>
                 <p className="text-sm leading-relaxed text-[#8b9cb3]">
-                  Spectra needs your wallet to sign a short &quot;Safe Play&quot; acknowledgment
+                  Axiom needs your wallet to sign a short &quot;Safe Play&quot; acknowledgment
                   (off-chain text only — it does not spend SOL or USDC). This wallet adapter does
                   not expose message signing. Try Phantom or Solflare, then connect again.
                 </p>
@@ -87,7 +87,7 @@ export function SafePlayAgreementGate({
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
                   <p className="text-sm leading-relaxed text-[#c5d0e0]">
-                    Before you use vaults or portfolio tools, confirm you understand how Spectra
+                    Before you use vaults or portfolio tools, confirm you understand how Axiom
                     works and the risks involved. The list below is a summary; your wallet will
                     sign the full text so your consent is cryptographically tied to this address.
                   </p>

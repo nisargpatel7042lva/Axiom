@@ -50,6 +50,7 @@ export interface DuneTransaction {
     name: string;
     inputs: Record<string, unknown>;
   } | null;
+  raw_transaction?: SvmRawTransaction;
 }
 
 export interface DuneTokenInfo {
@@ -81,19 +82,34 @@ interface SvmBalancesResponse {
 }
 
 /** Response shape for `GET /beta/svm/transactions/{address}`. */
+interface SvmUiTokenAmount {
+  amount?: string;
+  decimals?: number;
+  uiAmountString?: string;
+}
+
+interface SvmTokenBalanceRow {
+  owner?: string;
+  mint?: string;
+  uiTokenAmount?: SvmUiTokenAmount;
+}
+
+interface SvmRawTransaction {
+  meta?: {
+    err?: unknown;
+    logMessages?: string[];
+    preTokenBalances?: SvmTokenBalanceRow[];
+    postTokenBalances?: SvmTokenBalanceRow[];
+  };
+  transaction?: { signatures?: string[] };
+}
+
 interface SvmTransactionRow {
   address: string;
   block_slot: number;
   block_time: number;
   chain: string;
-  raw_transaction?: {
-    slot?: number;
-    meta?: {
-      err?: unknown;
-      logMessages?: string[];
-    };
-    transaction?: { signatures?: string[] };
-  };
+  raw_transaction?: SvmRawTransaction;
 }
 
 interface SvmTransactionsResponse {
@@ -151,6 +167,74 @@ function mapSvmTransactionToDune(tx: SvmTransactionRow): DuneTransaction {
     success: svmTxSuccess(tx.raw_transaction?.meta),
     transaction_type: "svm",
     decoded: inferIxFromLogs(logs),
+    raw_transaction: tx.raw_transaction,
+  };
+}
+
+export type WalletUsdcFlow = {
+  kind: "deposit" | "withdraw";
+  amountUsdc: number;
+  timestamp: number;
+  txSig: string;
+};
+
+function tokenUiAmount(row: SvmTokenBalanceRow): number {
+  const ui = row.uiTokenAmount;
+  if (!ui) return 0;
+  if (ui.uiAmountString != null) {
+    const n = Number(ui.uiAmountString);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const amount = Number(ui.amount ?? "0");
+  const decimals = Number(ui.decimals ?? 0);
+  if (!Number.isFinite(amount) || !Number.isFinite(decimals)) return 0;
+  return amount / 10 ** decimals;
+}
+
+/**
+ * Infer USDC flow for one wallet from token-balance deltas inside a transaction.
+ * Negative delta = wallet spent USDC (deposit), positive delta = wallet received USDC (withdraw).
+ */
+export function inferWalletUsdcFlow(
+  tx: DuneTransaction,
+  walletAddress: string,
+  usdcMint: string,
+): WalletUsdcFlow | null {
+  const logsBlob = tx.raw_transaction?.meta?.logMessages?.join(" ").toLowerCase() ?? "";
+  const looksLikeVaultFlow =
+    tx.decoded?.name?.toLowerCase().includes("deposit") ||
+    tx.decoded?.name?.toLowerCase().includes("withdraw") ||
+    logsBlob.includes("instruction: deposit") ||
+    logsBlob.includes("instruction: withdraw");
+  if (!looksLikeVaultFlow) return null;
+
+  const pre = tx.raw_transaction?.meta?.preTokenBalances ?? [];
+  const post = tx.raw_transaction?.meta?.postTokenBalances ?? [];
+  const wallet = walletAddress.toLowerCase();
+  const mint = usdcMint.toLowerCase();
+
+  const preAmount = pre
+    .filter(
+      (r) =>
+        r.owner?.toLowerCase() === wallet && r.mint?.toLowerCase() === mint,
+    )
+    .reduce((sum, r) => sum + tokenUiAmount(r), 0);
+  const postAmount = post
+    .filter(
+      (r) =>
+        r.owner?.toLowerCase() === wallet && r.mint?.toLowerCase() === mint,
+    )
+    .reduce((sum, r) => sum + tokenUiAmount(r), 0);
+
+  const delta = postAmount - preAmount;
+  if (Math.abs(delta) < 1e-9) return null;
+
+  const ts = Date.parse(tx.block_time);
+  return {
+    kind: delta < 0 ? "deposit" : "withdraw",
+    amountUsdc: Math.abs(delta),
+    timestamp: Number.isFinite(ts) ? ts : Date.now(),
+    txSig: tx.hash,
   };
 }
 

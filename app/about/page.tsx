@@ -17,8 +17,8 @@ import { Topbar } from "@/components/layout/Topbar";
 const sections = [
   {
     icon: <Sparkles className="size-5 text-[#00e5c3]" />,
-    title: "What is Spectra?",
-    body: "Spectra is a set of on-chain USDC vaults on Solana. Each vault follows a different strategy profile — from conservative high-consensus prediction markets to balanced lend-plus-alpha allocations. You deposit USDC, receive vault share tokens, and redeem based on on-chain NAV.",
+    title: "What is Axiom?",
+    body: "Axiom is a suite of premium on-chain USDC vaults on Solana. Each vault follows a distinct mandate — from high-consensus prediction exposure to balanced lend-plus-alpha allocations. You deposit USDC, receive vault share tokens, and redeem against transparent on-chain NAV.",
   },
   {
     icon: <Shield className="size-5 text-[#6366f1]" />,
@@ -37,8 +37,8 @@ const sections = [
   },
   {
     icon: <Scale className="size-5 text-[#f472b6]" />,
-    title: "Yield transparency & Spectra grades",
-    body: "Each vault ships with a Spectra risk sheet: letter grade plus four stress dimensions (liquidity, model/oracle, counterparty stack, operational/engine). Grades are a disclosure rubric inspired by rating-agency clarity — not a regulated credit opinion. NAV vs target capacity and named venue chips show where economics live instead of hiding behind anonymous UI tiles.",
+    title: "Yield transparency & Axiom grades",
+    body: "Each vault ships with an Axiom risk sheet: letter grade plus four stress dimensions (liquidity, model/oracle, counterparty stack, operational/engine). Grades are a disclosure rubric inspired by rating-agency clarity — not a regulated credit opinion. NAV vs target capacity and named venue chips show where economics live instead of hiding behind anonymous UI tiles.",
   },
 ];
 
@@ -57,7 +57,7 @@ export default function AboutPage() {
               About
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#e8edf5] md:text-4xl">
-              Spectra Vaults
+              Axiom Vaults
             </h1>
             <p className="mt-4 text-base leading-relaxed text-[#8b9cb3]">
               Prediction-market-aware vaults with yield-aware idle capital — built for Solana devnet

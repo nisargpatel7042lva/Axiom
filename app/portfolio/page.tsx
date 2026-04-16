@@ -33,8 +33,11 @@ import {
 } from "@/hooks/useWalletVaultPositions";
 import { useLiveMetricHistory } from "@/hooks/useLiveMetricHistory";
 import { usePortfolioActivities } from "@/hooks/usePortfolioActivities";
+import { useTransactionHistory } from "@/hooks/useTransactionHistory";
+import { inferWalletUsdcFlow } from "@/lib/services/dune-sim";
 import type { PortfolioActivity } from "@/lib/portfolio/activity-log";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { DEVNET_USDC_MINT, USDC_MINT, getNetwork } from "@/lib/spectra/constants";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -60,17 +63,54 @@ function startOfDayMs(ts: number): number {
 
 export default function PortfolioPage() {
   const { connected, publicKey } = useWallet();
+  const walletAddress = publicKey?.toBase58() ?? null;
   const { usdcBalance } = useWalletBalances();
   const { positions, totalValue, loading, error, refetch } = useWalletVaultPositions();
   const chartPoints = useLiveMetricHistory(connected ? totalValue : null, 24 * 60 * 60 * 1000);
-  const activities = usePortfolioActivities(publicKey?.toBase58() ?? null);
+  const activities = usePortfolioActivities(walletAddress);
+  const { transactions } = useTransactionHistory(250);
+  const usdcMint = getNetwork() === "mainnet-beta" ? USDC_MINT.toBase58() : DEVNET_USDC_MINT.toBase58();
+  const historyActivities = useMemo(() => {
+    if (!walletAddress) return activities;
+    const localBySig = new Set(
+      activities.map((a) => a.txSig).filter((sig): sig is string => Boolean(sig)),
+    );
+    const inferred = transactions
+      .map((tx) => inferWalletUsdcFlow(tx, walletAddress, usdcMint))
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .filter((x) => !localBySig.has(x.txSig))
+      .map(
+        (x): PortfolioActivity => ({
+          id: `chain-${x.txSig}`,
+          wallet: walletAddress,
+          vaultId: "unknown",
+          vaultName: "Axiom Vaults",
+          ticker: "USDC",
+          kind: x.kind,
+          amountUsdc: x.amountUsdc,
+          txSig: x.txSig,
+          timestamp: x.timestamp,
+        }),
+      );
+    return [...activities, ...inferred].sort((a, b) => a.timestamp - b.timestamp);
+  }, [activities, transactions, walletAddress, usdcMint]);
+  const vaultActivityTotals = useMemo(() => {
+    const totals = new Map<string, { invested: number; withdrawn: number }>();
+    for (const a of historyActivities) {
+      const row = totals.get(a.vaultId) ?? { invested: 0, withdrawn: 0 };
+      if (a.kind === "deposit") row.invested += a.amountUsdc;
+      else row.withdrawn += a.amountUsdc;
+      totals.set(a.vaultId, row);
+    }
+    return totals;
+  }, [historyActivities]);
 
   const chartData = useMemo(() => {
     const now = Date.now();
     const todayStart = startOfDayMs(now);
     const firstDay = todayStart - 14 * 24 * 60 * 60 * 1000;
 
-    if (activities.length === 0) {
+    if (historyActivities.length === 0) {
       if (chartPoints.length >= 2) return chartPoints;
       if (totalValue > 0) {
         return [
@@ -90,7 +130,7 @@ export default function PortfolioPage() {
     }
 
     const dailyFlow = new Map<string, { invested: number; withdrawn: number }>();
-    for (const a of activities) {
+    for (const a of historyActivities) {
       if (a.timestamp < firstDay || a.timestamp > now) continue;
       const k = dayKey(a.timestamp);
       const row = dailyFlow.get(k) ?? { invested: 0, withdrawn: 0 };
@@ -101,10 +141,12 @@ export default function PortfolioPage() {
 
     const daily = [];
     let cumulative = 0;
+    let hasAnyFlowInWindow = false;
     for (let i = 0; i < 15; i++) {
       const ts = firstDay + i * 24 * 60 * 60 * 1000;
       const k = dayKey(ts);
       const flow = dailyFlow.get(k) ?? { invested: 0, withdrawn: 0 };
+      if (flow.invested > 0 || flow.withdrawn > 0) hasAnyFlowInWindow = true;
       cumulative += flow.invested - flow.withdrawn;
       cumulative = Math.max(0, cumulative);
       daily.push({
@@ -114,10 +156,29 @@ export default function PortfolioPage() {
       });
     }
 
+    if (!hasAnyFlowInWindow) {
+      if (chartPoints.length >= 2) return chartPoints;
+      if (totalValue > 0) {
+        return [
+          {
+            date: new Date(firstDay).toLocaleDateString("en-US", { day: "numeric", month: "long" }),
+            value: 0,
+            t: firstDay,
+          },
+          {
+            date: new Date(todayStart).toLocaleDateString("en-US", { day: "numeric", month: "long" }),
+            value: totalValue,
+            t: todayStart,
+          },
+        ];
+      }
+      return [];
+    }
+
     const last = daily[daily.length - 1];
     const scale = last && last.value > 0 && totalValue > 0 ? totalValue / last.value : 1;
     return daily.map((d) => ({ ...d, value: d.value * scale }));
-  }, [activities, chartPoints, totalValue]);
+  }, [historyActivities, chartPoints, totalValue]);
 
   if (!connected) {
     return (
@@ -210,7 +271,7 @@ export default function PortfolioPage() {
         >
           <h3 className="text-sm font-semibold text-[#e8edf5] mb-1">Portfolio value (sampled)</h3>
           <p className="text-[10px] text-[#8b9cb3] mb-4">
-            15-day timeline with one sample every 24 hours.
+            15-day timeline. Backfilled from on-chain USDC deposit/withdraw flow plus local app logs.
           </p>
           <div className="h-56">
             {chartData.length >= 2 ? (
@@ -302,6 +363,10 @@ export default function PortfolioPage() {
             {positions.map((pos: LiveVaultPosition) => {
               const cfg = pos.config;
               const pps = pos.uiState?.pricePerShare ?? 0;
+              const totals = vaultActivityTotals.get(pos.vaultId) ?? { invested: 0, withdrawn: 0 };
+              const netInvested = Math.max(0, totals.invested - totals.withdrawn);
+              const pnl = pos.currentValueUsdc - netInvested;
+              const pnlPositive = pnl >= 0;
               return (
                 <Link
                   key={pos.vaultId}
@@ -344,10 +409,17 @@ export default function PortfolioPage() {
                         </div>
                         <div className="text-right">
                           <div className="text-xs text-[#8b9cb3]">P&amp;L</div>
-                          <div className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#8b9cb3]">
-                            —
+                          <div
+                            className={`font-[family-name:var(--font-space-mono)] text-sm font-semibold ${
+                              pnlPositive ? "text-emerald-400" : "text-rose-400"
+                            }`}
+                          >
+                            {pnlPositive ? "+" : "-"}
+                            {formatUsd(Math.abs(pnl))}
                           </div>
-                          <div className="text-xs text-[#8b9cb3]">Needs cost basis indexer</div>
+                          <div className="text-xs text-[#8b9cb3]">
+                            vs net invested {formatUsd(netInvested)}
+                          </div>
                         </div>
                       </div>
                     </div>

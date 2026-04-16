@@ -11,6 +11,7 @@ import { formatUsd, formatShares } from "@/components/format";
 import { useWithdraw } from "@/lib/spectra/hooks/use-withdraw";
 import { previewWithdraw } from "@/lib/spectra/vault-client";
 import { recordPortfolioActivity } from "@/lib/portfolio/activity-log";
+import { getNetwork } from "@/lib/spectra/constants";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
 import type { VaultConfig, VaultState } from "@/types";
 
@@ -20,6 +21,22 @@ const WalletMultiButton = dynamic(
 );
 
 type Step = "input" | "confirm" | "processing" | "success";
+
+function toUserFacingWithdrawError(err: unknown): string {
+  const raw =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object" && err !== null && "message" in err
+        ? String((err as { message: unknown }).message)
+        : String(err);
+
+  const lower = raw.toLowerCase();
+  if (lower.includes("user rejected") || lower.includes("walletsigntransactionerror") || lower.includes("rejected the request") || lower.includes("declined")) {
+    return "Transaction rejected in wallet. No funds were moved.";
+  }
+
+  return raw || "Withdrawal failed. Please try again.";
+}
 
 export function WithdrawModal({
   vaultConfig,
@@ -46,6 +63,7 @@ export function WithdrawModal({
   const [step, setStep] = useState<Step>("input");
   const [sharesStr, setSharesStr] = useState("");
   const [lastSig, setLastSig] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
 
   const sharesHumanWallet =
     Number(userSharesLamports.toString(10)) / 10 ** 9;
@@ -55,6 +73,7 @@ export function WithdrawModal({
       setStep("input");
       setSharesStr("");
       setLastSig(null);
+      setTxError(null);
     }
   }, [open]);
 
@@ -84,6 +103,7 @@ export function WithdrawModal({
 
   async function handleConfirm() {
     if (!onChainVault) return;
+    setTxError(null);
     setStep("processing");
     try {
       const sig = await withdraw(sharesLamports);
@@ -103,10 +123,15 @@ export function WithdrawModal({
 
       setStep("success");
       onWithdrawn?.();
-    } catch {
+    } catch (e) {
+      setTxError(toUserFacingWithdrawError(e));
       setStep("confirm");
     }
   }
+
+  const explorerClusterParam = getNetwork() === "mainnet-beta"
+    ? ""
+    : `?cluster=${getNetwork()}`;
 
   const disabledReason =
     onChainVault == null
@@ -226,7 +251,10 @@ export function WithdrawModal({
 
               <button
                 type="button"
-                onClick={() => setStep("confirm")}
+                onClick={() => {
+                  setTxError(null);
+                  setStep("confirm");
+                }}
                 disabled={!isValid}
                 className="w-full rounded-xl bg-[#00e5c3] py-3.5 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -254,6 +282,12 @@ export function WithdrawModal({
                   </div>
                 </div>
               </div>
+
+              {txError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200/95">
+                  {txError}
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
@@ -289,9 +323,19 @@ export function WithdrawModal({
                   {formatUsd(usdcOut)} USDC (est.) to your wallet
                 </p>
                 {lastSig && (
-                  <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
-                    {lastSig}
-                  </p>
+                  <>
+                    <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
+                      {lastSig}
+                    </p>
+                    <a
+                      href={`https://solscan.io/tx/${lastSig}${explorerClusterParam}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center text-xs text-[#00e5c3] hover:underline"
+                    >
+                      View on Solscan
+                    </a>
+                  </>
                 )}
               </div>
               <button
