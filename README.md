@@ -1,10 +1,10 @@
-# Spectra Vaults
+# Axiom Vaults
 
 **The first set-and-forget prediction market ETFs on Solana.**
 
 > Reality is a new asset class. Set it. Forget it. Earn.
 
-Spectra Vaults lets users deposit USDC into themed, auto-managed vaults that build diversified portfolios of prediction market positions. Idle capital earns yield via Jupiter Lend. Everything is on-chain, composable, and transparent.
+Axiom Vaults lets users deposit USDC into themed, auto-managed vaults that build diversified portfolios of prediction market positions. Idle capital earns yield via Jupiter Lend. Everything is on-chain, composable, and transparent.
 
 ## Vaults
 
