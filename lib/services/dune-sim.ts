@@ -3,6 +3,13 @@ import axios, { type AxiosInstance } from "axios";
 /** Sim SVM routes live under `/beta/svm`, not `/v1/.../solana/...`. */
 const DUNE_SIM_BASE = "https://api.sim.dune.com";
 
+/**
+ * API key resolution:
+ * - In the browser we only read `NEXT_PUBLIC_*` (everything else is stripped at build time).
+ *   That means the Dune key is **public to visitors** if set that way — use only for local demos,
+ *   or proxy Sim calls through a server Route Handler with `DUNE_SIM_API_KEY` instead.
+ * - On the server, prefer `DUNE_SIM_API_KEY` (not public).
+ */
 function getApiKey(): string {
   const key =
     typeof window !== "undefined"

@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "init:vaults:devnet": "npx tsx scripts/init-vaults-devnet.ts",
-    "sync:idl": "node scripts/sync-idl.mjs"
+    "sync:idl": "node scripts/sync-idl.mjs",
+    "check:secrets": "bash scripts/check-tracked-secrets.sh"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
