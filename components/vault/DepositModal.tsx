@@ -146,10 +146,10 @@ export function DepositModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(100vw-2rem,480px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 shadow-2xl">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Dialog.Title className="text-lg font-semibold text-[#e8edf5]">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[min(92dvh,90vh)] w-[calc(100vw-1rem)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overflow-x-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 shadow-2xl min-[391px]:max-h-[90vh] min-[391px]:w-[min(100vw-2rem,480px)] min-[391px]:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 pr-2">
+              <Dialog.Title className="text-base font-semibold text-[#e8edf5] min-[391px]:text-lg">
                 Deposit to {vaultConfig.name}
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-[#8b9cb3]">
@@ -258,17 +258,17 @@ export function DepositModal({
           ) : step === "confirm" ? (
             <div className="mt-6 space-y-4">
               <div className="rounded-xl border border-[#00e5c3]/20 bg-[#00e5c3]/5 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-col gap-4 min-[391px]:flex-row min-[391px]:items-center min-[391px]:justify-between">
+                  <div className="min-w-0">
                     <div className="text-xs text-[#8b9cb3]">Depositing</div>
-                    <div className="font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5]">
+                    <div className="font-[family-name:var(--font-space-mono)] text-lg font-bold text-[#e8edf5] min-[391px]:text-xl">
                       {formatUsd(amount)}
                     </div>
                   </div>
-                  <ArrowRight className="size-5 text-[#8b9cb3]" />
-                  <div className="text-right">
+                  <ArrowRight className="mx-auto size-5 shrink-0 rotate-90 text-[#8b9cb3] min-[391px]:mx-0 min-[391px]:rotate-0" />
+                  <div className="min-w-0 text-left min-[391px]:text-right">
                     <div className="text-xs text-[#8b9cb3]">Receiving</div>
-                    <div className="font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#00e5c3]">
+                    <div className="font-[family-name:var(--font-space-mono)] text-lg font-bold text-[#00e5c3] min-[391px]:text-xl">
                       {preview ? formatShares(sharesHuman) : "—"}
                     </div>
                     <div className="text-xs text-[#8b9cb3]">{vaultConfig.ticker}</div>
@@ -289,11 +289,11 @@ export function DepositModal({
                 </div>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-2 min-[391px]:flex-row min-[391px]:gap-3">
                 <button
                   type="button"
                   onClick={() => setStep("input")}
-                  className="flex-1 rounded-xl border border-[#1a2235] py-3 text-sm font-medium text-[#e8edf5] hover:bg-white/5"
+                  className="w-full rounded-xl border border-[#1a2235] py-3 text-sm font-medium text-[#e8edf5] hover:bg-white/5 min-[391px]:flex-1"
                 >
                   Back
                 </button>
@@ -301,7 +301,7 @@ export function DepositModal({
                   type="button"
                   onClick={handleConfirm}
                   disabled={txLoading}
-                  className="flex-1 rounded-xl bg-[#00e5c3] py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3] disabled:opacity-50"
+                  className="w-full rounded-xl bg-[#00e5c3] py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3] disabled:opacity-50 min-[391px]:flex-1"
                 >
                   {txLoading ? "Signing…" : "Confirm Deposit"}
                 </button>

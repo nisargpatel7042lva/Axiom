@@ -44,6 +44,7 @@ import { parseActivityFeed } from "@/lib/services/dune-sim";
 import type { VaultId } from "@/types";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getNetwork } from "@/lib/spectra/constants";
+import { useMatchMedia } from "@/hooks/useMatchMedia";
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
   "safe-consensus": <Shield className="size-6" />,
@@ -134,6 +135,7 @@ export default function VaultDetailPage({
 
   const sharesBn = userSharesLamports ?? new BN(0);
   const { simulateYield, loading: simulatingYield } = useSimulateYield(config?.chainVaultId ?? 0);
+  const narrow = useMatchMedia("(max-width: 390px)");
 
   if (!config) {
     return (
@@ -175,18 +177,19 @@ export default function VaultDetailPage({
     <div className="flex min-h-screen flex-col bg-[#080c14]">
       <Topbar />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-[6rem] md:px-6 md:pb-10">
+      <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
         <button
           type="button"
           onClick={() => router.push("/vaults")}
-          className="mb-6 flex items-center gap-2 text-sm text-[#8b9cb3] hover:text-[#e8edf5] transition-colors"
+          className="mb-5 flex items-center gap-2 text-sm text-[#8b9cb3] transition-colors hover:text-[#e8edf5] max-[390px]:mb-4"
         >
-          <ArrowLeft className="size-4" />
-          Back to catalog
+          <ArrowLeft className="size-4 shrink-0" />
+          <span className="hidden min-[391px]:inline">Back to catalog</span>
+          <span className="min-[391px]:hidden">Back</span>
         </button>
 
         {!snapshot && !loading && (
-          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-100 min-[391px]:px-4">
             This vault account is not initialized on the current RPC (devnet). From the
             repo root, deploy the program then run{" "}
             <span className="font-mono">npm run init:vaults:devnet</span> (bootstraps vault id{" "}
@@ -201,15 +204,15 @@ export default function VaultDetailPage({
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between"
         >
-          <div className="flex items-start gap-4">
+          <div className="flex min-w-0 items-start gap-3 min-[391px]:gap-4">
             <div
-              className="flex size-14 items-center justify-center rounded-2xl"
+              className="flex size-12 shrink-0 items-center justify-center rounded-2xl min-[391px]:size-14"
               style={{ backgroundColor: `${config.accentColor}20`, color: config.accentColor }}
             >
-              {VAULT_ICONS[config.id] ?? <TrendingUp className="size-6" />}
+              {VAULT_ICONS[config.id] ?? <TrendingUp className="size-5 min-[391px]:size-6" />}
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-[#e8edf5] md:text-3xl">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">
                 {config.name}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-3">
@@ -240,12 +243,13 @@ export default function VaultDetailPage({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full min-w-0 flex-col gap-2 min-[391px]:w-auto min-[391px]:flex-row min-[391px]:flex-wrap min-[391px]:items-center min-[391px]:gap-3">
+            <div className="grid w-full grid-cols-2 gap-2 min-[391px]:flex min-[391px]:w-auto min-[391px]:flex-row min-[391px]:gap-3">
             <button
               type="button"
               onClick={() => setShowDeposit(true)}
               disabled={!onChain || onChain.isPaused}
-              className="rounded-xl bg-[#00e5c3] px-6 py-3 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl bg-[#00e5c3] px-4 py-2.5 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3] disabled:cursor-not-allowed disabled:opacity-40 min-[391px]:px-6 min-[391px]:py-3"
             >
               Deposit USDC
             </button>
@@ -253,15 +257,16 @@ export default function VaultDetailPage({
               type="button"
               onClick={() => setShowWithdraw(true)}
               disabled={!onChain || onChain.isPaused}
-              className="rounded-xl border border-[#1a2235] bg-[#0d1420] px-6 py-3 text-sm font-medium text-[#e8edf5] transition-colors hover:border-[#00e5c3]/30 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl border border-[#1a2235] bg-[#0d1420] px-4 py-2.5 text-sm font-medium text-[#e8edf5] transition-colors hover:border-[#00e5c3]/30 disabled:cursor-not-allowed disabled:opacity-40 min-[391px]:px-6 min-[391px]:py-3"
             >
               Withdraw
             </button>
-            <div className="flex items-center gap-2 rounded-xl border border-[#1a2235] bg-[#0d1420] px-2 py-2">
+            </div>
+            <div className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-[#1a2235] bg-[#0d1420] px-2 py-2 min-[391px]:w-auto min-[391px]:max-w-none">
               <select
                 value={yieldBps}
                 onChange={(e) => setYieldBps(Number(e.target.value))}
-                className="rounded-lg border border-[#1a2235] bg-[#080c14] px-2 py-1 text-xs text-[#e8edf5] focus:border-[#00e5c3]/50 focus:outline-none"
+                className="min-w-0 flex-1 rounded-lg border border-[#1a2235] bg-[#080c14] px-2 py-1 text-xs text-[#e8edf5] focus:border-[#00e5c3]/50 focus:outline-none min-[391px]:flex-none"
               >
                 <option value={100}>+1.0%</option>
                 <option value={300}>+3.0%</option>
@@ -273,17 +278,18 @@ export default function VaultDetailPage({
                 type="button"
                 onClick={() => void handleSimulateYield()}
                 disabled={!onChain || simulatingYield}
-                className="inline-flex items-center gap-1 rounded-lg bg-[#1e293b] px-3 py-1.5 text-xs font-semibold text-[#e8edf5] hover:bg-[#334155] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-[#1e293b] px-2.5 py-1.5 text-[11px] font-semibold text-[#e8edf5] hover:bg-[#334155] disabled:cursor-not-allowed disabled:opacity-40 min-[391px]:px-3 min-[391px]:text-xs"
               >
                 {simulatingYield ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    Simulating
+                    <span className="max-[390px]:hidden">Simulating</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="size-3.5" />
-                    Simulate Yield
+                    <Sparkles className="size-3.5 shrink-0" />
+                    <span className="hidden min-[391px]:inline">Simulate Yield</span>
+                    <span className="min-[391px]:hidden">Simulate</span>
                   </>
                 )}
               </button>
@@ -293,16 +299,32 @@ export default function VaultDetailPage({
 
         {(simSig || simError) && (
           <div
-            className={`mt-4 rounded-xl border px-4 py-3 text-xs ${
+            className={`mt-4 rounded-xl border px-3 py-3 text-xs min-[391px]:px-4 ${
               simError
                 ? "border-red-500/30 bg-red-500/10 text-red-200"
                 : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
             }`}
           >
             {simError ? (
-              <span>{simError}</span>
+              <span className="break-words">{simError}</span>
             ) : (
-              <span>Simulated NAV update submitted: {simSig} · <a href={`https://solscan.io/tx/${simSig}${explorerClusterParam}`} target="_blank" rel="noopener noreferrer" className="text-[#00e5c3] hover:underline">View on Solscan</a></span>
+              <span className="flex flex-col gap-2 break-words min-[391px]:block">
+                <span>
+                  Simulated NAV update submitted
+                  <span className="hidden min-[391px]:inline">: {simSig}</span>
+                </span>
+                <span className="font-mono text-[10px] text-emerald-200/80 min-[391px]:hidden">
+                  {simSig}
+                </span>
+                <a
+                  href={`https://solscan.io/tx/${simSig}${explorerClusterParam}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-fit text-[#00e5c3] hover:underline"
+                >
+                  View on Solscan
+                </a>
+              </span>
             )}
           </div>
         )}
@@ -312,7 +334,7 @@ export default function VaultDetailPage({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5"
+          className="mt-6 grid grid-cols-2 gap-2 min-[391px]:mt-8 min-[391px]:gap-4 md:grid-cols-5"
         >
           {[
             { label: "NAV (synced)", value: state ? formatUsd(state.nav) : null },
@@ -336,13 +358,13 @@ export default function VaultDetailPage({
           ].map(({ label, value, color }) => (
             <div
               key={label}
-              className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4"
+              className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-3 min-[391px]:p-4"
             >
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
+              <div className="text-[9px] font-medium uppercase tracking-wider text-[#8b9cb3] min-[391px]:text-[10px]">
                 {label}
               </div>
               <div
-                className="mt-1 font-[family-name:var(--font-space-mono)] text-lg font-bold min-h-[1.75rem]"
+                className="mt-1 min-h-[1.5rem] font-[family-name:var(--font-space-mono)] text-base font-bold min-[391px]:min-h-[1.75rem] min-[391px]:text-lg"
                 style={{ color: color ?? "#e8edf5" }}
               >
                 {kpiLoading || value == null ? (
@@ -360,25 +382,25 @@ export default function VaultDetailPage({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-8 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6"
+          className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:mt-8 min-[391px]:p-6"
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Activity className="size-4 text-[#8b9cb3]" />
-              <div>
+          <div className="mb-3 flex flex-col gap-3 min-[391px]:mb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <Activity className="size-4 shrink-0 text-[#8b9cb3]" />
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[#e8edf5]">Price per share</h3>
-                <p className="text-[10px] text-[#8b9cb3]">
+                <p className="text-[10px] text-[#8b9cb3] max-[390px]:leading-snug">
                   Live samples from this browser session (devnet polls)
                 </p>
               </div>
             </div>
-            <div className="flex gap-1">
+            <div className="-mx-1 flex gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] max-[390px]:snap-x max-[390px]:snap-mandatory sm:mx-0 sm:overflow-visible [&::-webkit-scrollbar]:hidden">
               {CHART_RANGES.map((range) => (
                 <button
                   key={range}
                   type="button"
                   onClick={() => setChartRange(range)}
-                  className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
+                  className={`shrink-0 snap-start rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors min-[391px]:px-3 min-[391px]:text-xs ${
                     chartRange === range
                       ? "bg-white/10 text-[#00e5c3]"
                       : "text-[#8b9cb3] hover:text-[#e8edf5]"
@@ -389,10 +411,10 @@ export default function VaultDetailPage({
               ))}
             </div>
           </div>
-          <div className="h-64">
+          <div className="h-52 min-[391px]:h-60 md:h-64">
             {chartData.length >= 2 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart key={chartRange} data={chartData}>
+                <AreaChart key={`${chartRange}-${narrow ? "n" : "w"}`} data={chartData}>
                   <defs>
                     <linearGradient id={`gradient-${id}`} x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={config.accentColor} stopOpacity={0.3} />
@@ -403,8 +425,9 @@ export default function VaultDetailPage({
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8b9cb3", fontSize: 10 }}
+                    tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
                     interval="preserveStartEnd"
+                    minTickGap={narrow ? 18 : 8}
                     tickFormatter={(_value: string, index: number) =>
                       formatXAxisForRange(chartData[index]?.t ?? Date.now(), chartRange)
                     }
@@ -413,16 +436,17 @@ export default function VaultDetailPage({
                     domain={["auto", "auto"]}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8b9cb3", fontSize: 10 }}
-                    tickFormatter={(v: number) => `$${v.toFixed(3)}`}
-                    width={55}
+                    tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
+                    tickFormatter={(v: number) => `$${v.toFixed(narrow ? 2 : 3)}`}
+                    width={narrow ? 40 : 52}
                   />
                   <RechartsTooltip
                     contentStyle={{
                       backgroundColor: "#0d1420",
                       border: "1px solid #1a2235",
                       borderRadius: 8,
-                      fontSize: 12,
+                      fontSize: narrow ? 11 : 12,
+                      maxWidth: narrow ? 200 : 280,
                     }}
                     labelStyle={{ color: "#8b9cb3" }}
                     formatter={(value: number) => [`$${value.toFixed(4)}`, "PPS"]}
@@ -450,12 +474,12 @@ export default function VaultDetailPage({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="mt-8 grid gap-6 lg:grid-cols-2"
+          className="mt-6 grid min-w-0 gap-4 min-[391px]:mt-8 min-[391px]:gap-6 lg:grid-cols-2"
         >
           <RiskRatingPanel name={config.name} riskSheet={config.riskSheet} />
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-4 min-[391px]:space-y-6">
             <VaultTransparencyPanel chainVaultId={config.chainVaultId} />
-            <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6">
+            <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6">
               <h3 className="text-sm font-semibold text-[#e8edf5] mb-1">Venue exposure</h3>
               <p className="text-xs text-[#8b9cb3] mb-3">
                 Named venues replace anonymous tiles — you always know where risk is expressed.
@@ -469,12 +493,12 @@ export default function VaultDetailPage({
           </div>
         </motion.div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-5">
+        <div className="mt-6 grid min-w-0 gap-4 min-[391px]:mt-8 min-[391px]:gap-6 lg:grid-cols-5">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="lg:col-span-2 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6"
+            className="lg:col-span-2 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
           >
             <div className="flex items-center gap-2 mb-4">
               <PieChart className="size-4 text-[#8b9cb3]" />
@@ -486,9 +510,12 @@ export default function VaultDetailPage({
                 { label: "USDC in vault ATA", value: custodyUsdc },
                 { label: "Custody − NAV", value: navDrift },
               ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-[#8b9cb3]">{label}</span>
-                  <span className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
+                <div
+                  key={label}
+                  className="flex flex-col gap-0.5 max-[390px]:items-start max-[390px]:gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
+                  <span className="min-w-0 text-xs text-[#8b9cb3] min-[391px]:text-sm">{label}</span>
+                  <span className="font-[family-name:var(--font-space-mono)] text-xs font-semibold text-[#e8edf5] min-[391px]:text-sm max-[390px]:self-end sm:self-auto">
                     {kpiLoading && !snapshot ? (
                       <Skeleton className="h-4 w-20 bg-white/5" />
                     ) : (
@@ -507,28 +534,32 @@ export default function VaultDetailPage({
               <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-3">
                 Vault parameters
               </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between gap-2">
+              <div className="space-y-2 text-xs min-[391px]:text-sm">
+                <div className="flex flex-col gap-0.5 max-[390px]:items-start sm:flex-row sm:justify-between sm:gap-2">
                   <span className="text-[#8b9cb3]">Min deposit</span>
-                  <span className="text-[#e8edf5]">{formatUsd(config.minDeposit)}</span>
+                  <span className="text-[#e8edf5] max-[390px]:self-end sm:self-auto">{formatUsd(config.minDeposit)}</span>
                 </div>
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-col gap-0.5 max-[390px]:items-start sm:flex-row sm:justify-between sm:gap-2">
                   <span className="text-[#8b9cb3]">Management fee</span>
-                  <span className="text-[#00e5c3]">0%</span>
+                  <span className="text-[#00e5c3] max-[390px]:self-end sm:self-auto">0%</span>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#8b9cb3]">Performance fee</span>
-                  <span className="text-[#e8edf5]">{config.performanceFeeBps / 100}% above HWM</span>
+                <div className="flex flex-col gap-0.5 max-[390px]:items-start sm:flex-row sm:justify-between sm:gap-2">
+                  <span className="min-w-0 shrink text-[#8b9cb3] max-[390px]:max-w-[11rem]">
+                    Performance fee
+                  </span>
+                  <span className="text-right text-[#e8edf5] max-[390px]:self-end sm:self-auto sm:text-left">
+                    {config.performanceFeeBps / 100}% above HWM
+                  </span>
                 </div>
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-col gap-0.5 max-[390px]:items-start sm:flex-row sm:justify-between sm:gap-2">
                   <span className="text-[#8b9cb3]">High water mark</span>
-                  <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">
+                  <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5] max-[390px]:self-end sm:self-auto">
                     {state ? `$${state.highWaterMark.toFixed(4)}` : "—"}
                   </span>
                 </div>
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-col gap-0.5 max-[390px]:items-start sm:flex-row sm:justify-between sm:gap-2">
                   <span className="text-[#8b9cb3]">Your shares</span>
-                  <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">
+                  <span className="min-w-0 max-w-full break-words text-right font-[family-name:var(--font-space-mono)] text-[#e8edf5] max-[390px]:self-end sm:self-auto sm:text-left">
                     {sharesLoading ? (
                       <Skeleton className="inline-block h-4 w-16 bg-white/5" />
                     ) : (
@@ -544,7 +575,7 @@ export default function VaultDetailPage({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="lg:col-span-3 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6"
+            className="lg:col-span-3 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
           >
             <div className="flex items-center gap-2 mb-4">
               <Clock className="size-4 text-[#8b9cb3]" />

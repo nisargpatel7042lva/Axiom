@@ -46,7 +46,7 @@ export function VaultTransparencyPanel({
   ];
 
   return (
-    <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6">
+    <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6">
       <div className="flex items-center gap-2 mb-3">
         <Link2 className="size-4 text-[#8b9cb3]" />
         <h3 className="text-sm font-semibold text-[#e8edf5]">Verify on-chain</h3>
@@ -63,9 +63,9 @@ export function VaultTransparencyPanel({
               href={l.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-start justify-between gap-2 rounded-lg border border-white/5 bg-[#080c14]/60 px-3 py-2 transition-colors hover:border-[#00e5c3]/25"
+              className="group flex min-w-0 items-start justify-between gap-2 rounded-lg border border-white/5 bg-[#080c14]/60 px-2.5 py-2 transition-colors hover:border-[#00e5c3]/25 min-[391px]:px-3"
             >
-              <div>
+              <div className="min-w-0">
                 <div className="text-sm font-medium text-[#e8edf5]">{l.label}</div>
                 <div className="text-[10px] text-[#8b9cb3]">{l.hint}</div>
               </div>

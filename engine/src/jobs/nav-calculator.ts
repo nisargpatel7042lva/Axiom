@@ -5,14 +5,14 @@ import { getAuthority, getTokenBalance } from "../services/solana.js";
 import {
   syncNav as syncNavOnChain,
   deriveVaultPda,
+  deriveAssetVaultPda,
   getTotalShares,
 } from "../services/vault-contract.js";
 import { getActivePositions } from "./position-manager.js";
 import { getLendingState } from "./yield-router.js";
-import { getAllVaultConfigs, CONFIG } from "../config.js";
+import { appendVaultNavSnapshot } from "../data/vault-nav-snapshots.js";
+import { getAllVaultConfigs } from "../config.js";
 import { createLogger } from "../utils/logger.js";
-import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import type { NavBreakdown } from "../types/index.js";
 
 const log = createLogger("nav-calculator");
@@ -31,14 +31,30 @@ export async function runNavCalculator(): Promise<void> {
 
       log.info(
         `[${vaultConfig.name}] NAV = $${nav.totalNav.toFixed(2)} | PPS = $${nav.pricePerShare.toFixed(6)} | ` +
-        `Predictions: $${nav.predictionPositionsValue.toFixed(2)} | Lend: $${nav.lendingBalance.toFixed(2)} | ` +
-        `Idle: $${nav.idleUsdc.toFixed(2)}`,
+          `Predictions: $${nav.predictionPositionsValue.toFixed(2)} | Lend: $${nav.lendingBalance.toFixed(2)} | ` +
+          `Idle: $${nav.idleUsdc.toFixed(2)}`,
       );
 
-      // Push NAV on-chain
       await syncNavOnChain(vaultConfig.id, nav.totalNav);
+
+      try {
+        await appendVaultNavSnapshot({
+          vaultId: vaultConfig.id,
+          timestamp: nav.timestamp,
+          totalNav: nav.totalNav,
+          pps: nav.pricePerShare,
+          predictionsValue: nav.predictionPositionsValue,
+          lendValue: nav.lendingBalance,
+          idleValue: nav.idleUsdc,
+          feesAccrued: 0,
+        });
+      } catch (snapErr) {
+        log.error(`[${vaultConfig.name}] NAV snapshot append failed`, snapErr);
+      }
     } catch (err) {
-      log.error(`[${vaultConfig.name}] NAV computation failed`, err);
+      const detail =
+        err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+      log.error(`[${vaultConfig.name}] NAV computation failed`, detail);
     }
   }
 
@@ -46,24 +62,19 @@ export async function runNavCalculator(): Promise<void> {
 }
 
 async function computeVaultNav(vaultId: string, onChainVaultId: number): Promise<NavBreakdown> {
-  // 0. Validate USDC price via Jupiter Price API (sanity check)
   const usdcPrice = await jupiterPrice.getUsdcPrice();
   log.debug(`USDC price validation: $${usdcPrice.toFixed(4)}`);
 
-  // 1. Value active prediction positions at current market prices
   const predictionPositionsValue = await valuePredictionPositions(vaultId);
 
-  // 2. Jupiter Lend balance
   const lendingState = getLendingState(vaultId);
-  const lendingBalance = lendingState?.currentBalance ?? (await jupiterLend.getEarnBalance());
+  const lendingBalance =
+    lendingState?.currentBalance ?? (await jupiterLend.getEarnBalance());
 
-  // 3. Idle USDC in vault token account
   const idleUsdc = await getIdleUsdcBalance(onChainVaultId);
 
-  // Apply USDC price correction (should be ~1.0 but protects against depegs)
   const totalNav = (predictionPositionsValue + lendingBalance + idleUsdc) * usdcPrice;
 
-  // 4. Get total shares for PPS calculation
   const totalShares = await getTotalShares(onChainVaultId);
   const pricePerShare = totalShares > 0 ? totalNav / totalShares : 1.0;
 
@@ -110,9 +121,8 @@ async function valuePredictionPositions(vaultId: string): Promise<number> {
 async function getIdleUsdcBalance(vaultId: number): Promise<number> {
   try {
     const [vaultPda] = deriveVaultPda(vaultId);
-    const usdcMint = new PublicKey(CONFIG.USDC_MINT);
-    const ata = getAssociatedTokenAddressSync(usdcMint, vaultPda, true);
-    return await getTokenBalance(ata);
+    const [assetVault] = deriveAssetVaultPda(vaultPda);
+    return await getTokenBalance(assetVault);
   } catch {
     return 0;
   }

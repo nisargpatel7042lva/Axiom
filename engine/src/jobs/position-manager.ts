@@ -129,16 +129,16 @@ async function openPosition(
   usdcAmount: number,
 ): Promise<void> {
   try {
-    const result = await jupiterPrediction.createOrder({
+    const result = (await jupiterPrediction.createOrder({
       ownerPubkey,
       marketId: opp.marketId,
       isYes: opp.side === "yes",
       isBuy: true,
       depositAmount: (usdcAmount * 1e6).toString(),
       depositMint: CONFIG.USDC_MINT,
-    });
+    })) as { transaction?: string };
 
-    const sig = await signAndSend(result.transaction);
+    const sig = await signAndSend(result.transaction ?? "");
 
     const pos: ActivePosition = {
       vaultId,
@@ -195,13 +195,13 @@ async function closePosition(
   pos: ActivePosition,
 ): Promise<void> {
   try {
-    const result = await jupiterPrediction.sellPosition({
+    const result = (await jupiterPrediction.sellPosition({
       ownerPubkey,
       marketId: pos.marketId,
       isYes: pos.side === "yes",
       contracts: pos.contracts.toString(),
-    });
-    await signAndSend(result.transaction);
+    })) as { transaction?: string };
+    await signAndSend(result.transaction ?? "");
   } catch (err) {
     log.error(`Failed to close position on ${pos.title}`, err);
   }

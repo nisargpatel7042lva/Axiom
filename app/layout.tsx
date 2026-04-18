@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
 
 import { QueryProvider } from "@/components/providers/QueryProvider";
@@ -23,6 +23,12 @@ export const metadata: Metadata = {
   title: "Axiom Vaults — Premium Prediction Vaults on Solana",
   description:
     "Institutional-grade prediction vaults for Solana. Deposit USDC, gain diversified market exposure, and earn yield on idle capital via Jupiter Lend.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#080c14",
 };
 
 export default function RootLayout({

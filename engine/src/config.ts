@@ -1,26 +1,61 @@
+import path from "node:path";
+import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
+
 import type { VaultConfig, VaultStrategyType } from "./types/index.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const engineRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(engineRoot, "..");
+
+/**
+ * Vault authority keypair: same vars as Anchor / README.
+ * Relative paths resolve against the **repo root** (so `./keypair.json` in
+ * `.env.local` works whether you start the engine from `engine/` or the repo).
+ */
+function resolveKeypairPath(): string {
+  const raw =
+    process.env.VAULT_AUTHORITY_KEYPAIR_PATH?.trim() ||
+    process.env.ANCHOR_WALLET?.trim();
+  if (!raw) {
+    return path.join(homedir(), ".config", "solana", "id.json");
+  }
+  if (raw.startsWith("~/")) {
+    return path.join(homedir(), raw.slice(2));
+  }
+  if (raw.startsWith("./") || raw.startsWith("../")) {
+    return path.resolve(repoRoot, raw);
+  }
+  return path.resolve(raw);
+}
 
 export const CONFIG = {
   RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
-  KEYPAIR_PATH: process.env.VAULT_AUTHORITY_KEYPAIR_PATH || "./keypair.json",
+  KEYPAIR_PATH: resolveKeypairPath(),
 
-  // Single Jupiter Developer Platform API key for all Jupiter APIs
-  JUPITER_API_KEY: process.env.JUPITER_API_KEY || process.env.JUPITER_PREDICTION_API_KEY || "",
+  JUPITER_API_KEY:
+    process.env.JUPITER_API_KEY ||
+    process.env.NEXT_PUBLIC_JUPITER_API_KEY ||
+    process.env.JUPITER_PREDICTION_API_KEY ||
+    "",
 
-  // Jupiter API base URLs (all routed through single developer key)
   JUPITER_PREDICTION_BASE: "https://api.jup.ag/prediction/v1",
-  JUPITER_PRICE_BASE: "https://api.jup.ag/price/v2",
+  /** Price v2 is deprecated (404); v3 uses `usdPrice` per mint key. */
+  JUPITER_PRICE_BASE: "https://api.jup.ag/price/v3",
   JUPITER_TOKENS_BASE: "https://api.jup.ag/tokens/v1",
   JUPITER_TRIGGER_BASE: "https://api.jup.ag/trigger/v1",
 
-  VAULT_PROGRAM_ID: process.env.VAULT_PROGRAM_ID || "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH",
-  USDC_MINT: process.env.USDC_MINT || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  VAULT_PROGRAM_ID:
+    process.env.VAULT_PROGRAM_ID || "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH",
+  USDC_MINT:
+    process.env.USDC_MINT || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 
   HEALTH_PORT: parseInt(process.env.HEALTH_PORT || "3001", 10),
 
+  VAULT_NAV_SNAPSHOT_DIR: process.env.VAULT_NAV_SNAPSHOT_DIR?.trim() || "",
+
   IDLE_BUFFER_PCT: 0.05,
 
-  /** PROMPT 5 — AI market scorer */
   AI_ENABLED: process.env.AI_ENABLED !== "false",
   AI_PROVIDER: ((raw: string | undefined): "anthropic" | "openai" => {
     const p = (raw || "anthropic").toLowerCase();
@@ -44,7 +79,7 @@ export const VAULT_CONFIGS: Record<VaultStrategyType, VaultConfig> = {
     maxProbability: 1.0,
     predictionAllocationPct: 0.62,
     lendAllocationPct: 0.33,
-    maxPositionPct: 0.10,
+    maxPositionPct: 0.1,
     minVolume: 100_000,
     maxDaysToResolution: 30,
     categories: [],
@@ -53,7 +88,7 @@ export const VAULT_CONFIGS: Record<VaultStrategyType, VaultConfig> = {
     id: parseInt(process.env.CONTRARIAN_VAULT_ID || "2", 10),
     name: "Macro Contrarian",
     strategyType: "macro-contrarian",
-    minProbability: 0.40,
+    minProbability: 0.4,
     maxProbability: 0.65,
     predictionAllocationPct: 0.78,
     lendAllocationPct: 0.15,
