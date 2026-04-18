@@ -8,30 +8,30 @@ Spectra Vaults lets users deposit USDC into themed, auto-managed vaults that bui
 
 ## Vaults
 
-| Vault | Strategy | Risk | Target APY |
-|-------|----------|------|------------|
-| **Safe Consensus** | Buys >85% probability events | Low | 8–15% |
-| **Macro Contrarian** | Targets mispriced 40–65% political/economic events | High | 20–50% |
-| **Yield Maximizer** | 70% Jupiter Lend yield, 30% high-conviction predictions | Medium | 12–25% |
+| Vault                | Strategy                                                | Risk   | Target APY |
+|----------------------|---------------------------------------------------------|--------|------------|
+| **Safe Consensus**   | Buys >85% probability events                            | Low    | 8–15%      |
+| **Macro Contrarian** | Targets mispriced 40–65% political/economic events      | High   | 20–50%     |
+| **Yield Maximizer**  | 70% Jupiter Lend yield, 30% high-conviction predictions | Medium | 12–25%     |
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Frontend (Next.js 16 / React 19 / Tailwind v4)     │
-│  Vault catalog · Deposit/Withdraw · Portfolio        │
+│  Vault catalog · Deposit/Withdraw · Portfolio       │
 └──────────────────────┬──────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────┐
-│  Strategy Engine (Node.js / TypeScript)              │
-│  Market Scanner · Position Manager · Yield Router    │
-│  NAV Calculator · AI Scoring · Limit Orders          │
+│  Strategy Engine (Node.js / TypeScript)             │
+│  Market Scanner · Position Manager · Yield Router   │
+│  NAV Calculator · AI Scoring · Limit Orders         │
 └──────────────────────┬──────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────┐
-│  On-Chain (Anchor / Rust / Solana Devnet)            │
-│  Vault PDA · Token-2022 Shares · Deposit/Withdraw    │
-│  sync_nav · Performance Fees · Pause/Unpause         │
+│  On-Chain (Anchor / Rust / Solana Devnet)           │
+│  Vault PDA · Token-2022 Shares · Deposit/Withdraw   │
+│  sync_nav · Performance Fees · Pause/Unpause        │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -50,23 +50,23 @@ Spectra Vaults lets users deposit USDC into themed, auto-managed vaults that bui
 
 All Jupiter APIs are routed through a single API key from [developers.jup.ag](https://developers.jup.ag):
 
-| API | Usage |
-|-----|-------|
-| **Prediction API** | Core product — scanning markets, placing orders, tracking positions |
-| **Price API v2** | NAV calculation (USDC price validation), portfolio display |
-| **Tokens API** | Token metadata enrichment in market scanner and positions table |
-| **Trigger API** | Smart limit orders for prediction market entries (3% discount targeting) |
-| **Lend/Earn** | Idle USDC yield routing (6%+ APY on idle capital) |
+| API                | Usage                                                                    |
+|--------------------|--------------------------------------------------------------------------|
+| **Prediction API** | Core product — scanning markets, placing orders, tracking positions      |
+| **Price API v2**   | NAV calculation (USDC price validation), portfolio display               |
+| **Tokens API**     | Token metadata enrichment in market scanner and positions table          |
+| **Trigger API**    | Smart limit orders for prediction market entries (3% discount targeting) |
+| **Lend/Earn**      | Idle USDC yield routing (6%+ APY on idle capital)                        |
 
 See [DX-REPORT.md](./DX-REPORT.md) for our Jupiter Developer Experience report.
 
 ## Dune SIM Integration
 
-| Endpoint | Usage |
-|----------|-------|
-| **Wallet Balances** | Real USDC balance in deposit modal, live portfolio token holdings |
-| **Transaction History** | Vault activity feed with real deposit/withdraw/trade data |
-| **Token Metadata** | Enriching vault share token and prediction market token display |
+| Endpoint                | Usage                                                             |
+|-------------------------|-------------------------------------------------------------------|
+| **Wallet Balances**     | Real USDC balance in deposit modal, live portfolio token holdings |
+| **Transaction History** | Vault activity feed with real deposit/withdraw/trade data         |
+| **Token Metadata**      | Enriching vault share token and prediction market token display   |
 
 ## RPC Fast Integration
 
@@ -118,22 +118,3 @@ Spectra/
 ├── DX-REPORT.md            # Jupiter Developer Experience report
 └── Anchor.toml
 ```
-
-## Private Colosseum / judge files (local only)
-
-The directory **`.colosseum/`** is **gitignored**. Use it for:
-
-- A paste-ready **project prompt** (`PROJECT_PROMPT.md`)
-- **AI judge prompts**, rubrics, and score JSON (`COLOSSEUM_JUDGE_AND_RATING.md`, dated score files)
-
-On this machine, those starter files are created under `.colosseum/` when you set up the repo; they are **not committed**. For a new clone, create `.colosseum/` yourself or copy the same content from a teammate.
-
-## Submission
-
-- **Hackathon**: Colosseum — DeFi Track
-- **Side Bounties**: Jupiter Developer Platform, Dune SIM, RPC Fast
-- **Network**: Solana Devnet
-
----
-
-Built by a solo builder in 4 weeks for the Colosseum Hackathon.
