@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { WalletProvider } from "@/components/providers/WalletProvider";
@@ -42,6 +43,7 @@ export default function RootLayout({
         <QueryProvider>
           <WalletProvider>{children}</WalletProvider>
         </QueryProvider>
+        <Analytics />
       </body>
     </html>
   );
