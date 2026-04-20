@@ -1,28 +1,51 @@
 import axios, { type AxiosInstance } from "axios";
+
 import { CONFIG } from "../config.js";
 import { withRetry } from "../utils/retry.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("jupiter-price");
 
-export interface TokenPrice {
-  id: string;
-  type: "derivedPrice";
-  price: string;
+function parsePriceResponse(
+  raw: unknown,
+  mints: string[],
+): Map<string, number> {
+  const prices = new Map<string, number>();
+  if (!raw || typeof raw !== "object") return prices;
+
+  const o = raw as Record<string, unknown>;
+
+  if (o.data && typeof o.data === "object") {
+    for (const [mint, info] of Object.entries(o.data as Record<string, { price?: string }>)) {
+      const p = info?.price;
+      if (p) prices.set(mint, parseFloat(p));
+    }
+    return prices;
+  }
+
+  for (const mint of mints) {
+    const row = o[mint] as { usdPrice?: number; price?: string } | undefined;
+    if (row && typeof row.usdPrice === "number" && Number.isFinite(row.usdPrice)) {
+      prices.set(mint, row.usdPrice);
+    }
+  }
+  if (prices.size > 0) return prices;
+
+  for (const [mint, row] of Object.entries(o)) {
+    if (mint === "timeTaken" || mint === "data") continue;
+    if (!row || typeof row !== "object") continue;
+    const r = row as { usdPrice?: number; price?: string };
+    if (typeof r.usdPrice === "number" && Number.isFinite(r.usdPrice)) {
+      prices.set(mint, r.usdPrice);
+    } else if (r.price) {
+      prices.set(mint, parseFloat(r.price));
+    }
+  }
+  return prices;
 }
 
-export interface PriceResponse {
-  data: Record<string, TokenPrice>;
-  timeTaken: number;
-}
-
-/**
- * Jupiter Price API v2 — real-time USD pricing for any Solana token.
- * Used for NAV calculation (USDC price validation) and portfolio display.
- * Routed through the unified Jupiter Developer Platform API key.
- */
 class JupiterPriceService {
-  private client: AxiosInstance;
+  private readonly client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
@@ -34,52 +57,26 @@ class JupiterPriceService {
     });
   }
 
-  /**
-   * Fetch USD prices for one or more token mints.
-   * @param mints Array of mint addresses (e.g., USDC mint, vault share mints)
-   * @returns Map of mint address → USD price as number
-   */
   async getPrices(mints: string[]): Promise<Map<string, number>> {
     if (mints.length === 0) return new Map();
-
-    return withRetry(
-      async () => {
-        const ids = mints.join(",");
-        const { data } = await this.client.get<PriceResponse>("", {
-          params: { ids },
-        });
-
-        const prices = new Map<string, number>();
-        for (const [mint, info] of Object.entries(data.data ?? {})) {
-          prices.set(mint, parseFloat(info.price));
-        }
-
-        log.debug(`Fetched prices for ${prices.size}/${mints.length} tokens`);
-        return prices;
-      },
-      "getPrices",
-      { maxAttempts: 3 },
-    );
+    return withRetry(async () => {
+      const ids = mints.join(",");
+      const { data } = await this.client.get("", { params: { ids } });
+      const prices = parsePriceResponse(data, mints);
+      log.debug(`Fetched prices for ${prices.size}/${mints.length} tokens`);
+      return prices;
+    }, "getPrices", { maxAttempts: 3 });
   }
 
-  /**
-   * Get a single token's USD price.
-   */
   async getPrice(mint: string): Promise<number | null> {
     const prices = await this.getPrices([mint]);
     return prices.get(mint) ?? null;
   }
 
-  /**
-   * Validate that USDC is trading at ~$1 (sanity check for NAV calc).
-   * Returns the USDC price or 1.0 if the API is unreachable.
-   */
   async getUsdcPrice(): Promise<number> {
     try {
       const price = await this.getPrice(CONFIG.USDC_MINT);
-      if (price && price > 0.95 && price < 1.05) {
-        return price;
-      }
+      if (price && price > 0.95 && price < 1.05) return price;
       log.warn(`USDC price out of range: ${price}, defaulting to 1.0`);
       return 1.0;
     } catch {

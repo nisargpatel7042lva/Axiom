@@ -1,11 +1,12 @@
 import {
   PublicKey,
-  TransactionInstruction,
   Transaction,
   type Connection,
   type Keypair,
+  type TransactionInstruction,
 } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
+
 import { createLogger } from "../utils/logger.js";
 import { withRetry } from "../utils/retry.js";
 import { getConnection, getAuthority, getTokenBalance } from "./solana.js";
@@ -36,10 +37,6 @@ async function ensureSdk(): Promise<boolean> {
   return sdkLoaded;
 }
 
-/**
- * Jupiter Lend Earn — deposit instructions (PROMPT spec).
- * Uses getDepositIxs from @jup-ag/lend/earn.
- */
 export async function depositToEarn(
   connection: Connection,
   signer: Keypair,
@@ -57,9 +54,6 @@ export async function depositToEarn(
   return ixs;
 }
 
-/**
- * Jupiter Lend Earn — withdraw instructions (PROMPT spec).
- */
 export async function withdrawFromEarn(
   connection: Connection,
   signer: Keypair,
@@ -77,9 +71,6 @@ export async function withdrawFromEarn(
   return ixs;
 }
 
-/**
- * Read aggregate USDC token balance for the signer (best-effort Earn position).
- */
 export async function getEarnBalance(
   connection: Connection,
   signer: Keypair,
@@ -98,10 +89,6 @@ export async function getEarnBalance(
     return 0;
   }
 }
-
-// ---------------------------------------------------------------------------
-// High-level helpers (send transactions) — used by yield-router / engine
-// ---------------------------------------------------------------------------
 
 class JupiterLendService {
   async sendDepositToEarn(amountUsdc: number): Promise<string | null> {

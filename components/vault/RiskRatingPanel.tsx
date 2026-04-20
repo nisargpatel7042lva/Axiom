@@ -25,9 +25,9 @@ export function RiskRatingPanel({
   const ring = GRADE_RING[riskSheet.grade];
 
   return (
-    <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6">
+    <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold text-[#e8edf5]">Axiom risk sheet</h3>
           <p className="mt-1 text-xs leading-relaxed text-[#8b9cb3]">
             A trad-fi-style <span className="text-[#e8edf5]">disclosure rubric</span> for{" "}

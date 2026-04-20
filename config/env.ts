@@ -33,6 +33,7 @@ export function getSolanaRpcUrl(): string {
 }
 
 // ── Jupiter Developer Platform ─────────────────────────────────────
+// Prefer `JUPITER_API_KEY` (server-only). `NEXT_PUBLIC_JUPITER_API_KEY` is visible in the browser bundle.
 
 export function getJupiterApiKey(): string | undefined {
   return (

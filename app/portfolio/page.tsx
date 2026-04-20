@@ -38,6 +38,7 @@ import { inferWalletUsdcFlow } from "@/lib/services/dune-sim";
 import type { PortfolioActivity } from "@/lib/portfolio/activity-log";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { DEVNET_USDC_MINT, USDC_MINT, getNetwork } from "@/lib/spectra/constants";
+import { useMatchMedia } from "@/hooks/useMatchMedia";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -62,6 +63,7 @@ function startOfDayMs(ts: number): number {
 }
 
 export default function PortfolioPage() {
+  const narrow = useMatchMedia("(max-width: 390px)");
   const { connected, publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() ?? null;
   const { usdcBalance } = useWalletBalances();
@@ -184,7 +186,7 @@ export default function PortfolioPage() {
     return (
       <div className="flex min-h-screen flex-col bg-[#080c14]">
         <Topbar />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 pt-[6rem]">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
           <Wallet className="size-12 text-[#8b9cb3]" />
           <h2 className="text-xl font-semibold text-[#e8edf5]">Connect Wallet</h2>
           <p className="max-w-sm text-center text-sm text-[#8b9cb3]">
@@ -201,16 +203,16 @@ export default function PortfolioPage() {
     <div className="flex min-h-screen flex-col bg-[#080c14]">
       <Topbar />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-[6rem] md:px-6 md:pb-10">
+      <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-bold text-[#e8edf5] md:text-3xl">Portfolio</h1>
+          <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">Portfolio</h1>
           <p className="mt-1 text-sm text-[#8b9cb3]">
             Live positions from devnet vault share tokens (Token-2022) in your wallet.
           </p>
         </motion.div>
 
         {error && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-100 min-[391px]:px-4">
             <span>{error.message}</span>
             <button
               type="button"
@@ -226,13 +228,13 @@ export default function PortfolioPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3"
+          className="mt-6 grid grid-cols-1 gap-3 min-[391px]:gap-4 sm:grid-cols-3"
         >
-          <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-5">
+          <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5">
             <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
               Redeemable value
             </div>
-            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-2xl font-bold text-[#e8edf5]">
+            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
               {loading ? (
                 <Skeleton className="h-8 w-32 bg-white/5" />
               ) : (
@@ -241,21 +243,21 @@ export default function PortfolioPage() {
             </div>
             <p className="mt-1 text-[10px] text-[#8b9cb3]">From on-chain withdraw preview</p>
           </div>
-          <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-5">
+          <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5">
             <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
               Vaults with shares
             </div>
-            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-2xl font-bold text-[#e8edf5]">
+            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
               {loading ? <Skeleton className="h-8 w-12 bg-white/5" /> : positions.length}
             </div>
             <div className="text-sm text-[#8b9cb3]">of {VAULT_CONFIGS.length} strategies</div>
           </div>
           {usdcBalance > 0 && (
-            <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-5">
+            <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5">
               <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
                 Wallet USDC
               </div>
-              <div className="mt-2 font-[family-name:var(--font-space-mono)] text-2xl font-bold text-[#e8edf5]">
+              <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
                 {formatUsd(usdcBalance)}
               </div>
               <div className="text-[10px] text-[#8b9cb3]">via Dune SIM</div>
@@ -267,16 +269,16 @@ export default function PortfolioPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6"
+          className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
         >
           <h3 className="text-sm font-semibold text-[#e8edf5] mb-1">Portfolio value (sampled)</h3>
-          <p className="text-[10px] text-[#8b9cb3] mb-4">
+          <p className="mb-3 text-[10px] text-[#8b9cb3] min-[391px]:mb-4 max-[390px]:leading-snug">
             15-day timeline. Backfilled from on-chain USDC deposit/withdraw flow plus local app logs.
           </p>
-          <div className="h-56">
+          <div className="h-48 min-[391px]:h-56">
             {chartData.length >= 2 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart key={narrow ? "narrow" : "wide"} data={chartData}>
                   <defs>
                     <linearGradient id="portfolio-gradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#00e5c3" stopOpacity={0.3} />
@@ -294,10 +296,10 @@ export default function PortfolioPage() {
                     tickFormatter={(v: number) =>
                       new Date(v).toLocaleDateString("en-US", {
                         day: "numeric",
-                        month: "long",
+                        month: narrow ? "short" : "long",
                       })
                     }
-                    minTickGap={30}
+                    minTickGap={narrow ? 22 : 30}
                   />
                   <YAxis
                     domain={(range: [number, number]) => {
@@ -312,22 +314,23 @@ export default function PortfolioPage() {
                     }}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8b9cb3", fontSize: 10 }}
+                    tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
                     tickFormatter={(v: number) => formatUsd(v)}
-                    width={72}
+                    width={narrow ? 56 : 72}
                   />
                   <RechartsTooltip
                     contentStyle={{
                       backgroundColor: "#0d1420",
                       border: "1px solid #1a2235",
                       borderRadius: 8,
-                      fontSize: 12,
+                      fontSize: narrow ? 11 : 12,
+                      maxWidth: narrow ? 200 : 280,
                     }}
                     labelStyle={{ color: "#8b9cb3" }}
                     labelFormatter={(v: number) =>
                       new Date(v).toLocaleDateString("en-US", {
                         day: "numeric",
-                        month: "long",
+                        month: narrow ? "short" : "long",
                       })
                     }
                     formatter={(value: number) => [formatUsd(value), "Value"]}
@@ -358,7 +361,9 @@ export default function PortfolioPage() {
           transition={{ delay: 0.3 }}
           className="mt-6"
         >
-          <h3 className="text-lg font-semibold text-[#e8edf5] mb-4">Your positions</h3>
+          <h3 className="mb-3 text-base font-semibold text-[#e8edf5] min-[391px]:mb-4 min-[391px]:text-lg">
+            Your positions
+          </h3>
           <div className="space-y-4">
             {positions.map((pos: LiveVaultPosition) => {
               const cfg = pos.config;
@@ -373,9 +378,9 @@ export default function PortfolioPage() {
                   href={`/vaults/${pos.vaultId}`}
                   className="group block"
                 >
-                  <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-5 transition-all hover:border-[#00e5c3]/30">
+                  <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 transition-all hover:border-[#00e5c3]/30 min-[391px]:p-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <div
                           className="flex size-10 items-center justify-center rounded-xl"
                           style={{
@@ -385,29 +390,31 @@ export default function PortfolioPage() {
                         >
                           {VAULT_ICONS[cfg.id] ?? <TrendingUp className="size-5" />}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-[#e8edf5]">{cfg.name}</h4>
-                            <ArrowUpRight className="size-4 text-[#8b9cb3] opacity-0 transition-opacity group-hover:opacity-100" />
+                            <h4 className="truncate font-semibold text-[#e8edf5]">{cfg.name}</h4>
+                            <ArrowUpRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-opacity group-hover:opacity-100" />
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-[#8b9cb3]">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b9cb3] min-[391px]:text-xs">
                             <span className="font-[family-name:var(--font-space-mono)]">
                               {formatShares(pos.sharesHuman)} {cfg.ticker}
                             </span>
-                            <span>·</span>
-                            <span>PPS: ${pps.toFixed(4)}</span>
+                            <span className="hidden sm:inline">·</span>
+                            <span className="font-[family-name:var(--font-space-mono)]">
+                              PPS ${pps.toFixed(4)}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
+                      <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-3 sm:flex sm:items-center sm:gap-6 sm:border-t-0 sm:pt-0">
+                        <div className="text-left sm:text-right">
                           <div className="text-xs text-[#8b9cb3]">Redeemable</div>
                           <div className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
                             {formatUsd(pos.currentValueUsdc)}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <div className="text-xs text-[#8b9cb3]">P&amp;L</div>
                           <div
                             className={`font-[family-name:var(--font-space-mono)] text-sm font-semibold ${
@@ -417,8 +424,8 @@ export default function PortfolioPage() {
                             {pnlPositive ? "+" : "-"}
                             {formatUsd(Math.abs(pnl))}
                           </div>
-                          <div className="text-xs text-[#8b9cb3]">
-                            vs net invested {formatUsd(netInvested)}
+                          <div className="text-[10px] text-[#8b9cb3] min-[391px]:text-xs">
+                            vs {formatUsd(netInvested)}
                           </div>
                         </div>
                       </div>
@@ -435,7 +442,7 @@ export default function PortfolioPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="mt-8 rounded-2xl border border-dashed border-[#1a2235] bg-[#0d1420]/50 p-8 text-center"
+            className="mt-8 rounded-2xl border border-dashed border-[#1a2235] bg-[#0d1420]/50 p-5 text-center min-[391px]:p-8"
           >
             <p className="text-sm text-[#8b9cb3]">
               No vault share tokens detected. Explore strategies on the home page and deposit on

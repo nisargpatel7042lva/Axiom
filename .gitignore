@@ -1,7 +1,14 @@
 node_modules/
 .next/
+# Secrets — never commit real values (use `.env.example` only as a template)
 .env
 .env.local
+.env.*
+!.env.example
+# Common local keypair paths (devnet authority / test wallets)
+keypair.json
+*-keypair.json
+*.pem
 dist/
 target/
 *.so

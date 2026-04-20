@@ -1,10 +1,8 @@
 import { jupiterLend } from "../services/jupiter-lend.js";
 import { getTokenBalance } from "../services/solana.js";
 import { getAllVaultConfigs, CONFIG } from "../config.js";
-import { deriveVaultPda } from "../services/vault-contract.js";
+import { deriveVaultPda, deriveAssetVaultPda } from "../services/vault-contract.js";
 import { createLogger } from "../utils/logger.js";
-import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import type { LendingPosition } from "../types/index.js";
 
 const log = createLogger("yield-router");
@@ -58,9 +56,8 @@ export async function runYieldRouter(): Promise<void> {
 async function getIdleUsdc(vaultId: number): Promise<number> {
   try {
     const [vaultPda] = deriveVaultPda(vaultId);
-    const usdcMint = new PublicKey(CONFIG.USDC_MINT);
-    const ata = getAssociatedTokenAddressSync(usdcMint, vaultPda, true);
-    return await getTokenBalance(ata);
+    const [assetVault] = deriveAssetVaultPda(vaultPda);
+    return await getTokenBalance(assetVault);
   } catch {
     log.debug(`Could not read idle USDC for vault ${vaultId}, returning 0`);
     return 0;

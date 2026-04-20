@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env-bootstrap.js";
 import cron from "node-cron";
 import express from "express";
 import { runMarketScanner } from "./jobs/market-scanner.js";
@@ -6,6 +6,7 @@ import { runPositionManager } from "./jobs/position-manager.js";
 import { runYieldRouter } from "./jobs/yield-router.js";
 import { runNavCalculator, getAllNavs } from "./jobs/nav-calculator.js";
 import { getActivePositions, getTradeHistory } from "./jobs/position-manager.js";
+import { getVaultNavYieldMetrics } from "./data/vault-nav-snapshots.js";
 import { getAllVaultConfigs, CONFIG } from "./config.js";
 import { createLogger } from "./utils/logger.js";
 import type { EngineHealth } from "./types/index.js";
@@ -18,11 +19,6 @@ let lastNavSync: string | null = null;
 let lastPositionCheck: string | null = null;
 let lastYieldRoute: string | null = null;
 
-// ---------------------------------------------------------------------------
-// Cron jobs
-// ---------------------------------------------------------------------------
-
-// PROMPT: scanner every 30m; NAV every 30m after scanner (same tick)
 cron.schedule("*/30 * * * *", async () => {
   log.info("[cron] Market scanner + NAV (sequential)");
   try {
@@ -55,10 +51,6 @@ cron.schedule("0 * * * *", async () => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Express health check + API
-// ---------------------------------------------------------------------------
-
 const app = express();
 app.use(express.json());
 
@@ -87,6 +79,21 @@ app.get("/api/navs", (_req, res) => {
   res.json(getAllNavs());
 });
 
+app.get("/api/vaults/:vaultId/yield-metrics", async (req, res) => {
+  const id = parseInt(req.params.vaultId, 10);
+  if (!Number.isFinite(id) || id < 0) {
+    res.status(400).json({ error: "Invalid vaultId" });
+    return;
+  }
+  try {
+    const metrics = await getVaultNavYieldMetrics(id);
+    res.json(metrics);
+  } catch (e) {
+    log.error("yield-metrics failed", e);
+    res.status(500).json({ error: "Failed to read yield metrics" });
+  }
+});
+
 app.get("/api/positions/:vaultId", (req, res) => {
   res.json(getActivePositions(req.params.vaultId));
 });
@@ -99,11 +106,7 @@ app.listen(CONFIG.HEALTH_PORT, () => {
   log.info(`Health endpoint listening on http://localhost:${CONFIG.HEALTH_PORT}/health`);
 });
 
-// ---------------------------------------------------------------------------
-// Startup
-// ---------------------------------------------------------------------------
-
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   log.info("Spectra Engine starting...");
 
   try {
@@ -125,4 +128,4 @@ async function bootstrap() {
   log.info("Spectra Engine running. Cron jobs active.");
 }
 
-bootstrap();
+void bootstrap();

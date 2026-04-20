@@ -1,0 +1,13 @@
+# GitGuardian / ggshield — suppress false positives on well-known Solana on-chain
+# program IDs (Base58), which match "Generic High Entropy Secret" heuristics.
+# See: https://spl.solana.com/associated-token-account
+version: 2
+
+secret:
+  ignored_matches:
+    - name: SPL Associated Token Program (public program id)
+      match: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
+    - name: SPL Token Program (public program id)
+      match: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+    - name: SPL Token-2022 Program (public program id)
+      match: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
