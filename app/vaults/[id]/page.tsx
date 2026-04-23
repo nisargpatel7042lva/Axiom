@@ -41,10 +41,12 @@ import { usePpsSessionHistory } from "@/hooks/usePpsSessionHistory";
 import { useVaultUserShares } from "@/hooks/useVaultUserShares";
 import { useSimulateYield } from "@/lib/spectra/hooks/use-simulate-yield";
 import { parseActivityFeed } from "@/lib/services/dune-sim";
+import { usePortfolioActivities } from "@/hooks/usePortfolioActivities";
 import type { VaultId } from "@/types";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getNetwork } from "@/lib/spectra/constants";
 import { useMatchMedia } from "@/hooks/useMatchMedia";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 const VAULT_ICONS: Record<string, React.ReactNode> = {
   "safe-consensus": <Shield className="size-6" />,
@@ -109,7 +111,15 @@ export default function VaultDetailPage({
   const [yieldBps, setYieldBps] = useState(300);
   const [simSig, setSimSig] = useState<string | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
-  const { transactions: duneTxns } = useTransactionHistory(12);
+  const { connected, publicKey } = useWallet();
+  const {
+    transactions: duneTxns,
+    isLoading: txLoading,
+    error: txError,
+  } = useTransactionHistory(12);
+  const localActivities = usePortfolioActivities(
+    connected && publicKey ? publicKey.toBase58() : null,
+  );
 
   const { chartData: sessionPps } = usePpsSessionHistory(
     state?.pricePerShare ?? null,
@@ -129,6 +139,33 @@ export default function VaultDetailPage({
     () => parseActivityFeed(duneTxns),
     [duneTxns],
   );
+  const localVaultActivityFeed = useMemo(
+    () => {
+      if (!config) return [];
+      return localActivities
+        .filter((row) => row.vaultId === config.id)
+        .map((row) => ({
+          action:
+            row.kind === "deposit"
+              ? `Deposited ${formatUsd(row.amountUsdc)} to vault`
+              : `Withdrew ${formatUsd(row.amountUsdc)} from vault`,
+          timestamp: new Date(row.timestamp).toISOString(),
+          hash: row.txSig ?? row.id,
+        }));
+    },
+    [localActivities, config],
+  );
+
+  const activityFeed = useMemo(() => {
+    const combined = [...localVaultActivityFeed, ...parsedActivity];
+    const dedup = new Map<string, (typeof combined)[number]>();
+    for (const item of combined) {
+      if (!dedup.has(item.hash)) dedup.set(item.hash, item);
+    }
+    return Array.from(dedup.values()).sort(
+      (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
+    );
+  }, [localVaultActivityFeed, parsedActivity]);
 
   const { data: userSharesLamports, isLoading: sharesLoading } =
     useVaultUserShares(config?.chainVaultId ?? null);
@@ -582,9 +619,9 @@ export default function VaultDetailPage({
               <h3 className="text-sm font-semibold text-[#e8edf5]">Activity</h3>
             </div>
 
-            {parsedActivity.length > 0 ? (
+            {activityFeed.length > 0 ? (
               <div className="space-y-0">
-                {parsedActivity.map((item, i) => (
+                {activityFeed.map((item, i) => (
                   <div
                     key={item.hash}
                     className={`flex items-start gap-3 py-3 ${i > 0 ? "border-t border-white/5" : ""}`}
@@ -610,8 +647,13 @@ export default function VaultDetailPage({
               </div>
             ) : (
               <p className="text-sm text-[#8b9cb3]">
-                Connect your wallet to load recent transactions via Dune SIM. On-chain vault events
-                will appear here when your wallet has activity.
+                {!connected
+                  ? "Connect your wallet to load recent transactions via Dune SIM. Vault activity appears after your first deposit/withdraw."
+                  : txLoading
+                    ? "Loading recent wallet transactions…"
+                    : txError
+                      ? "Could not load Dune SIM transactions right now. New deposit/withdraw activity will still appear after successful vault actions."
+                      : "No recent activity for this vault yet. Make a deposit or withdrawal to populate this feed."}
               </p>
             )}
           </motion.div>

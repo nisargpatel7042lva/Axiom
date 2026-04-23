@@ -40,4 +40,54 @@ pub enum SpectraError {
 
     #[msg("Performance fee basis points out of range (max 5000)")]
     InvalidFeeBps,
+
+    // Multisig errors
+    #[msg("Signer is not authorized in multisig")]
+    UnauthorizedSigner,
+
+    #[msg("Threshold must be between 1 and MAX_MULTISIG_THRESHOLD")]
+    InvalidThreshold,
+
+    #[msg("Too many signers (max 5)")]
+    TooManySigners,
+
+    #[msg("Operation already approved by this signer")]
+    AlreadyApproved,
+
+    #[msg("Operation not found or already executed/cancelled")]
+    OperationNotFound,
+
+    #[msg("Timelock has not expired yet")]
+    TimelockActive,
+
+    #[msg("Threshold not met - more approvals required")]
+    ThresholdNotMet,
+
+    #[msg("Duplicate signer in list")]
+    DuplicateSigner,
+
+    // Governance errors
+    #[msg("Voting period has ended")]
+    VotingEnded,
+
+    #[msg("Voting period is still active")]
+    VotingActive,
+
+    #[msg("User already voted on this proposal")]
+    AlreadyVoted,
+
+    #[msg("Quorum not reached")]
+    QuorumNotReached,
+
+    #[msg("Proposal already executed")]
+    AlreadyExecuted,
+
+    #[msg("Proposal was rejected")]
+    ProposalRejected,
+
+    #[msg("Invalid strategy change type")]
+    InvalidChangeType,
+
+    #[msg("User has no shares to vote with")]
+    NoSharesToVote,
 }

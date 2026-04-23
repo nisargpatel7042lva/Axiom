@@ -11,7 +11,7 @@ spectra_vault = "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 # For production: replace with RPC Fast endpoint
 # cluster = "https://your-endpoint.rpcfast.com"

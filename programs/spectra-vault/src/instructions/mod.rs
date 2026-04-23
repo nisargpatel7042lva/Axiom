@@ -1,7 +1,15 @@
+pub mod approve_operation;
+pub mod cancel_operation;
 pub mod collect_fee;
 pub mod deposit;
+pub mod execute_operation;
+pub mod execute_strategy_change;
 pub mod initialize;
+pub mod initialize_multisig;
 pub mod initialize_strategy;
 pub mod pause;
+pub mod propose_operation;
+pub mod propose_strategy_change;
 pub mod sync_nav;
+pub mod vote_on_strategy;
 pub mod withdraw;

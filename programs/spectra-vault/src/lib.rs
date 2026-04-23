@@ -8,6 +8,7 @@ pub mod instructions;
 pub mod state;
 
 use ix_accounts::*;
+use state::*;
 
 declare_id!("JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH");
 
@@ -73,5 +74,62 @@ pub mod spectra_vault {
 
     pub fn collect_performance_fee(ctx: Context<CollectPerformanceFee>) -> Result<()> {
         instructions::collect_fee::handler(ctx)
+    }
+
+    // Multisig instructions
+    pub fn initialize_multisig(
+        ctx: Context<InitializeMultisig>,
+        signers: Vec<Pubkey>,
+        threshold: u8,
+    ) -> Result<()> {
+        instructions::initialize_multisig::handler(ctx, signers, threshold)
+    }
+
+    pub fn propose_operation(
+        ctx: Context<ProposeOperation>,
+        operation_id: u64,
+        operation_type: OperationType,
+    ) -> Result<()> {
+        instructions::propose_operation::handler(ctx, operation_id, operation_type)
+    }
+
+    pub fn approve_operation(ctx: Context<ApproveOperation>) -> Result<()> {
+        instructions::approve_operation::handler(ctx)
+    }
+
+    pub fn execute_operation(ctx: Context<ExecuteOperation>) -> Result<()> {
+        instructions::execute_operation::handler(ctx)
+    }
+
+    pub fn cancel_operation(ctx: Context<CancelOperation>) -> Result<()> {
+        instructions::cancel_operation::handler(ctx)
+    }
+
+    // Governance instructions
+    pub fn propose_strategy_change(
+        ctx: Context<ProposeStrategyChange>,
+        proposal_id: u64,
+        change_type: StrategyChangeType,
+        new_value: u64,
+        voting_duration_seconds: i64,
+    ) -> Result<()> {
+        instructions::propose_strategy_change::handler(
+            ctx,
+            proposal_id,
+            change_type,
+            new_value,
+            voting_duration_seconds,
+        )
+    }
+
+    pub fn vote_on_strategy(
+        ctx: Context<VoteOnStrategy>,
+        voted_for: bool,
+    ) -> Result<()> {
+        instructions::vote_on_strategy::handler(ctx, voted_for)
+    }
+
+    pub fn execute_strategy_change(ctx: Context<ExecuteStrategyChange>) -> Result<()> {
+        instructions::execute_strategy_change::handler(ctx)
     }
 }
