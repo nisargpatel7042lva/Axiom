@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useMemo } from "react";
+import { use, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -16,6 +16,8 @@ import {
   PauseCircle,
   Sparkles,
   Loader2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   AreaChart,
@@ -111,6 +113,7 @@ export default function VaultDetailPage({
   const [yieldBps, setYieldBps] = useState(300);
   const [simSig, setSimSig] = useState<string | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(5);
   const { connected, publicKey } = useWallet();
   const {
     transactions: duneTxns,
@@ -166,6 +169,15 @@ export default function VaultDetailPage({
       (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
     );
   }, [localVaultActivityFeed, parsedActivity]);
+
+  useEffect(() => {
+    setVisibleActivityCount(5);
+  }, [activityFeed.length, id]);
+
+  const visibleActivityFeed = useMemo(
+    () => activityFeed.slice(0, visibleActivityCount),
+    [activityFeed, visibleActivityCount],
+  );
 
   const { data: userSharesLamports, isLoading: sharesLoading } =
     useVaultUserShares(config?.chainVaultId ?? null);
@@ -621,7 +633,7 @@ export default function VaultDetailPage({
 
             {activityFeed.length > 0 ? (
               <div className="space-y-0">
-                {activityFeed.map((item, i) => (
+                {visibleActivityFeed.map((item, i) => (
                   <div
                     key={item.hash}
                     className={`flex items-start gap-3 py-3 ${i > 0 ? "border-t border-white/5" : ""}`}
@@ -644,6 +656,33 @@ export default function VaultDetailPage({
                     </div>
                   </div>
                 ))}
+                {activityFeed.length > 5 && (
+                  <div className="border-t border-white/5 pt-3">
+                    {visibleActivityCount < activityFeed.length ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleActivityCount((prev) =>
+                            Math.min(prev + 5, activityFeed.length),
+                          )
+                        }
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[#00e5c3] hover:underline"
+                      >
+                        <ChevronDown className="size-3.5" />
+                        Show more
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleActivityCount(5)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[#8b9cb3] hover:text-[#e8edf5]"
+                      >
+                        <ChevronUp className="size-3.5" />
+                        Show less
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-[#8b9cb3]">
