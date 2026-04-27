@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -19,6 +19,8 @@ import {
   Area,
   XAxis,
   YAxis,
+  CartesianGrid,
+  ReferenceLine,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
@@ -63,6 +65,7 @@ function startOfDayMs(ts: number): number {
 }
 
 export default function PortfolioPage() {
+  const [chartMode, setChartMode] = useState<"total" | "flow">("total");
   const narrow = useMatchMedia("(max-width: 390px)");
   const { connected, publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() ?? null;
@@ -107,15 +110,20 @@ export default function PortfolioPage() {
     return totals;
   }, [historyActivities]);
 
-  const chartData = useMemo(() => {
+  const chartSeries = useMemo(() => {
     const now = Date.now();
     const todayStart = startOfDayMs(now);
     const firstDay = todayStart - 14 * 24 * 60 * 60 * 1000;
 
     if (historyActivities.length === 0) {
-      if (chartPoints.length >= 2) return chartPoints;
+      if (chartPoints.length >= 2) {
+        return {
+          total: chartPoints,
+          flow: chartPoints.map((d) => ({ ...d, value: 0 })),
+        };
+      }
       if (totalValue > 0) {
-        return [
+        const fallback = [
           {
             date: new Date(firstDay).toLocaleDateString("en-US", { day: "numeric", month: "long" }),
             value: 0,
@@ -127,8 +135,12 @@ export default function PortfolioPage() {
             t: todayStart,
           },
         ];
+        return {
+          total: fallback,
+          flow: fallback.map((d) => ({ ...d, value: 0 })),
+        };
       }
-      return [];
+      return { total: [], flow: [] };
     }
 
     const dailyFlow = new Map<string, { invested: number; withdrawn: number }>();
@@ -141,27 +153,39 @@ export default function PortfolioPage() {
       dailyFlow.set(k, row);
     }
 
-    const daily = [];
+    const dailyTotal = [];
+    const dailyFlowSeries = [];
     let cumulative = 0;
     let hasAnyFlowInWindow = false;
     for (let i = 0; i < 15; i++) {
       const ts = firstDay + i * 24 * 60 * 60 * 1000;
       const k = dayKey(ts);
       const flow = dailyFlow.get(k) ?? { invested: 0, withdrawn: 0 };
+      const netFlow = flow.invested - flow.withdrawn;
       if (flow.invested > 0 || flow.withdrawn > 0) hasAnyFlowInWindow = true;
-      cumulative += flow.invested - flow.withdrawn;
+      cumulative += netFlow;
       cumulative = Math.max(0, cumulative);
-      daily.push({
+      dailyTotal.push({
         t: ts,
         date: new Date(ts).toLocaleDateString("en-US", { day: "numeric", month: "long" }),
         value: cumulative,
       });
+      dailyFlowSeries.push({
+        t: ts,
+        date: new Date(ts).toLocaleDateString("en-US", { day: "numeric", month: "long" }),
+        value: netFlow,
+      });
     }
 
     if (!hasAnyFlowInWindow) {
-      if (chartPoints.length >= 2) return chartPoints;
+      if (chartPoints.length >= 2) {
+        return {
+          total: chartPoints,
+          flow: chartPoints.map((d) => ({ ...d, value: 0 })),
+        };
+      }
       if (totalValue > 0) {
-        return [
+        const fallback = [
           {
             date: new Date(firstDay).toLocaleDateString("en-US", { day: "numeric", month: "long" }),
             value: 0,
@@ -173,14 +197,23 @@ export default function PortfolioPage() {
             t: todayStart,
           },
         ];
+        return {
+          total: fallback,
+          flow: fallback.map((d) => ({ ...d, value: 0 })),
+        };
       }
-      return [];
+      return { total: [], flow: [] };
     }
 
-    const last = daily[daily.length - 1];
+    const last = dailyTotal[dailyTotal.length - 1];
     const scale = last && last.value > 0 && totalValue > 0 ? totalValue / last.value : 1;
-    return daily.map((d) => ({ ...d, value: d.value * scale }));
+    return {
+      total: dailyTotal.map((d) => ({ ...d, value: d.value * scale })),
+      flow: dailyFlowSeries,
+    };
   }, [historyActivities, chartPoints, totalValue]);
+
+  const chartData = chartMode === "total" ? chartSeries.total : chartSeries.flow;
 
   if (!connected) {
     return (
@@ -271,10 +304,58 @@ export default function PortfolioPage() {
           transition={{ delay: 0.2 }}
           className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
         >
-          <h3 className="text-sm font-semibold text-[#e8edf5] mb-1">Portfolio value (sampled)</h3>
-          <p className="mb-3 text-[10px] text-[#8b9cb3] min-[391px]:mb-4 max-[390px]:leading-snug">
-            15-day timeline. Backfilled from on-chain USDC deposit/withdraw flow plus local app logs.
+          <div className="mb-3 flex flex-col gap-2 min-[391px]:flex-row min-[391px]:items-center min-[391px]:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-[#e8edf5]">Portfolio chart</h3>
+              <p className="mt-1 text-[10px] text-[#8b9cb3]">
+                15-day view · switch between value trend and daily net movement.
+              </p>
+            </div>
+            <div className="inline-flex rounded-xl border border-[#1a2235] bg-[#080c14] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <button
+                type="button"
+                onClick={() => setChartMode("total")}
+                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${
+                  chartMode === "total"
+                    ? "bg-[#00e5c3] text-[#080c14] shadow-[0_0_0_1px_rgba(0,229,195,0.25)]"
+                    : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
+                }`}
+              >
+                Total Value
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartMode("flow")}
+                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${
+                  chartMode === "flow"
+                    ? "bg-[#6366f1] text-white shadow-[0_0_0_1px_rgba(99,102,241,0.25)]"
+                    : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
+                }`}
+              >
+                Daily Flow
+              </button>
+            </div>
+          </div>
+          <p className="mb-2 text-[10px] text-[#8b9cb3] min-[391px]:mb-3 max-[390px]:leading-snug">
+            {chartMode === "total"
+              ? "15-day estimated portfolio total. Backfilled from on-chain USDC flow plus local app logs."
+              : "15-day net daily flow (deposits - withdrawals). Positive means net inflow."}
           </p>
+          <div className="mb-3 flex items-center gap-3 text-[10px] text-[#8b9cb3]">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: chartMode === "total" ? "#00e5c3" : "#6366f1" }}
+              />
+              {chartMode === "total" ? "Total value trend" : "Net daily flow"}
+            </span>
+            {chartMode === "flow" && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-[1px] w-3 bg-white/25" />
+                Zero baseline
+              </span>
+            )}
+          </div>
           <div className="h-48 min-[391px]:h-56">
             {chartData.length >= 2 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -284,7 +365,15 @@ export default function PortfolioPage() {
                       <stop offset="0%" stopColor="#00e5c3" stopOpacity={0.3} />
                       <stop offset="100%" stopColor="#00e5c3" stopOpacity={0} />
                     </linearGradient>
+                    <linearGradient id="flow-gradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.04} />
+                    </linearGradient>
                   </defs>
+                  <CartesianGrid stroke="rgba(139,156,179,0.12)" strokeDasharray="3 4" vertical={false} />
+                  {chartMode === "flow" && (
+                    <ReferenceLine y={0} stroke="rgba(255,255,255,0.28)" strokeDasharray="4 4" />
+                  )}
                   <XAxis
                     dataKey="t"
                     type="number"
@@ -322,9 +411,10 @@ export default function PortfolioPage() {
                     contentStyle={{
                       backgroundColor: "#0d1420",
                       border: "1px solid #1a2235",
-                      borderRadius: 8,
+                      borderRadius: 10,
                       fontSize: narrow ? 11 : 12,
                       maxWidth: narrow ? 200 : 280,
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
                     }}
                     labelStyle={{ color: "#8b9cb3" }}
                     labelFormatter={(v: number) =>
@@ -333,14 +423,17 @@ export default function PortfolioPage() {
                         month: narrow ? "short" : "long",
                       })
                     }
-                    formatter={(value: number) => [formatUsd(value), "Value"]}
+                    formatter={(value: number) => [
+                      formatUsd(value),
+                      chartMode === "total" ? "Portfolio value" : "Net flow",
+                    ]}
                   />
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke="#00e5c3"
+                    stroke={chartMode === "total" ? "#00e5c3" : "#6366f1"}
                     strokeWidth={2}
-                    fill="url(#portfolio-gradient)"
+                    fill={chartMode === "total" ? "url(#portfolio-gradient)" : "url(#flow-gradient)"}
                     isAnimationActive={false}
                   />
                 </AreaChart>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 
@@ -46,9 +47,11 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-[#080c14] text-[#e8edf5]"
         suppressHydrationWarning
       >
-        <QueryProvider>
-          <WalletProvider>{children}</WalletProvider>
-        </QueryProvider>
+        <PostHogProvider>
+          <QueryProvider>
+            <WalletProvider>{children}</WalletProvider>
+          </QueryProvider>
+        </PostHogProvider>
         <Analytics />
       </body>
     </html>

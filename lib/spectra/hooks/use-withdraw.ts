@@ -7,6 +7,14 @@ import BN from "bn.js";
 
 import { getProgram } from "../program";
 import { withdraw as sendWithdraw } from "../vault-client";
+import { trackEvent } from "@/lib/analytics/client";
+
+type WithdrawTelemetryMeta = {
+  attemptId?: string;
+  wallet?: string;
+  vaultId?: string;
+  shares?: number;
+};
 
 export function useWithdraw(vaultId: number) {
   const { connection } = useConnection();
@@ -17,7 +25,7 @@ export function useWithdraw(vaultId: number) {
   const [error, setError] = useState<Error | null>(null);
 
   const withdraw = useCallback(
-    async (shares: BN): Promise<string> => {
+    async (shares: BN, meta?: WithdrawTelemetryMeta): Promise<string> => {
       setError(null);
 
       if (!wallet) {
@@ -41,6 +49,16 @@ export function useWithdraw(vaultId: number) {
           shares,
           wallet.publicKey
         );
+        trackEvent({
+          name: "withdraw_tx_confirmed",
+          attemptId: meta?.attemptId,
+          wallet: meta?.wallet ?? wallet.publicKey.toBase58(),
+          vaultId: meta?.vaultId,
+          chainVaultId: vaultId,
+          txKind: "withdraw",
+          txSig: sig,
+          shares: meta?.shares,
+        });
 
         queryClient.invalidateQueries({ queryKey: ["devnet-vault-dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["wallet-vault-positions"] });
@@ -50,6 +68,17 @@ export function useWithdraw(vaultId: number) {
         return sig;
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
+        trackEvent({
+          name: "withdraw_tx_failed",
+          attemptId: meta?.attemptId,
+          wallet: meta?.wallet ?? wallet.publicKey.toBase58(),
+          vaultId: meta?.vaultId,
+          chainVaultId: vaultId,
+          txKind: "withdraw",
+          shares: meta?.shares,
+          errorClass: err.name,
+          errorMessage: err.message,
+        });
         setError(err);
         throw err;
       } finally {
