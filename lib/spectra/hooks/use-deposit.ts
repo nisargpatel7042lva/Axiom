@@ -7,6 +7,14 @@ import BN from "bn.js";
 
 import { getProgram } from "../program";
 import { deposit as sendDeposit } from "../vault-client";
+import { trackEvent } from "@/lib/analytics/client";
+
+type DepositTelemetryMeta = {
+  attemptId?: string;
+  wallet?: string;
+  vaultId?: string;
+  amountUsdc?: number;
+};
 
 export function useDeposit(vaultId: number) {
   const { connection } = useConnection();
@@ -18,7 +26,7 @@ export function useDeposit(vaultId: number) {
   const inFlight = useRef(false);
 
   const deposit = useCallback(
-    async (amount: BN): Promise<string> => {
+    async (amount: BN, meta?: DepositTelemetryMeta): Promise<string> => {
       setError(null);
 
       if (inFlight.current) {
@@ -49,6 +57,16 @@ export function useDeposit(vaultId: number) {
           amount,
           wallet.publicKey
         );
+        trackEvent({
+          name: "deposit_tx_confirmed",
+          attemptId: meta?.attemptId,
+          wallet: meta?.wallet ?? wallet.publicKey.toBase58(),
+          vaultId: meta?.vaultId,
+          chainVaultId: vaultId,
+          txKind: "deposit",
+          txSig: sig,
+          amountUsdc: meta?.amountUsdc,
+        });
 
         queryClient.invalidateQueries({ queryKey: ["devnet-vault-dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["wallet-vault-positions"] });
@@ -58,6 +76,17 @@ export function useDeposit(vaultId: number) {
         return sig;
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
+        trackEvent({
+          name: "deposit_tx_failed",
+          attemptId: meta?.attemptId,
+          wallet: meta?.wallet ?? wallet.publicKey.toBase58(),
+          vaultId: meta?.vaultId,
+          chainVaultId: vaultId,
+          txKind: "deposit",
+          amountUsdc: meta?.amountUsdc,
+          errorClass: err.name,
+          errorMessage: err.message,
+        });
         setError(err);
         throw err;
       } finally {

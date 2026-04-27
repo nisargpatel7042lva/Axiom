@@ -14,6 +14,7 @@ import { previewDeposit } from "@/lib/spectra/vault-client";
 import { recordPortfolioActivity } from "@/lib/portfolio/activity-log";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
 import { USDC_DECIMALS, getNetwork } from "@/lib/spectra/constants";
+import { newAttemptId, trackEvent } from "@/lib/analytics/client";
 import type { VaultConfig, VaultState } from "@/types";
 
 const WalletMultiButton = dynamic(
@@ -107,8 +108,33 @@ export function DepositModal({
     if (!onChainVault) return;
     setTxError(null);
     setStep("processing");
+    const attemptId = newAttemptId();
+    trackEvent({
+      name: "deposit_submit_clicked",
+      attemptId,
+      wallet: publicKey?.toBase58(),
+      vaultId: vaultConfig.id,
+      chainVaultId,
+      txKind: "deposit",
+      amountUsdc: amount,
+    });
     try {
-      const sig = await deposit(lamports);
+      const sig = await deposit(lamports, {
+        attemptId,
+        wallet: publicKey?.toBase58(),
+        vaultId: vaultConfig.id,
+        amountUsdc: amount,
+      });
+      trackEvent({
+        name: "deposit_tx_submitted",
+        attemptId,
+        wallet: publicKey?.toBase58(),
+        vaultId: vaultConfig.id,
+        chainVaultId,
+        txKind: "deposit",
+        amountUsdc: amount,
+        txSig: sig,
+      });
       setLastSig(sig);
 
       if (publicKey) {
@@ -247,6 +273,14 @@ export function DepositModal({
                 type="button"
                 onClick={() => {
                   setTxError(null);
+                  trackEvent({
+                    name: "deposit_review_opened",
+                    wallet: publicKey?.toBase58(),
+                    vaultId: vaultConfig.id,
+                    chainVaultId,
+                    txKind: "deposit",
+                    amountUsdc: amount,
+                  });
                   setStep("confirm");
                 }}
                 disabled={!isValid}

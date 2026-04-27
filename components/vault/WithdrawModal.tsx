@@ -12,6 +12,7 @@ import { useWithdraw } from "@/lib/spectra/hooks/use-withdraw";
 import { previewWithdraw } from "@/lib/spectra/vault-client";
 import { recordPortfolioActivity } from "@/lib/portfolio/activity-log";
 import { getNetwork } from "@/lib/spectra/constants";
+import { newAttemptId, trackEvent } from "@/lib/analytics/client";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
 import type { VaultConfig, VaultState } from "@/types";
 
@@ -105,8 +106,33 @@ export function WithdrawModal({
     if (!onChainVault) return;
     setTxError(null);
     setStep("processing");
+    const attemptId = newAttemptId();
+    trackEvent({
+      name: "withdraw_submit_clicked",
+      attemptId,
+      wallet: publicKey?.toBase58(),
+      vaultId: vaultConfig.id,
+      chainVaultId,
+      txKind: "withdraw",
+      shares,
+    });
     try {
-      const sig = await withdraw(sharesLamports);
+      const sig = await withdraw(sharesLamports, {
+        attemptId,
+        wallet: publicKey?.toBase58(),
+        vaultId: vaultConfig.id,
+        shares,
+      });
+      trackEvent({
+        name: "withdraw_tx_submitted",
+        attemptId,
+        wallet: publicKey?.toBase58(),
+        vaultId: vaultConfig.id,
+        chainVaultId,
+        txKind: "withdraw",
+        shares,
+        txSig: sig,
+      });
       setLastSig(sig);
 
       if (publicKey) {
@@ -253,6 +279,14 @@ export function WithdrawModal({
                 type="button"
                 onClick={() => {
                   setTxError(null);
+                  trackEvent({
+                    name: "withdraw_review_opened",
+                    wallet: publicKey?.toBase58(),
+                    vaultId: vaultConfig.id,
+                    chainVaultId,
+                    txKind: "withdraw",
+                    shares,
+                  });
                   setStep("confirm");
                 }}
                 disabled={!isValid}
