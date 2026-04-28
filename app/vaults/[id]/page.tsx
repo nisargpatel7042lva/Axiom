@@ -61,11 +61,7 @@ const RANGE_MS: Record<Exclude<ChartRange, "1y">, number> = {
   "1d": 24 * 60 * 60_000,
 };
 
-function formatXAxisForRange(
-  ts: number,
-  range: ChartRange,
-  spanMs: number,
-): string {
+function formatXAxisForRange(ts: number, range: ChartRange): string {
   const d = new Date(ts);
   if (range === "1m" || range === "5m" || range === "15m") {
     return d.toLocaleTimeString("en-US", {
@@ -80,37 +76,10 @@ function formatXAxisForRange(
       minute: "2-digit",
     });
   }
-  // 1y selector can still contain short local-session data; avoid repeating same date labels.
-  if (spanMs <= 2 * 24 * 60 * 60_000) {
-    return d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
-}
-
-function downsampleByBucket(
-  points: { t: number; pps: number; date: string }[],
-  bucketMs: number,
-) {
-  if (points.length <= 2 || bucketMs <= 0) return points;
-  const out: typeof points = [];
-  let lastBucket = -1;
-  for (const p of points) {
-    const bucket = Math.floor(p.t / bucketMs);
-    if (bucket !== lastBucket) {
-      out.push(p);
-      lastBucket = bucket;
-    } else {
-      // keep the most recent point in same bucket
-      out[out.length - 1] = p;
-    }
-  }
-  return out.length >= 2 ? out : points.slice(-2);
 }
 
 export default function VaultDetailPage({
@@ -155,24 +124,38 @@ export default function VaultDetailPage({
   );
 
   const chartData = useMemo(() => {
-    const now = Date.now();
-    const base =
-      chartRange === "1y"
-        ? sessionPps
-        : sessionPps.filter((point) => point.t >= now - RANGE_MS[chartRange]);
+    if (sessionPps.length === 0) return [];
+    if (chartRange === "1y") return sessionPps;
 
-    const filtered = base.length >= 2 ? base : sessionPps.slice(-Math.min(sessionPps.length, 2));
-    if (filtered.length <= 2) return filtered;
+    const cutoff = Date.now() - RANGE_MS[chartRange];
+    const inRange = sessionPps.filter((point) => point.t >= cutoff);
 
-    const spanMs = Math.max(1, filtered[filtered.length - 1]!.t - filtered[0]!.t);
-    const targetPoints = chartRange === "1y" ? 160 : 90;
-    const bucketMs = Math.max(1, Math.floor(spanMs / targetPoints));
-    return downsampleByBucket(filtered, bucketMs);
+    // Add one anchor point just before cutoff to keep line continuity.
+    const anchor = [...sessionPps].reverse().find((point) => point.t < cutoff);
+    const withAnchor = anchor ? [anchor, ...inRange] : inRange;
+
+    if (withAnchor.length >= 2) return withAnchor;
+
+    // If there is too little data for the selected range, use the latest two
+    // fetched points so user still sees most-recent movement.
+    return sessionPps.slice(-Math.min(sessionPps.length, 2));
   }, [sessionPps, chartRange]);
 
-  const chartSpanMs = useMemo(() => {
-    if (chartData.length < 2) return 0;
-    return Math.max(0, chartData[chartData.length - 1]!.t - chartData[0]!.t);
+  const chartMeta = useMemo(() => {
+    if (chartData.length === 0) {
+      return { yDomain: ["auto", "auto"] as [string, string], yDecimals: 4 };
+    }
+    const values = chartData.map((p) => p.pps);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const spread = max - min;
+
+    // Keep micro-moves visible (especially when PPS changes are tiny).
+    const pad = spread > 0 ? spread * 0.15 : Math.max(Math.abs(min) * 0.001, 0.0001);
+    const yDomain: [number, number] = [Math.max(0, min - pad), max + pad];
+
+    const yDecimals = spread >= 0.1 ? 2 : spread >= 0.01 ? 3 : 4;
+    return { yDomain, yDecimals };
   }, [chartData]);
 
   const parsedActivity = useMemo(
@@ -434,15 +417,15 @@ export default function VaultDetailPage({
                     interval="preserveStartEnd"
                     minTickGap={narrow ? 18 : 8}
                     tickFormatter={(value: number) =>
-                      formatXAxisForRange(value, chartRange, chartSpanMs)
+                      formatXAxisForRange(value, chartRange)
                     }
                   />
                   <YAxis
-                    domain={["auto", "auto"]}
+                    domain={chartMeta.yDomain}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
-                    tickFormatter={(v: number) => `$${v.toFixed(narrow ? 2 : 3)}`}
+                    tickFormatter={(v: number) => `$${v.toFixed(chartMeta.yDecimals)}`}
                     width={narrow ? 40 : 52}
                   />
                   <RechartsTooltip
