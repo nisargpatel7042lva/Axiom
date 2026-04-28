@@ -95,6 +95,64 @@ npm run dev
 cd engine && npm run dev
 ```
 
+## Transparency Validation Runbook
+
+Use this checklist whenever you want to verify that the transparency layer is healthy after code changes.
+
+### 1) Start both services
+
+```bash
+# terminal 1
+cd engine
+npm run dev
+
+# terminal 2 (repo root)
+npm run dev
+```
+
+Expected engine log:
+- `Health endpoint listening on http://localhost:3001/health`
+
+### 2) Open transparency UI
+
+- Frontend page: `http://localhost:3000/transparency`
+- Engine aggregate API: `http://localhost:3001/api/transparency`
+- Frontend proxy API: `http://localhost:3000/api/engine/transparency`
+
+All API URLs above should return JSON.
+
+### 3) What to check in the dashboard
+
+- **NAV Reconciliation**
+  - `Computed NAV`, `Synced NAV`, `Delta`, and `Status` are populated.
+  - `Degraded causes` is populated when status is `degraded`.
+- **Recent Decisions**
+  - Contains entries for opens/skips/exits/harvests with `reasonCode`.
+- **Execution Quality**
+  - Shows `expectedPrice`, `filledPrice`, `slippageBps`, and `reasonCode`.
+  - Solscan link is present when `txSignature` exists.
+- **Filters**
+  - Vault/action/time-window filters correctly reduce rows.
+
+### 4) Degraded causes interpretation
+
+- `prediction_api_fallback`
+  - Engine could not fetch live prediction position pricing and used local fallback values.
+- `liquidity_sync_delta`
+  - Synced on-chain NAV is intentionally limited to redeemable idle USDC, so computed and synced NAV diverge.
+
+### 5) Common troubleshooting
+
+- Empty transparency UI:
+  - Ensure engine is running on `:3001`.
+  - Wait for at least one scan/NAV cycle.
+- Proxy errors from frontend:
+  - Set in `.env.local` and restart frontend:
+    - `ENGINE_API_BASE_URL=http://localhost:3001`
+    - or `NEXT_PUBLIC_ENGINE_API_BASE_URL=http://localhost:3001`
+- No trade/decision rows:
+  - Trigger activity (deposit/withdraw/engine cycle), then refresh `/transparency`.
+
 ## Project Structure
 
 ```
