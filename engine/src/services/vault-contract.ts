@@ -1,6 +1,7 @@
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { createHash } from "node:crypto";
 import BN from "bn.js";
-import { AnchorProvider, Program, setProvider } from "@coral-xyz/anchor";
+import { AnchorProvider, setProvider } from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet.js";
 
 import { getConnection, getAuthority } from "./solana.js";
@@ -10,30 +11,25 @@ import { withRetry } from "../utils/retry.js";
 
 const log = createLogger("vault-contract");
 
-let _program: Program | null = null;
+let _provider: AnchorProvider | null = null;
+const PROGRAM_ID = new PublicKey(CONFIG.VAULT_PROGRAM_ID);
+const SYNC_NAV_DISCRIMINATOR = createHash("sha256")
+  .update("global:sync_nav")
+  .digest()
+  .subarray(0, 8);
 
-function getProgram(): Program {
-  if (!_program) {
+function getProvider(): AnchorProvider {
+  if (!_provider) {
     const connection = getConnection();
     const authority = getAuthority();
     const wallet = new NodeWallet(authority);
-    const provider = new AnchorProvider(connection, wallet, {
+    _provider = new AnchorProvider(connection, wallet, {
       commitment: "confirmed",
     });
-    setProvider(provider);
-
-    const stubIdl = {
-      version: "0.1.0",
-      name: "spectra_vault",
-      instructions: [],
-      accounts: [],
-      types: [],
-      metadata: { address: CONFIG.VAULT_PROGRAM_ID },
-    };
-    _program = new Program(stubIdl as never, provider);
+    setProvider(_provider);
     log.info(`Program initialized: ${CONFIG.VAULT_PROGRAM_ID}`);
   }
-  return _program;
+  return _provider;
 }
 
 export function deriveVaultPda(vaultId: number): [PublicKey, number] {
@@ -41,21 +37,21 @@ export function deriveVaultPda(vaultId: number): [PublicKey, number] {
   buf.writeBigUInt64LE(BigInt(vaultId));
   return PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), buf],
-    new PublicKey(CONFIG.VAULT_PROGRAM_ID),
+    PROGRAM_ID,
   );
 }
 
 export function deriveAssetVaultPda(vaultPda: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("asset_vault"), vaultPda.toBuffer()],
-    new PublicKey(CONFIG.VAULT_PROGRAM_ID),
+    PROGRAM_ID,
   );
 }
 
 export function deriveStrategyPda(vaultPda: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("strategy"), vaultPda.toBuffer()],
-    new PublicKey(CONFIG.VAULT_PROGRAM_ID),
+    PROGRAM_ID,
   );
 }
 
@@ -64,19 +60,25 @@ export async function syncNav(
   newTotalAssets: number,
 ): Promise<string | null> {
   return withRetry(async () => {
-    const program = getProgram();
+    const provider = getProvider();
     const authority = getAuthority();
     const [vaultPda] = deriveVaultPda(vaultId);
     const totalAssetsLamports = new BN(Math.floor(newTotalAssets * 1e6));
+    const data = Buffer.alloc(16);
+    SYNC_NAV_DISCRIMINATOR.copy(data, 0);
+    data.writeBigUInt64LE(BigInt(totalAssetsLamports.toString(10)), 8);
     try {
-      const sig = await program.methods
-        .syncNav(totalAssetsLamports)
-        .accounts({
-          vault: vaultPda,
-          authority: authority.publicKey,
-        })
-        .signers([authority])
-        .rpc();
+      const ix = new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: authority.publicKey, isSigner: true, isWritable: false },
+          { pubkey: vaultPda, isSigner: false, isWritable: true },
+        ],
+        data,
+      });
+      const sig = await provider.sendAndConfirm(new Transaction().add(ix), [authority], {
+        commitment: "confirmed",
+      });
       log.info(`NAV synced for vault ${vaultId}: $${newTotalAssets.toFixed(2)} (tx: ${sig})`);
       return sig;
     } catch (err) {
@@ -86,16 +88,22 @@ export async function syncNav(
   }, `syncNav(vault=${vaultId})`);
 }
 
-type VaultStateAccount = { fetch: (pk: PublicKey) => Promise<unknown> };
+type ParsedVaultState = { totalAssets: number; totalShares: number };
+
+function parseVaultState(data: Buffer): ParsedVaultState | null {
+  if (data.length < 152) return null;
+  const totalAssets = Number(data.readBigUInt64LE(136)) / 1e6;
+  const totalShares = Number(data.readBigUInt64LE(144)) / 1e9;
+  return { totalAssets, totalShares };
+}
 
 export async function fetchVaultState(vaultId: number): Promise<unknown | null> {
   try {
-    const program = getProgram();
+    const provider = getProvider();
     const [vaultPda] = deriveVaultPda(vaultId);
-    const ns = program.account as unknown as { vaultState?: VaultStateAccount };
-    if (!ns.vaultState) return null;
-    const account = await ns.vaultState.fetch(vaultPda);
-    return account;
+    const info = await provider.connection.getAccountInfo(vaultPda, "confirmed");
+    if (!info?.data) return null;
+    return parseVaultState(Buffer.from(info.data));
   } catch {
     log.debug(`Vault ${vaultId} account not found on-chain (may not be deployed yet)`);
     return null;
@@ -103,13 +111,11 @@ export async function fetchVaultState(vaultId: number): Promise<unknown | null> 
 }
 
 export async function getTotalShares(vaultId: number): Promise<number> {
-  const state = (await fetchVaultState(vaultId)) as { totalShares?: BN } | null;
-  if (!state?.totalShares) return 0;
-  return Number(state.totalShares) / 1e9;
+  const state = (await fetchVaultState(vaultId)) as ParsedVaultState | null;
+  return state?.totalShares ?? 0;
 }
 
 export async function getTotalAssets(vaultId: number): Promise<number> {
-  const state = (await fetchVaultState(vaultId)) as { totalAssets?: BN } | null;
-  if (!state?.totalAssets) return 0;
-  return Number(state.totalAssets) / 1e6;
+  const state = (await fetchVaultState(vaultId)) as ParsedVaultState | null;
+  return state?.totalAssets ?? 0;
 }

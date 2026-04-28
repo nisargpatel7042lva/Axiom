@@ -1,10 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
 import { jupiterTrigger } from "../services/jupiter-trigger.js";
 import { jupiterLend } from "../services/jupiter-lend.js";
 import { getAuthority, signAndSend, getTokenBalance } from "../services/solana.js";
-import { deriveVaultPda } from "../services/vault-contract.js";
+import { deriveVaultPda, deriveAssetVaultPda } from "../services/vault-contract.js";
 import { getOpportunities, getStrategy } from "./market-scanner.js";
 import { getNav } from "./nav-calculator.js";
 import { getAllVaultConfigs, CONFIG } from "../config.js";
@@ -258,9 +257,8 @@ async function ensureVaultLiquidity(onChainVaultId: number, neededUsdc: number):
 async function readVaultIdleUsdc(onChainVaultId: number): Promise<number> {
   try {
     const [vaultPda] = deriveVaultPda(onChainVaultId);
-    const usdcMint = new PublicKey(CONFIG.USDC_MINT);
-    const ata = getAssociatedTokenAddressSync(usdcMint, vaultPda, true);
-    return await getTokenBalance(ata);
+    const [assetVault] = deriveAssetVaultPda(vaultPda);
+    return await getTokenBalance(assetVault);
   } catch {
     return 0;
   }

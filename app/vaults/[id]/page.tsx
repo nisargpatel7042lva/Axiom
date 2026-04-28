@@ -14,8 +14,6 @@ import {
   Clock,
   ExternalLink,
   PauseCircle,
-  Sparkles,
-  Loader2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -41,12 +39,10 @@ import { useTransactionHistory } from "@/hooks/useTransactionHistory";
 import { useDevnetVaults } from "@/hooks/useDevnetVaults";
 import { usePpsSessionHistory } from "@/hooks/usePpsSessionHistory";
 import { useVaultUserShares } from "@/hooks/useVaultUserShares";
-import { useSimulateYield } from "@/lib/spectra/hooks/use-simulate-yield";
 import { parseActivityFeed } from "@/lib/services/dune-sim";
 import { usePortfolioActivities } from "@/hooks/usePortfolioActivities";
 import type { VaultId } from "@/types";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { getNetwork } from "@/lib/spectra/constants";
 import { useMatchMedia } from "@/hooks/useMatchMedia";
 import { useWallet } from "@solana/wallet-adapter-react";
 
@@ -110,9 +106,6 @@ export default function VaultDetailPage({
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [chartRange, setChartRange] = useState<ChartRange>("15m");
-  const [yieldBps, setYieldBps] = useState(300);
-  const [simSig, setSimSig] = useState<string | null>(null);
-  const [simError, setSimError] = useState<string | null>(null);
   const [visibleActivityCount, setVisibleActivityCount] = useState(5);
   const { connected, publicKey } = useWallet();
   const {
@@ -183,7 +176,6 @@ export default function VaultDetailPage({
     useVaultUserShares(config?.chainVaultId ?? null);
 
   const sharesBn = userSharesLamports ?? new BN(0);
-  const { simulateYield, loading: simulatingYield } = useSimulateYield(config?.chainVaultId ?? 0);
   const narrow = useMatchMedia("(max-width: 390px)");
 
   if (!config) {
@@ -198,28 +190,6 @@ export default function VaultDetailPage({
   }
 
   const kpiLoading = loading && !state;
-  const explorerClusterParam = getNetwork() === "mainnet-beta"
-    ? ""
-    : `?cluster=${getNetwork()}`;
-
-  async function handleSimulateYield() {
-    if (!onChain) return;
-    setSimError(null);
-    setSimSig(null);
-    try {
-      const sig = await simulateYield(onChain.totalAssets, yieldBps);
-      setSimSig(sig);
-      await refetch();
-    } catch (e) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e !== null && "message" in e
-            ? String((e as { message: unknown }).message)
-            : String(e);
-      setSimError(msg || "Failed to simulate yield");
-    }
-  }
 
 
   return (
@@ -311,72 +281,11 @@ export default function VaultDetailPage({
               Withdraw
             </button>
             </div>
-            <div className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-[#1a2235] bg-[#0d1420] px-2 py-2 min-[391px]:w-auto min-[391px]:max-w-none">
-              <select
-                value={yieldBps}
-                onChange={(e) => setYieldBps(Number(e.target.value))}
-                className="min-w-0 flex-1 rounded-lg border border-[#1a2235] bg-[#080c14] px-2 py-1 text-xs text-[#e8edf5] focus:border-[#00e5c3]/50 focus:outline-none min-[391px]:flex-none"
-              >
-                <option value={100}>+1.0%</option>
-                <option value={300}>+3.0%</option>
-                <option value={500}>+5.0%</option>
-                <option value={1000}>+10.0%</option>
-                <option value={-300}>-3.0%</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => void handleSimulateYield()}
-                disabled={!onChain || simulatingYield}
-                className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-[#1e293b] px-2.5 py-1.5 text-[11px] font-semibold text-[#e8edf5] hover:bg-[#334155] disabled:cursor-not-allowed disabled:opacity-40 min-[391px]:px-3 min-[391px]:text-xs"
-              >
-                {simulatingYield ? (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin" />
-                    <span className="max-[390px]:hidden">Simulating</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="size-3.5 shrink-0" />
-                    <span className="hidden min-[391px]:inline">Simulate Yield</span>
-                    <span className="min-[391px]:hidden">Simulate</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </motion.div>
-
-        {(simSig || simError) && (
-          <div
-            className={`mt-4 rounded-xl border px-3 py-3 text-xs min-[391px]:px-4 ${
-              simError
-                ? "border-red-500/30 bg-red-500/10 text-red-200"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-            }`}
-          >
-            {simError ? (
-              <span className="break-words">{simError}</span>
-            ) : (
-              <span className="flex flex-col gap-2 break-words min-[391px]:block">
-                <span>
-                  Simulated NAV update submitted
-                  <span className="hidden min-[391px]:inline">: {simSig}</span>
-                </span>
-                <span className="font-mono text-[10px] text-emerald-200/80 min-[391px]:hidden">
-                  {simSig}
-                </span>
-                <a
-                  href={`https://solscan.io/tx/${simSig}${explorerClusterParam}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-fit text-[#00e5c3] hover:underline"
-                >
-                  View on Solscan
-                </a>
-              </span>
-            )}
-          </div>
-        )}
+        <div className="mt-3 rounded-lg border border-[#1a2235] bg-[#0d1420] px-3 py-2 text-xs text-[#8b9cb3]">
+          NAV and yield are engine-controlled. This vault updates automatically from scheduled strategy runs.
+        </div>
 
         {/* KPI Row */}
         <motion.div

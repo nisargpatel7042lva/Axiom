@@ -42,7 +42,7 @@ export const CONFIG = {
   JUPITER_PREDICTION_BASE: "https://api.jup.ag/prediction/v1",
   /** Price v2 is deprecated (404); v3 uses `usdPrice` per mint key. */
   JUPITER_PRICE_BASE: "https://api.jup.ag/price/v3",
-  JUPITER_TOKENS_BASE: "https://api.jup.ag/tokens/v1",
+  JUPITER_TOKENS_BASE: "https://api.jup.ag/tokens/v2",
   JUPITER_TRIGGER_BASE: "https://api.jup.ag/trigger/v1",
 
   VAULT_PROGRAM_ID:

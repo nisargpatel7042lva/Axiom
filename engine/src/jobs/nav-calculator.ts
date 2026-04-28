@@ -35,7 +35,15 @@ export async function runNavCalculator(): Promise<void> {
           `Idle: $${nav.idleUsdc.toFixed(2)}`,
       );
 
-      await syncNavOnChain(vaultConfig.id, nav.totalNav);
+      // Keep on-chain total_assets redeemable to avoid withdraw failures when
+      // off-chain positions/lend value is temporarily illiquid on devnet demos.
+      const redeemableNav = Math.max(0, nav.idleUsdc);
+      await syncNavOnChain(vaultConfig.id, redeemableNav);
+      if (Math.abs(redeemableNav - nav.totalNav) > 0.01) {
+        log.info(
+          `[${vaultConfig.name}] Synced redeemable NAV $${redeemableNav.toFixed(2)} (computed total $${nav.totalNav.toFixed(2)})`,
+        );
+      }
 
       try {
         await appendVaultNavSnapshot({

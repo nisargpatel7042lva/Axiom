@@ -21,6 +21,31 @@ export interface JupiterToken {
   extensions: Record<string, unknown>;
 }
 
+function normalizeToken(raw: unknown): JupiterToken | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const source =
+    (obj.token && typeof obj.token === "object" ? (obj.token as Record<string, unknown>) : obj);
+
+  const address = String(source.address ?? source.mint ?? "");
+  if (!address) return null;
+  return {
+    address,
+    name: String(source.name ?? ""),
+    symbol: String(source.symbol ?? ""),
+    decimals: Number(source.decimals ?? 0) || 0,
+    logoURI: source.logoURI ? String(source.logoURI) : null,
+    tags: Array.isArray(source.tags) ? source.tags.map(String) : [],
+    daily_volume: source.daily_volume ? Number(source.daily_volume) : null,
+    created_at: source.created_at ? String(source.created_at) : null,
+    freeze_authority: source.freeze_authority ? String(source.freeze_authority) : null,
+    mint_authority: source.mint_authority ? String(source.mint_authority) : null,
+    permanent_delegate: source.permanent_delegate ? String(source.permanent_delegate) : null,
+    minted_at: source.minted_at ? String(source.minted_at) : null,
+    extensions: (source.extensions as Record<string, unknown>) ?? {},
+  };
+}
+
 const tokenCache = new Map<string, { token: JupiterToken; cachedAt: number }>();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -48,9 +73,16 @@ class JupiterTokensService {
   async getAllTokens(): Promise<JupiterToken[]> {
     return withRetry(
       async () => {
-        const { data } = await this.client.get<JupiterToken[]>("/solana");
-        log.info(`Fetched ${data.length} tokens from Jupiter Tokens API`);
-        return data;
+        // Compatibility: tokens deployments may expose /mints/tradable (v2) or /solana (v1).
+        try {
+          const { data } = await this.client.get<JupiterToken[]>("/mints/tradable");
+          log.info(`Fetched ${data.length} tokens from Jupiter Tokens API`);
+          return data;
+        } catch {
+          const { data } = await this.client.get<JupiterToken[]>("/solana");
+          log.info(`Fetched ${data.length} tokens from Jupiter Tokens API (fallback)`);
+          return data;
+        }
       },
       "getAllTokens",
       { maxAttempts: 2 },
@@ -68,9 +100,16 @@ class JupiterTokensService {
     }
 
     try {
-      const { data } = await this.client.get<JupiterToken>(`/solana/${mint}`);
-      tokenCache.set(mint, { token: data, cachedAt: Date.now() });
-      return data;
+      let data: unknown;
+      try {
+        ({ data } = await this.client.get<JupiterToken>(`/mint/${mint}`));
+      } catch {
+        ({ data } = await this.client.get<JupiterToken>(`/solana/${mint}`));
+      }
+      const normalized = normalizeToken(data);
+      if (!normalized) return null;
+      tokenCache.set(mint, { token: normalized, cachedAt: Date.now() });
+      return normalized;
     } catch {
       log.debug(`Token not found: ${mint}`);
       return null;

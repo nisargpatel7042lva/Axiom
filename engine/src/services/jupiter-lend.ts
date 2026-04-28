@@ -14,25 +14,46 @@ import { CONFIG } from "../config.js";
 
 const log = createLogger("jupiter-lend");
 
-let getDepositIxsFn: ((args: unknown) => Promise<TransactionInstruction[]>) | null = null;
-let getWithdrawIxsFn: ((args: unknown) => Promise<TransactionInstruction[]>) | null = null;
+type LendIxsResponse = { ixs?: TransactionInstruction[] } | TransactionInstruction[];
+
+let getDepositIxsFn: ((args: unknown) => Promise<LendIxsResponse>) | null = null;
+let getWithdrawIxsFn: ((args: unknown) => Promise<LendIxsResponse>) | null = null;
 let sdkLoaded = false;
 let sdkLoadAttempted = false;
+
+function rpcLooksMainnet(url: string): boolean {
+  const u = url.toLowerCase();
+  return u.includes("mainnet") || u.includes("mainnet-beta");
+}
+
+function lendEnabledOnCurrentCluster(): boolean {
+  return rpcLooksMainnet(CONFIG.RPC_URL);
+}
+
+function normalizeIxs(result: LendIxsResponse): TransactionInstruction[] {
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result.ixs)) return result.ixs;
+  return [];
+}
 
 async function ensureSdk(): Promise<boolean> {
   if (sdkLoadAttempted) return sdkLoaded;
   sdkLoadAttempted = true;
   try {
     const lendModule = await (Function('return import("@jup-ag/lend/earn")')() as Promise<{
-      getDepositIxs: (args: unknown) => Promise<TransactionInstruction[]>;
-      getWithdrawIxs: (args: unknown) => Promise<TransactionInstruction[]>;
+      getDepositIxs: (args: unknown) => Promise<LendIxsResponse>;
+      getWithdrawIxs: (args: unknown) => Promise<LendIxsResponse>;
     }>);
     getDepositIxsFn = lendModule.getDepositIxs;
     getWithdrawIxsFn = lendModule.getWithdrawIxs;
     sdkLoaded = true;
-    log.info("Jupiter Lend SDK loaded");
-  } catch {
-    log.warn("Jupiter Lend SDK not available — instruction builders return []");
+    log.info(`Jupiter Lend SDK loaded (lend enabled: ${lendEnabledOnCurrentCluster()})`);
+  } catch (err) {
+    log.warn(
+      `Jupiter Lend SDK not available — instruction builders disabled: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
   }
   return sdkLoaded;
 }
@@ -42,16 +63,20 @@ export async function depositToEarn(
   signer: Keypair,
   amount: BN,
 ): Promise<TransactionInstruction[]> {
+  if (!lendEnabledOnCurrentCluster()) {
+    log.info("Jupiter Lend deposit skipped: non-mainnet RPC configured");
+    return [];
+  }
   await ensureSdk();
   if (!getDepositIxsFn) return [];
 
-  const ixs = await getDepositIxsFn({
+  const response = await getDepositIxsFn({
     connection,
     signer: signer.publicKey,
     asset: new PublicKey(CONFIG.USDC_MINT),
     amount,
   });
-  return ixs;
+  return normalizeIxs(response);
 }
 
 export async function withdrawFromEarn(
@@ -59,22 +84,30 @@ export async function withdrawFromEarn(
   signer: Keypair,
   amount: BN,
 ): Promise<TransactionInstruction[]> {
+  if (!lendEnabledOnCurrentCluster()) {
+    log.info("Jupiter Lend withdraw skipped: non-mainnet RPC configured");
+    return [];
+  }
   await ensureSdk();
   if (!getWithdrawIxsFn) return [];
 
-  const ixs = await getWithdrawIxsFn({
+  const response = await getWithdrawIxsFn({
     connection,
     signer: signer.publicKey,
     asset: new PublicKey(CONFIG.USDC_MINT),
     amount,
   });
-  return ixs;
+  return normalizeIxs(response);
 }
 
 export async function getEarnBalance(
   connection: Connection,
   signer: Keypair,
 ): Promise<number> {
+  if (!lendEnabledOnCurrentCluster()) {
+    // On devnet, treat Jupiter Earn as unavailable for deterministic NAV.
+    return 0;
+  }
   try {
     const accounts = await connection.getTokenAccountsByOwner(signer.publicKey, {
       mint: new PublicKey(CONFIG.USDC_MINT),
@@ -97,7 +130,7 @@ class JupiterLendService {
     const amount = new BN(Math.floor(amountUsdc * 1e6));
     const ixs = await depositToEarn(connection, authority, amount);
     if (ixs.length === 0) {
-      log.info(`[mock] Would deposit ${amountUsdc} USDC to Jupiter Earn`);
+      log.info(`[noop] Jupiter Earn deposit skipped for ${amountUsdc} USDC`);
       return null;
     }
 
@@ -120,7 +153,7 @@ class JupiterLendService {
     const amount = new BN(Math.floor(amountUsdc * 1e6));
     const ixs = await withdrawFromEarn(connection, authority, amount);
     if (ixs.length === 0) {
-      log.info(`[mock] Would withdraw ${amountUsdc} USDC from Jupiter Earn`);
+      log.info(`[noop] Jupiter Earn withdraw skipped for ${amountUsdc} USDC`);
       return null;
     }
 
