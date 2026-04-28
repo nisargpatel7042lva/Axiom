@@ -61,7 +61,11 @@ const RANGE_MS: Record<Exclude<ChartRange, "1y">, number> = {
   "1d": 24 * 60 * 60_000,
 };
 
-function formatXAxisForRange(ts: number, range: ChartRange): string {
+function formatXAxisForRange(
+  ts: number,
+  range: ChartRange,
+  spanMs: number,
+): string {
   const d = new Date(ts);
   if (range === "1m" || range === "5m" || range === "15m") {
     return d.toLocaleTimeString("en-US", {
@@ -76,10 +80,37 @@ function formatXAxisForRange(ts: number, range: ChartRange): string {
       minute: "2-digit",
     });
   }
+  // 1y selector can still contain short local-session data; avoid repeating same date labels.
+  if (spanMs <= 2 * 24 * 60 * 60_000) {
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
+}
+
+function downsampleByBucket(
+  points: { t: number; pps: number; date: string }[],
+  bucketMs: number,
+) {
+  if (points.length <= 2 || bucketMs <= 0) return points;
+  const out: typeof points = [];
+  let lastBucket = -1;
+  for (const p of points) {
+    const bucket = Math.floor(p.t / bucketMs);
+    if (bucket !== lastBucket) {
+      out.push(p);
+      lastBucket = bucket;
+    } else {
+      // keep the most recent point in same bucket
+      out[out.length - 1] = p;
+    }
+  }
+  return out.length >= 2 ? out : points.slice(-2);
 }
 
 export default function VaultDetailPage({
@@ -119,17 +150,30 @@ export default function VaultDetailPage({
 
   const { chartData: sessionPps } = usePpsSessionHistory(
     state?.pricePerShare ?? null,
-    22_000
+    22_000,
+    config?.id
   );
 
   const chartData = useMemo(() => {
-    if (chartRange === "1y") return sessionPps;
-    const cutoff = Date.now() - RANGE_MS[chartRange];
-    const filtered = sessionPps.filter((point) => point.t >= cutoff);
-    // Keep at least the latest two points so chart renders when window is sparse.
-    if (filtered.length >= 2) return filtered;
-    return sessionPps.slice(-Math.min(sessionPps.length, 2));
+    const now = Date.now();
+    const base =
+      chartRange === "1y"
+        ? sessionPps
+        : sessionPps.filter((point) => point.t >= now - RANGE_MS[chartRange]);
+
+    const filtered = base.length >= 2 ? base : sessionPps.slice(-Math.min(sessionPps.length, 2));
+    if (filtered.length <= 2) return filtered;
+
+    const spanMs = Math.max(1, filtered[filtered.length - 1]!.t - filtered[0]!.t);
+    const targetPoints = chartRange === "1y" ? 160 : 90;
+    const bucketMs = Math.max(1, Math.floor(spanMs / targetPoints));
+    return downsampleByBucket(filtered, bucketMs);
   }, [sessionPps, chartRange]);
+
+  const chartSpanMs = useMemo(() => {
+    if (chartData.length < 2) return 0;
+    return Math.max(0, chartData[chartData.length - 1]!.t - chartData[0]!.t);
+  }, [chartData]);
 
   const parsedActivity = useMemo(
     () => parseActivityFeed(duneTxns),
@@ -380,14 +424,17 @@ export default function VaultDetailPage({
                     </linearGradient>
                   </defs>
                   <XAxis
-                    dataKey="date"
+                    dataKey="t"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
                     interval="preserveStartEnd"
                     minTickGap={narrow ? 18 : 8}
-                    tickFormatter={(_value: string, index: number) =>
-                      formatXAxisForRange(chartData[index]?.t ?? Date.now(), chartRange)
+                    tickFormatter={(value: number) =>
+                      formatXAxisForRange(value, chartRange, chartSpanMs)
                     }
                   />
                   <YAxis
@@ -407,6 +454,14 @@ export default function VaultDetailPage({
                       maxWidth: narrow ? 200 : 280,
                     }}
                     labelStyle={{ color: "#8b9cb3" }}
+                    labelFormatter={(value) =>
+                      new Date(Number(value)).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    }
                     formatter={(value: number) => [`$${value.toFixed(4)}`, "PPS"]}
                   />
                   <Area

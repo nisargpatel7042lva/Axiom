@@ -1,8 +1,12 @@
-import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import {
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import { createHash } from "node:crypto";
 import BN from "bn.js";
 import { AnchorProvider, setProvider } from "@coral-xyz/anchor";
-import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet.js";
 
 import { getConnection, getAuthority } from "./solana.js";
 import { CONFIG } from "../config.js";
@@ -22,7 +26,26 @@ function getProvider(): AnchorProvider {
   if (!_provider) {
     const connection = getConnection();
     const authority = getAuthority();
-    const wallet = new NodeWallet(authority);
+    const signOne = <T extends Transaction | VersionedTransaction>(tx: T): T => {
+      if (tx instanceof Transaction) {
+        tx.partialSign(authority);
+      } else {
+        tx.sign([authority]);
+      }
+      return tx;
+    };
+    const wallet = {
+      publicKey: authority.publicKey,
+      signTransaction: async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
+        return signOne(tx);
+      },
+      signAllTransactions: async <T extends Transaction | VersionedTransaction>(
+        txs: T[],
+      ): Promise<T[]> => {
+        for (const tx of txs) signOne(tx);
+        return txs;
+      },
+    };
     _provider = new AnchorProvider(connection, wallet, {
       commitment: "confirmed",
     });
