@@ -39,6 +39,12 @@ export async function runNavCalculator(): Promise<void> {
       // off-chain positions/lend value is temporarily illiquid on devnet demos.
       const redeemableNav = Math.max(0, nav.idleUsdc);
       await syncNavOnChain(vaultConfig.id, redeemableNav);
+      nav.syncedNav = redeemableNav;
+      nav.navDelta = nav.totalNav - redeemableNav;
+      if (Math.abs(nav.navDelta) > 0.01 && !nav.degradedCauses.includes("liquidity_sync_delta")) {
+        nav.degradedCauses.push("liquidity_sync_delta");
+      }
+      nav.dataQuality = nav.degradedCauses.length > 0 ? "degraded" : "verified";
       if (Math.abs(redeemableNav - nav.totalNav) > 0.01) {
         log.info(
           `[${vaultConfig.name}] Synced redeemable NAV $${redeemableNav.toFixed(2)} (computed total $${nav.totalNav.toFixed(2)})`,
@@ -73,34 +79,44 @@ async function computeVaultNav(vaultId: string, onChainVaultId: number): Promise
   const usdcPrice = await jupiterPrice.getUsdcPrice();
   log.debug(`USDC price validation: $${usdcPrice.toFixed(4)}`);
 
-  const predictionPositionsValue = await valuePredictionPositions(vaultId);
+  const prediction = await valuePredictionPositions(vaultId);
 
   const lendingState = getLendingState(vaultId);
-  const lendingBalance =
-    lendingState?.currentBalance ?? (await jupiterLend.getEarnBalance());
+  const lendingBalance = lendingState?.currentBalance ?? (await jupiterLend.getEarnBalance());
+  const lendingValuationSource: NavBreakdown["lendingValuationSource"] =
+    lendingState?.currentBalance != null ? "state_cache" : "api";
 
   const idleUsdc = await getIdleUsdcBalance(onChainVaultId);
 
-  const totalNav = (predictionPositionsValue + lendingBalance + idleUsdc) * usdcPrice;
+  const totalNav = (prediction.value + lendingBalance + idleUsdc) * usdcPrice;
 
   const totalShares = await getTotalShares(onChainVaultId);
   const pricePerShare = totalShares > 0 ? totalNav / totalShares : 1.0;
 
   return {
     vaultId,
-    predictionPositionsValue,
+    predictionPositionsValue: prediction.value,
+    predictionValuationSource: prediction.source,
     lendingBalance,
+    lendingValuationSource,
     idleUsdc,
     totalNav,
+    syncedNav: totalNav,
+    navDelta: 0,
+    dataQuality: prediction.source === "fallback" ? "degraded" : "verified",
+    degradedCauses:
+      prediction.source === "fallback" ? ["prediction_api_fallback"] : [],
     pricePerShare,
     totalShares,
     timestamp: new Date().toISOString(),
   };
 }
 
-async function valuePredictionPositions(vaultId: string): Promise<number> {
+async function valuePredictionPositions(
+  vaultId: string,
+): Promise<{ value: number; source: "live" | "fallback" }> {
   const positions = getActivePositions(vaultId);
-  if (positions.length === 0) return 0;
+  if (positions.length === 0) return { value: 0, source: "live" };
 
   let totalValue = 0;
   const ownerPubkey = getAuthority().publicKey.toBase58();
@@ -117,13 +133,13 @@ async function valuePredictionPositions(vaultId: string): Promise<number> {
         totalValue += pos.contracts * pos.currentPrice;
       }
     }
+    return { value: totalValue, source: "live" };
   } catch {
     for (const pos of positions) {
       totalValue += pos.contracts * pos.currentPrice;
     }
+    return { value: totalValue, source: "fallback" };
   }
-
-  return totalValue;
 }
 
 async function getIdleUsdcBalance(vaultId: number): Promise<number> {

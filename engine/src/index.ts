@@ -5,7 +5,7 @@ import { runMarketScanner } from "./jobs/market-scanner.js";
 import { runPositionManager } from "./jobs/position-manager.js";
 import { runYieldRouter } from "./jobs/yield-router.js";
 import { runNavCalculator, getAllNavs } from "./jobs/nav-calculator.js";
-import { getActivePositions, getTradeHistory } from "./jobs/position-manager.js";
+import { getActivePositions, getDecisionHistory, getTradeHistory } from "./jobs/position-manager.js";
 import { getVaultNavYieldMetrics } from "./data/vault-nav-snapshots.js";
 import { getAllVaultConfigs, CONFIG } from "./config.js";
 import { createLogger } from "./utils/logger.js";
@@ -100,6 +100,35 @@ app.get("/api/positions/:vaultId", (req, res) => {
 
 app.get("/api/trades", (_req, res) => {
   res.json(getTradeHistory());
+});
+
+app.get("/api/decisions", (_req, res) => {
+  res.json(getDecisionHistory());
+});
+
+app.get("/api/transparency", (_req, res) => {
+  const navs = getAllNavs();
+  const trades = getTradeHistory();
+  const decisions = getDecisionHistory();
+  const vaults = getAllVaultConfigs().map((v) => ({
+    id: v.id,
+    strategyType: v.strategyType,
+    name: v.name,
+    positions: getActivePositions(v.strategyType).length,
+  }));
+  res.json({
+    generatedAt: new Date().toISOString(),
+    health: {
+      lastScan,
+      lastNavSync,
+      lastPositionCheck,
+      lastYieldRoute,
+    },
+    vaults,
+    navs,
+    trades,
+    decisions,
+  });
 });
 
 app.listen(CONFIG.HEALTH_PORT, () => {

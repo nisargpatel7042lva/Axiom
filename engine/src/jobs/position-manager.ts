@@ -10,6 +10,7 @@ import { getAllVaultConfigs, CONFIG } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 import type {
   ActivePosition,
+  DecisionLog,
   PredictionPosition,
   ScoredOpportunity,
   TradeLog,
@@ -21,6 +22,7 @@ const log = createLogger("position-manager");
 /** In-memory ledger of positions managed by the engine. */
 const activePositions = new Map<string, ActivePosition[]>();
 const tradeHistory: TradeLog[] = [];
+const decisionHistory: DecisionLog[] = [];
 
 export async function runPositionManager(): Promise<void> {
   log.info("Running position check...");
@@ -45,8 +47,21 @@ export async function runPositionManager(): Promise<void> {
 
       if (onChain?.market.status === "resolved") {
         log.info(`Market resolved: ${pos.title} (${pos.marketId})`);
+        logDecision(vaultId, {
+          action: "harvest",
+          marketId: pos.marketId,
+          title: pos.title,
+          reasonCode: "market_resolved",
+          currentPrice: onChain.currentPrice,
+          details: "Position removed after market resolution.",
+        });
         removePosition(vaultId, pos.marketId);
-        logTrade(vaultId, "harvest", pos);
+        logTrade(vaultId, "harvest", pos, {
+          reasonCode: "market_resolved",
+          expectedPrice: pos.avgEntryPrice,
+          filledPrice: onChain.currentPrice,
+          status: "confirmed",
+        });
         continue;
       }
 
@@ -56,9 +71,23 @@ export async function runPositionManager(): Promise<void> {
         const marketData = { buyYesPriceUsd: currentPrice } as any;
         if (strategy.shouldExit(currentPrice, pos.avgEntryPrice, marketData)) {
           log.info(`Exit signal for ${pos.title} (entry: ${pos.avgEntryPrice}, current: ${currentPrice})`);
+          logDecision(vaultId, {
+            action: "exit_signal",
+            marketId: pos.marketId,
+            title: pos.title,
+            reasonCode: "strategy_exit_signal",
+            expectedPrice: pos.avgEntryPrice,
+            currentPrice,
+            details: "Strategy exit condition returned true.",
+          });
           await closePosition(ownerPubkey, pos);
           removePosition(vaultId, pos.marketId);
-          logTrade(vaultId, "close", pos);
+          logTrade(vaultId, "close", pos, {
+            reasonCode: "strategy_exit_signal",
+            expectedPrice: pos.avgEntryPrice,
+            filledPrice: currentPrice,
+            status: "confirmed",
+          });
         }
       }
     }
@@ -70,6 +99,13 @@ export async function runPositionManager(): Promise<void> {
 
     if (newOpps.length === 0) {
       log.info(`[${vaultConfig.name}] No new opportunities`);
+      logDecision(vaultId, {
+        action: "scan_complete",
+        marketId: null,
+        title: vaultConfig.name,
+        reasonCode: "no_new_opportunities",
+        details: "Scanner produced no unseen opportunities this cycle.",
+      });
       continue;
     }
 
@@ -91,6 +127,16 @@ export async function runPositionManager(): Promise<void> {
 
       if (positionSizeUsdc < 10) {
         log.info(`[${vaultConfig.name}] Position size too small ($${positionSizeUsdc.toFixed(2)}), skipping`);
+        logDecision(vaultId, {
+          action: "open_skipped",
+          marketId: opp.marketId,
+          title: opp.title,
+          reasonCode: "position_too_small",
+          expectedPrice: opp.price,
+          score: opp.score,
+          confidence: opp.ai?.conviction ?? null,
+          details: `Computed size $${positionSizeUsdc.toFixed(2)} below minimum $10.`,
+        });
         continue;
       }
 
@@ -102,11 +148,33 @@ export async function runPositionManager(): Promise<void> {
 
       if (USE_LIMIT_ORDERS) {
         const targetPrice = opp.price * 0.97; // try to enter 3% below current
+        logDecision(vaultId, {
+          action: "open_limit",
+          marketId: opp.marketId,
+          title: opp.title,
+          reasonCode: "limit_entry_preferred",
+          expectedPrice: targetPrice,
+          currentPrice: opp.price,
+          score: opp.score,
+          confidence: opp.ai?.conviction ?? null,
+          details: "Using Trigger limit order due to high market price band.",
+        });
         log.info(
           `[${vaultConfig.name}] Setting limit entry on "${opp.title}" @ $${targetPrice.toFixed(3)} — $${positionSizeUsdc.toFixed(2)}`,
         );
         await openLimitPosition(ownerPubkey, vaultId, opp, positionSizeUsdc, targetPrice);
       } else {
+        logDecision(vaultId, {
+          action: "open_market",
+          marketId: opp.marketId,
+          title: opp.title,
+          reasonCode: "market_entry",
+          expectedPrice: opp.price,
+          currentPrice: opp.price,
+          score: opp.score,
+          confidence: opp.ai?.conviction ?? null,
+          details: "Submitting immediate market order.",
+        });
         log.info(
           `[${vaultConfig.name}] Market-ordering ${opp.side} on "${opp.title}" — $${positionSizeUsdc.toFixed(2)}`,
         );
@@ -157,7 +225,13 @@ async function openPosition(
     positions.push(pos);
     activePositions.set(vaultId, positions);
 
-    logTrade(vaultId, "open", pos, sig);
+    logTrade(vaultId, "open", pos, {
+      txSignature: sig,
+      reasonCode: "market_entry",
+      expectedPrice: opp.price,
+      filledPrice: pos.currentPrice,
+      status: "confirmed",
+    });
     log.info(`Opened position on ${opp.title}: ${sig}`);
   } catch (err) {
     log.error(`Failed to open position on ${opp.title}`, err);
@@ -218,8 +292,14 @@ function logTrade(
   vaultId: string,
   action: TradeLog["action"],
   pos: ActivePosition,
-  txSignature: string | null = null,
+  extra: Partial<TradeLog> = {},
 ): void {
+  const expectedPrice = extra.expectedPrice ?? pos.avgEntryPrice ?? null;
+  const filledPrice = extra.filledPrice ?? pos.currentPrice ?? null;
+  const slippageBps =
+    expectedPrice && filledPrice && expectedPrice > 0
+      ? ((filledPrice - expectedPrice) / expectedPrice) * 10_000
+      : null;
   tradeHistory.push({
     timestamp: new Date().toISOString(),
     vaultId,
@@ -228,7 +308,23 @@ function logTrade(
     side: pos.side,
     amount: pos.usdcDeployed,
     price: pos.currentPrice,
-    txSignature,
+    expectedPrice,
+    filledPrice,
+    slippageBps,
+    reasonCode: extra.reasonCode,
+    status: extra.status ?? "confirmed",
+    txSignature: extra.txSignature ?? null,
+  });
+}
+
+function logDecision(
+  vaultId: string,
+  entry: Omit<DecisionLog, "timestamp" | "vaultId">,
+): void {
+  decisionHistory.push({
+    timestamp: new Date().toISOString(),
+    vaultId,
+    ...entry,
   });
 }
 
@@ -270,4 +366,8 @@ export function getActivePositions(vaultId: string): ActivePosition[] {
 
 export function getTradeHistory(): TradeLog[] {
   return tradeHistory;
+}
+
+export function getDecisionHistory(): DecisionLog[] {
+  return decisionHistory;
 }

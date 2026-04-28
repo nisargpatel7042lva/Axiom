@@ -53,6 +53,8 @@ export const CONFIG = {
   HEALTH_PORT: parseInt(process.env.HEALTH_PORT || "3001", 10),
 
   VAULT_NAV_SNAPSHOT_DIR: process.env.VAULT_NAV_SNAPSHOT_DIR?.trim() || "",
+  ENABLE_TOKENS_ENRICHMENT:
+    process.env.ENABLE_TOKENS_ENRICHMENT?.toLowerCase() === "true",
 
   IDLE_BUFFER_PCT: 0.05,
 

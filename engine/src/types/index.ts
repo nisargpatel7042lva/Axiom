@@ -111,9 +111,15 @@ export interface ScoredOpportunity {
 export interface NavBreakdown {
   vaultId: string;
   predictionPositionsValue: number;
+  predictionValuationSource: "live" | "fallback";
   lendingBalance: number;
+  lendingValuationSource: "state_cache" | "api";
   idleUsdc: number;
   totalNav: number;
+  syncedNav: number;
+  navDelta: number;
+  dataQuality: "verified" | "degraded";
+  degradedCauses: ("prediction_api_fallback" | "liquidity_sync_delta")[];
   pricePerShare: number;
   totalShares: number;
   timestamp: string;
@@ -193,5 +199,32 @@ export interface TradeLog {
   side: "yes" | "no";
   amount: number;
   price: number;
+  expectedPrice?: number | null;
+  filledPrice?: number | null;
+  slippageBps?: number | null;
+  reasonCode?: string;
+  status?: "submitted" | "confirmed" | "failed";
   txSignature: string | null;
+}
+
+export interface DecisionLog {
+  timestamp: string;
+  vaultId: string;
+  marketId: string | null;
+  title: string;
+  action:
+    | "scan_complete"
+    | "open_candidate"
+    | "open_skipped"
+    | "open_limit"
+    | "open_market"
+    | "exit_signal"
+    | "close_attempt"
+    | "harvest";
+  reasonCode: string;
+  expectedPrice?: number | null;
+  currentPrice?: number | null;
+  score?: number | null;
+  confidence?: number | null;
+  details?: string | null;
 }
