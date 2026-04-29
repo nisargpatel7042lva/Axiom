@@ -29,6 +29,13 @@ function resolveKeypairPath(): string {
   return path.resolve(raw);
 }
 
+function envNum(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export const CONFIG = {
   RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
   KEYPAIR_PATH: resolveKeypairPath(),
@@ -77,39 +84,40 @@ export const VAULT_CONFIGS: Record<VaultStrategyType, VaultConfig> = {
     id: parseInt(process.env.SAFE_VAULT_ID || "1", 10),
     name: "Safe Consensus",
     strategyType: "safe-consensus",
-    minProbability: 0.85,
-    maxProbability: 1.0,
+    // Slightly broader defaults for dev/demo so opportunities appear more often.
+    minProbability: envNum("SAFE_MIN_PROBABILITY", 0.75),
+    maxProbability: envNum("SAFE_MAX_PROBABILITY", 1.0),
     predictionAllocationPct: 0.62,
     lendAllocationPct: 0.33,
     maxPositionPct: 0.1,
-    minVolume: 100_000,
-    maxDaysToResolution: 30,
+    minVolume: envNum("SAFE_MIN_VOLUME", 30_000),
+    maxDaysToResolution: envNum("SAFE_MAX_DAYS_TO_RESOLUTION", 45),
     categories: [],
   },
   "macro-contrarian": {
     id: parseInt(process.env.CONTRARIAN_VAULT_ID || "2", 10),
     name: "Macro Contrarian",
     strategyType: "macro-contrarian",
-    minProbability: 0.4,
-    maxProbability: 0.65,
+    minProbability: envNum("CONTRARIAN_MIN_PROBABILITY", 0.3),
+    maxProbability: envNum("CONTRARIAN_MAX_PROBABILITY", 0.75),
     predictionAllocationPct: 0.78,
     lendAllocationPct: 0.15,
     maxPositionPct: 0.15,
-    minVolume: 50_000,
-    maxDaysToResolution: 90,
+    minVolume: envNum("CONTRARIAN_MIN_VOLUME", 20_000),
+    maxDaysToResolution: envNum("CONTRARIAN_MAX_DAYS_TO_RESOLUTION", 120),
     categories: ["politics", "economics", "crypto"],
   },
   "yield-maximizer": {
     id: parseInt(process.env.YIELD_VAULT_ID || "3", 10),
     name: "Yield Maximizer",
     strategyType: "yield-maximizer",
-    minProbability: 0.75,
-    maxProbability: 1.0,
+    minProbability: envNum("YIELD_MIN_PROBABILITY", 0.65),
+    maxProbability: envNum("YIELD_MAX_PROBABILITY", 1.0),
     predictionAllocationPct: 0.28,
     lendAllocationPct: 0.67,
     maxPositionPct: 0.08,
-    minVolume: 200_000,
-    maxDaysToResolution: 14,
+    minVolume: envNum("YIELD_MIN_VOLUME", 40_000),
+    maxDaysToResolution: envNum("YIELD_MAX_DAYS_TO_RESOLUTION", 30),
     categories: [],
   },
 };
