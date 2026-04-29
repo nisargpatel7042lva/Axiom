@@ -1,5 +1,9 @@
 import type { Idl, Program } from "@coral-xyz/anchor";
-import { Transaction, type TransactionSignature } from "@solana/web3.js";
+import {
+  SendTransactionError,
+  Transaction,
+  type TransactionSignature,
+} from "@solana/web3.js";
 import bs58 from "bs58";
 
 function messageLooksLikeAlreadyProcessed(err: unknown): boolean {
@@ -60,6 +64,14 @@ export async function signSendAndConfirmLegacyTx(
     await ensureConfirmed(connection, sig, blockhash, lastValidBlockHeight);
     return sig;
   } catch (err) {
+    if (err instanceof SendTransactionError) {
+      const logs = await err.getLogs(connection).catch(() => null);
+      const logBlob = logs?.length ? `\nLogs:\n${logs.join("\n")}` : "";
+      const wrapped = new Error(`${err.message}${logBlob}`);
+      wrapped.name = err.name;
+      throw wrapped;
+    }
+
     if (!messageLooksLikeAlreadyProcessed(err)) {
       throw err;
     }

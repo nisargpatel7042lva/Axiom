@@ -10,6 +10,10 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "axiom:fetch": "npx tsx scripts/axiom-report/index.ts",
+    "axiom:analyze": "npx tsx scripts/axiom-report/analyze.ts",
+    "axiom:report": "npx tsx scripts/axiom-report/report.ts",
+    "axiom:pipeline": "npm run axiom:fetch && npm run axiom:analyze && npm run axiom:report",
     "init:vaults:devnet": "npx tsx scripts/init-vaults-devnet.ts",
     "sync:idl": "node scripts/sync-idl.mjs",
     "check:secrets": "bash scripts/check-tracked-secrets.sh"

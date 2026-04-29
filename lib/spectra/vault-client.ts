@@ -30,6 +30,17 @@ import {
 } from "./constants";
 import { signSendAndConfirmLegacyTx } from "./sign-send-confirm";
 
+async function ensureFeePayerFunded(
+  connection: Connection,
+  userPublicKey: PublicKey,
+): Promise<void> {
+  const lamports = await connection.getBalance(userPublicKey, "confirmed");
+  if (lamports > 0) return;
+  throw new Error(
+    `Wallet has 0 SOL for transaction fees/rent on this cluster. Fund ${userPublicKey.toBase58()} before retrying.`,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // PDA derivation helpers
 // ---------------------------------------------------------------------------
@@ -124,6 +135,8 @@ export async function deposit(
   amount: BN,
   userPublicKey: PublicKey
 ): Promise<TransactionSignature> {
+  await ensureFeePayerFunded(program.provider.connection, userPublicKey);
+
   const [vaultPda] = deriveVaultPda(vaultId);
   const [sharesMint] = deriveSharesMintPda(vaultPda);
   const [assetVault] = deriveAssetVaultPda(vaultPda);
@@ -142,6 +155,19 @@ export async function deposit(
     true,
     TOKEN_2022_PROGRAM_ID
   );
+
+  try {
+    await getAccount(
+      program.provider.connection,
+      userAssetAccount,
+      "confirmed",
+      SPL_TOKEN_PROGRAM_ID,
+    );
+  } catch {
+    throw new Error(
+      "USDC token account not found for this wallet on the current cluster. Create/fund your USDC ATA first, then retry deposit.",
+    );
+  }
 
   const createUserUsdcAtaIx = createAssociatedTokenAccountIdempotentInstruction(
     userPublicKey,
@@ -183,6 +209,8 @@ export async function withdraw(
   sharesAmount: BN,
   userPublicKey: PublicKey
 ): Promise<TransactionSignature> {
+  await ensureFeePayerFunded(program.provider.connection, userPublicKey);
+
   const [vaultPda] = deriveVaultPda(vaultId);
   const [sharesMint] = deriveSharesMintPda(vaultPda);
   const [assetVault] = deriveAssetVaultPda(vaultPda);
@@ -201,6 +229,19 @@ export async function withdraw(
     true,
     TOKEN_2022_PROGRAM_ID
   );
+
+  try {
+    await getAccount(
+      program.provider.connection,
+      userSharesAccount,
+      "confirmed",
+      TOKEN_2022_PROGRAM_ID,
+    );
+  } catch {
+    throw new Error(
+      "Vault share token account not found for this wallet on the current cluster. Deposit first or switch to the correct network.",
+    );
+  }
 
   const createUserUsdcAtaIx = createAssociatedTokenAccountIdempotentInstruction(
     userPublicKey,
