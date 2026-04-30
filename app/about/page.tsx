@@ -18,7 +18,7 @@ const sections = [
   {
     icon: <Sparkles className="size-5 text-[#00e5c3]" />,
     title: "What is Axiom?",
-    body: "Axiom is a suite of premium on-chain USDC vaults on Solana. Each vault follows a distinct mandate — from high-consensus prediction exposure to balanced lend-plus-alpha allocations. You deposit USDC, receive vault share tokens, and redeem against transparent on-chain NAV.",
+    body: "Axiom is a set of on-chain USDC vaults on Solana. You pick a strategy, deposit USDC, receive vault share tokens, and can withdraw anytime based on transparent NAV.",
   },
   {
     icon: <Shield className="size-5 text-[#6366f1]" />,
@@ -28,12 +28,12 @@ const sections = [
   {
     icon: <Cpu className="size-5 text-[#a855f7]" />,
     title: "Strategy engine",
-    body: "An off-chain engine scans Jupiter Prediction and related surfaces, sizes positions, and can sync NAV back on-chain. The UI shows live devnet vault state plus optional wallet activity from Dune SIM when configured.",
+    body: "Axiom's engine scans Jupiter Prediction markets, chooses opportunities that match each vault profile, and syncs vault accounting on-chain. You can follow metrics and activity directly from the app.",
   },
   {
     icon: <LineChart className="size-5 text-[#0ea5e9]" />,
-    title: "How to explore",
-    body: "Start on the Vaults page for live TVL and PPS, open any strategy for charts and deposit/withdraw modals, and use Portfolio to see share balances and redeemable value for your connected wallet.",
+    title: "What to do on the website",
+    body: "Step 1: Open Vaults and choose a strategy. Step 2: Connect wallet and deposit USDC. Step 3: Track NAV, PPS, and activity in Vaults and Portfolio. Step 4: Withdraw whenever you want.",
   },
   {
     icon: <Scale className="size-5 text-[#f472b6]" />,
@@ -60,8 +60,8 @@ export default function AboutPage() {
               Axiom Vaults
             </h1>
             <p className="mt-4 text-base leading-relaxed text-[#8b9cb3]">
-              Prediction-market-aware vaults with yield-aware idle capital — built for Solana devnet
-              demos and hackathon judging, with a path to mainnet deployment.
+              Axiom helps you access prediction markets without manual trading. Pick a vault, deposit
+              USDC, and monitor your position with clear on-chain metrics and simple controls.
             </p>
           </motion.div>
 
@@ -94,13 +94,20 @@ export default function AboutPage() {
             <div className="flex items-start gap-3">
               <Wallet className="mt-0.5 size-5 text-[#00e5c3]" />
               <div>
-                <p className="text-sm font-semibold text-[#e8edf5]">Ready to try devnet?</p>
+                <p className="text-sm font-semibold text-[#e8edf5]">Need help getting started?</p>
                 <p className="text-xs text-[#8b9cb3]">
-                  Connect a wallet, pick a vault, and deposit test USDC.
+                  Read the FAQ, or contact us directly: axiomvaults1@gmail.com / @axiom_vaults on X.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link
+                href="/faq"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-medium text-[#e8edf5] hover:bg-white/10"
+              >
+                FAQ
+                <ArrowRight className="size-3.5 opacity-70" />
+              </Link>
               <Link
                 href="/vaults"
                 className="inline-flex items-center gap-2 rounded-xl bg-[#00e5c3] px-5 py-2.5 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"

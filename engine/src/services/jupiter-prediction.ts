@@ -8,7 +8,7 @@ import type { PredictionEvent, PredictionMarket, PredictionPosition } from "../t
 const log = createLogger("jupiter-prediction");
 
 /** OpenAPI: filter is `new` | `live` | `trending` — not `active` (returns 400). */
-const EVENT_LIST_FILTER = (process.env.JUPITER_PREDICTION_EVENT_FILTER || "trending").trim() as
+const EVENT_LIST_FILTER = (process.env.JUPITER_PREDICTION_EVENT_FILTER || "live").trim() as
   | "new"
   | "live"
   | "trending";
