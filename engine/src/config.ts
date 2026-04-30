@@ -81,7 +81,21 @@ export const CONFIG = {
       return "claude-3-5-haiku-20241022";
     })((process.env.AI_PROVIDER || "anthropic").toLowerCase()),
   AI_MAX_CALLS_PER_HOUR: parseInt(process.env.AI_MAX_CALLS_PER_HOUR || "50", 10),
+  AI_BATCH_SIZE: parseInt(process.env.AI_BATCH_SIZE || "2", 10),
+  AI_BATCH_DELAY_MS: parseInt(process.env.AI_BATCH_DELAY_MS || "700", 10),
+  ORDER_REQUEST_DELAY_MS: parseInt(process.env.ORDER_REQUEST_DELAY_MS || "800", 10),
+  EXECUTION_MODE: ((raw: string | undefined): "paper" | "live" => {
+    const v = (raw || "").toLowerCase();
+    return v === "live" ? "live" : "paper";
+  })(process.env.EXECUTION_MODE),
 } as const;
+
+export function inferClusterFromRpc(rpcUrl: string): "devnet" | "mainnet-beta" | "unknown" {
+  const url = rpcUrl.toLowerCase();
+  if (url.includes("devnet")) return "devnet";
+  if (url.includes("mainnet")) return "mainnet-beta";
+  return "unknown";
+}
 
 export const VAULT_CONFIGS: Record<VaultStrategyType, VaultConfig> = {
   "safe-consensus": {

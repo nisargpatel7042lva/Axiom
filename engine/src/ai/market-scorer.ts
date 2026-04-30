@@ -15,8 +15,9 @@ import { passesAiGate } from "./types.js";
 const log = createLogger("ai-scorer");
 
 const AI_TIMEOUT_MS = 10_000;
-const BATCH_SIZE = 5;
+const BATCH_SIZE = Math.max(1, CONFIG.AI_BATCH_SIZE);
 const TOP_CANDIDATES = 25;
+const BATCH_DELAY_MS = Math.max(0, CONFIG.AI_BATCH_DELAY_MS);
 
 class HourlyRateLimiter {
   private readonly timestamps: number[] = [];
@@ -147,6 +148,10 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
       setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
     ),
   ]);
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function callAnthropic(system: string, user: string): Promise<string> {
@@ -369,6 +374,10 @@ export async function scoreOpportunitiesWithAi(
 
       const combined = meta.opp.score * (s.conviction / 100);
       enriched.push({ ...meta.opp, score: combined, ai });
+    }
+
+    if (BATCH_DELAY_MS > 0 && i + BATCH_SIZE < candidates.length) {
+      await sleep(BATCH_DELAY_MS);
     }
   }
 
