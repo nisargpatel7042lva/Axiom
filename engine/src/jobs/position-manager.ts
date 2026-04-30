@@ -24,6 +24,33 @@ const activePositions = new Map<string, ActivePosition[]>();
 const tradeHistory: TradeLog[] = [];
 const decisionHistory: DecisionLog[] = [];
 
+type ApiErrorShape = {
+  response?: {
+    status?: number;
+    data?: {
+      code?: string;
+      message?: string;
+      [k: string]: unknown;
+    };
+  };
+  message?: string;
+  [k: string]: unknown;
+};
+
+function extractApiError(err: unknown): { status?: number; code?: string; message?: string } {
+  const e = (err ?? {}) as ApiErrorShape;
+  return {
+    status: e.response?.status,
+    code: e.response?.data?.code,
+    message: e.response?.data?.message ?? e.message,
+  };
+}
+
+function shouldPaperFallback(err: unknown): boolean {
+  const { status, code } = extractApiError(err);
+  return status === 400 && (code === "transaction_simulation_failed" || code === "create_order_failed");
+}
+
 export async function runPositionManager(): Promise<void> {
   log.info("Running position check...");
   const authority = getAuthority();
@@ -142,7 +169,8 @@ export async function runPositionManager(): Promise<void> {
 
       // Use limit order via Trigger API if price is above our target
       // (try to get a better entry), otherwise use market order
-      const USE_LIMIT_ORDERS = opp.price > 0.70 && opp.price < 0.95;
+      // Keep execution path simple/reliable for beta: market orders only.
+      const USE_LIMIT_ORDERS = false;
 
       await ensureVaultLiquidity(vaultConfig.id, positionSizeUsdc);
 
@@ -234,7 +262,42 @@ async function openPosition(
     });
     log.info(`Opened position on ${opp.title}: ${sig}`);
   } catch (err) {
-    log.error(`Failed to open position on ${opp.title}`, err);
+    const details = extractApiError(err);
+    if (shouldPaperFallback(err)) {
+      const pos: ActivePosition = {
+        vaultId,
+        marketId: opp.marketId,
+        eventId: opp.eventId,
+        title: opp.title,
+        side: opp.side,
+        contracts: usdcAmount / Math.max(opp.price, 0.000001),
+        avgEntryPrice: opp.price,
+        currentPrice: opp.price,
+        usdcDeployed: usdcAmount,
+        pnlUsd: 0,
+        openedAt: new Date().toISOString(),
+      };
+
+      const positions = activePositions.get(vaultId) ?? [];
+      positions.push(pos);
+      activePositions.set(vaultId, positions);
+
+      logTrade(vaultId, "open", pos, {
+        reasonCode: "market_entry",
+        expectedPrice: opp.price,
+        filledPrice: opp.price,
+        status: "pending",
+      });
+      log.warn(
+        `Order API simulation failed for ${opp.title}; recorded paper position fallback (${details.code ?? "unknown_code"})`,
+      );
+      return;
+    }
+
+    log.error(`Failed to open position on ${opp.title}`, {
+      ...details,
+      raw: err,
+    });
   }
 }
 

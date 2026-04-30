@@ -13,6 +13,37 @@ const EVENT_LIST_FILTER = (process.env.JUPITER_PREDICTION_EVENT_FILTER || "live"
   | "live"
   | "trending";
 
+function asIsoFromTimestamp(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  // Some APIs return seconds, others milliseconds.
+  const ms = value > 1e12 ? value : value * 1000;
+  const iso = new Date(ms).toISOString();
+  return Number.isNaN(Date.parse(iso)) ? null : iso;
+}
+
+function pickEventEndDate(raw: Record<string, unknown>, meta: Record<string, unknown>): string {
+  const closeTime = meta.closeTime;
+  if (typeof closeTime === "string" && closeTime.length > 0 && !Number.isNaN(Date.parse(closeTime))) {
+    return closeTime;
+  }
+
+  const numericCandidates: unknown[] = [
+    raw.closeAt,
+    raw.endAt,
+    raw.resolveAt,
+    meta.closeAt,
+    meta.endAt,
+    meta.resolveAt,
+  ];
+  for (const candidate of numericCandidates) {
+    const iso = asIsoFromTimestamp(candidate);
+    if (iso) return iso;
+  }
+
+  // Last-resort fallback: keep event scannable instead of forcing 0-day expiry.
+  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
 function mapMarketStatus(api: string): PredictionMarket["status"] {
   if (api === "open") return "active";
   if (api === "closed") return "resolved";
@@ -26,17 +57,28 @@ function mapResolution(
   return null;
 }
 
+function normalizeUsdPrice(value: unknown): number {
+  const n = Number(value ?? 0) || 0;
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  // Jupiter prediction can return micro-USD ints (e.g. 450000 => 0.45).
+  if (n > 1) return n / 1_000_000;
+  return n;
+}
+
 function normalizeMarket(raw: Record<string, unknown>, eventId: string): PredictionMarket {
   const meta = (raw.metadata as Record<string, unknown> | undefined) ?? {};
   const pricing = (raw.pricing as Record<string, unknown> | undefined) ?? {};
   const status = typeof raw.status === "string" ? raw.status : "closed";
+  const yes = normalizeUsdPrice(pricing.buyYesPriceUsd);
+  const noRaw = normalizeUsdPrice(pricing.buyNoPriceUsd);
+  const no = noRaw > 0 ? noRaw : Math.max(0, 1 - yes);
 
   return {
     id: String(raw.marketId ?? ""),
     eventId,
     title: String(meta.title ?? ""),
-    buyYesPriceUsd: Number(pricing.buyYesPriceUsd ?? 0) || 0,
-    buyNoPriceUsd: Number(pricing.buyNoPriceUsd ?? 0) || 0,
+    buyYesPriceUsd: yes,
+    buyNoPriceUsd: no,
     volume24h: Number(pricing.volume ?? 0) || 0,
     volumeTotal: Number(pricing.volume ?? 0) || 0,
     liquidity: 0,
@@ -49,13 +91,7 @@ function normalizeEvent(raw: Record<string, unknown>): PredictionEvent {
   const eventId = String(raw.eventId ?? "");
   const meta = (raw.metadata as Record<string, unknown> | undefined) ?? {};
   const title = String(meta.title ?? meta.subtitle ?? eventId);
-  const closeTime = meta.closeTime;
-  const endDate =
-    typeof closeTime === "string" && closeTime.length > 0
-      ? closeTime
-      : typeof raw.beginAt === "number"
-        ? new Date(raw.beginAt * 1000).toISOString()
-        : new Date().toISOString();
+  const endDate = pickEventEndDate(raw, meta);
 
   const marketsRaw = Array.isArray(raw.markets) ? raw.markets : [];
   const markets = marketsRaw

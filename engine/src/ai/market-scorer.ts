@@ -36,6 +36,19 @@ class HourlyRateLimiter {
 
 const rateLimiter = new HourlyRateLimiter(CONFIG.AI_MAX_CALLS_PER_HOUR);
 
+function serializeError(err: unknown): Record<string, unknown> {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      cause: err.cause,
+    };
+  }
+  if (typeof err === "object" && err !== null) return err as Record<string, unknown>;
+  return { message: String(err) };
+}
+
 function rulesFallback(
   strategyType: VaultStrategyType,
   market: PredictionMarket,
@@ -179,6 +192,55 @@ async function callOpenAI(system: string, user: string): Promise<string> {
   return text;
 }
 
+async function callGemini(system: string, user: string): Promise<string> {
+  const model = CONFIG.AI_MODEL || "gemini-2.0-flash";
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent` +
+    `?key=${encodeURIComponent(CONFIG.AI_API_KEY)}`;
+
+  const body = {
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+    },
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              `${system}\n` +
+              'Return JSON only. Shape: [ { "marketId": "...", "conviction": number, "mispricing_signal": number, "resolution_clarity": number, "reasoning": "...", "recommended_side": "YES|NO|SKIP", "risk_flags": [] } ]\n\n' +
+              user,
+          },
+        ],
+      },
+    ],
+  };
+
+  const response = await withTimeout(
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    AI_TIMEOUT_MS,
+    "Gemini",
+  );
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`Gemini request failed (${response.status}): ${errText}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text) throw new Error("Gemini returned empty content");
+  return text;
+}
+
 async function scoreBatchLlm(
   strategyType: VaultStrategyType,
   batch: MarketScoreBatchItem[],
@@ -196,13 +258,20 @@ async function scoreBatchLlm(
     const raw =
       CONFIG.AI_PROVIDER === "openai"
         ? await callOpenAI(system, user)
+        : CONFIG.AI_PROVIDER === "gemini"
+          ? await callGemini(system, user)
         : await callAnthropic(system, user);
 
     const expectedIds = batch.map((b) => b.marketId);
     const parsed = parseScoreArray(raw, expectedIds);
     return parsed;
   } catch (err) {
-    log.warn("LLM batch failed", err);
+    log.warn("LLM batch failed", {
+      provider: CONFIG.AI_PROVIDER,
+      model: CONFIG.AI_MODEL,
+      batchSize: batch.length,
+      error: serializeError(err),
+    });
     return null;
   }
 }

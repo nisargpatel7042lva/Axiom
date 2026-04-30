@@ -154,6 +154,14 @@ async function bootstrap(): Promise<void> {
     log.error("Initial NAV calculation failed (non-fatal)", err);
   }
 
+  try {
+    log.info("Running initial position check (after NAV)...");
+    await runPositionManager();
+    lastPositionCheck = new Date().toISOString();
+  } catch (err) {
+    log.error("Initial position check failed (non-fatal)", err);
+  }
+
   log.info("Spectra Engine running. Cron jobs active.");
 }
 

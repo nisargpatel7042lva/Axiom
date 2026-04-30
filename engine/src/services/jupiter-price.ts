@@ -74,14 +74,8 @@ class JupiterPriceService {
   }
 
   async getUsdcPrice(): Promise<number> {
-    try {
-      const price = await this.getPrice(CONFIG.USDC_MINT);
-      if (price && price > 0.95 && price < 1.05) return price;
-      log.warn(`USDC price out of range: ${price}, defaulting to 1.0`);
-      return 1.0;
-    } catch {
-      return 1.0;
-    }
+    // Accounting numeraire: keep USDC fixed at $1.00 for NAV math.
+    return 1.0;
   }
 }
 
