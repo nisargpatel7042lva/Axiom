@@ -4,13 +4,12 @@ import webpack from "webpack";
 
 const repoRoot = process.cwd();
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
-const posthogProxyPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH || "";
+const posthogProxyPath = process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH || "/ingest";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: repoRoot,
   skipTrailingSlashRedirect: true,
   async rewrites() {
-    if (!posthogProxyPath) return [];
     return [
       {
         source: `${posthogProxyPath}/static/:path*`,
