@@ -88,7 +88,7 @@ function PortfolioConnectedView() {
   const walletAddress = publicKey?.toBase58() ?? null;
   const { usdcBalance } = useWalletBalances();
   const { positions, totalValue, loading, error, refetch } = useWalletVaultPositions();
-  const chartPoints = useLiveMetricHistory(connected ? totalValue : null, 24 * 60 * 60 * 1000);
+  const chartPoints = useLiveMetricHistory(connected ? totalValue : null, 24 * 60 * 60 * 1000, walletAddress);
   const sampledPortfolioPoints = useMemo(
     () => dedupeMetricPointsByDay(chartPoints),
     [chartPoints],
@@ -253,371 +253,368 @@ function PortfolioConnectedView() {
   const chartData = chartMode === "total" ? chartSeries.total : chartSeries.flow;
 
   return (
-      <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">Portfolio</h1>
-          <p className="mt-1 text-sm text-[#8b9cb3]">
-            Live positions from devnet vault share tokens (Token-2022) in your wallet.
-          </p>
-        </motion.div>
+    <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">Portfolio</h1>
+        <p className="mt-1 text-sm text-[#8b9cb3]">
+          Live positions from devnet vault share tokens (Token-2022) in your wallet.
+        </p>
+      </motion.div>
 
-        {error && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-100 min-[391px]:px-4">
-            <span>{error.message}</span>
+      {error && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-100 min-[391px]:px-4">
+          <span>{error.message}</span>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded-lg bg-white/10 px-3 py-1 text-xs font-medium text-white hover:bg-white/15"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.08, delayChildren: 0.06 },
+          },
+        }}
+        className="mt-6 grid grid-cols-1 gap-3 min-[391px]:gap-4 sm:grid-cols-3"
+      >
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
+          }}
+          className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
+        >
+          <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
+            Redeemable value
+          </div>
+          <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
+            {loading ? (
+              <Skeleton className="h-8 w-32 bg-white/5" />
+            ) : (
+              <CountUp
+                from={0}
+                to={totalValue}
+                separator=","
+                direction="up"
+                duration={1.25}
+                decimals={2}
+                prefix="$"
+              />
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-[#8b9cb3]">From on-chain withdraw preview</p>
+        </motion.div>
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 16 },
+            show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
+          }}
+          className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
+        >
+          <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
+            Vaults with shares
+          </div>
+          <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
+            {loading ? (
+              <Skeleton className="h-8 w-12 bg-white/5" />
+            ) : (
+              <CountUp from={0} to={positions.length} direction="up" duration={1} />
+            )}
+          </div>
+          <div className="text-sm text-[#8b9cb3]">
+            of <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">{VAULT_CONFIGS.length}</span>{" "}
+            strategies
+          </div>
+        </motion.div>
+        {usdcBalance > 0 && (
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
+            }}
+            className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
+          >
+            <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
+              Wallet USDC
+            </div>
+            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
+              <CountUp
+                from={0}
+                to={usdcBalance}
+                separator=","
+                direction="up"
+                duration={1.25}
+                decimals={2}
+                prefix="$"
+              />
+            </div>
+            <div className="text-[10px] text-[#8b9cb3]">via Dune SIM</div>
+          </motion.div>
+        )}
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, type: "spring", stiffness: 320, damping: 30 }}
+        className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
+      >
+        <div className="mb-3 flex flex-col gap-2 min-[391px]:flex-row min-[391px]:items-center min-[391px]:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[#e8edf5]">Portfolio chart</h3>
+            <p className="mt-1 text-[10px] text-[#8b9cb3]">
+              15-day view · switch between value trend and daily net movement.
+            </p>
+          </div>
+          <div className="inline-flex rounded-xl border border-[#1a2235] bg-[#080c14] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <button
               type="button"
-              onClick={() => void refetch()}
-              className="rounded-lg bg-white/10 px-3 py-1 text-xs font-medium text-white hover:bg-white/15"
+              onClick={() => setChartMode("total")}
+              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "total"
+                  ? "bg-[#00e5c3] text-[#080c14] shadow-[0_0_0_1px_rgba(0,229,195,0.25)]"
+                  : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
+                }`}
             >
-              Retry
+              Total Value
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode("flow")}
+              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "flow"
+                  ? "bg-[#6366f1] text-white shadow-[0_0_0_1px_rgba(99,102,241,0.25)]"
+                  : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
+                }`}
+            >
+              Daily Flow
             </button>
           </div>
-        )}
-
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: { opacity: 0 },
-            show: {
-              opacity: 1,
-              transition: { staggerChildren: 0.08, delayChildren: 0.06 },
-            },
-          }}
-          className="mt-6 grid grid-cols-1 gap-3 min-[391px]:gap-4 sm:grid-cols-3"
-        >
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 16 },
-              show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
-            }}
-            className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
-          >
-            <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
-              Redeemable value
-            </div>
-            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
-              {loading ? (
-                <Skeleton className="h-8 w-32 bg-white/5" />
-              ) : (
-                <CountUp
-                  from={0}
-                  to={totalValue}
-                  separator=","
-                  direction="up"
-                  duration={1.25}
-                  decimals={2}
-                  prefix="$"
-                />
-              )}
-            </div>
-            <p className="mt-1 text-[10px] text-[#8b9cb3]">From on-chain withdraw preview</p>
-          </motion.div>
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 16 },
-              show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
-            }}
-            className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
-          >
-            <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
-              Vaults with shares
-            </div>
-            <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
-              {loading ? (
-                <Skeleton className="h-8 w-12 bg-white/5" />
-              ) : (
-                <CountUp from={0} to={positions.length} direction="up" duration={1} />
-              )}
-            </div>
-            <div className="text-sm text-[#8b9cb3]">
-              of <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">{VAULT_CONFIGS.length}</span>{" "}
-              strategies
-            </div>
-          </motion.div>
-          {usdcBalance > 0 && (
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
-              }}
-              className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
-            >
-              <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
-                Wallet USDC
-              </div>
-              <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
-                <CountUp
-                  from={0}
-                  to={usdcBalance}
-                  separator=","
-                  direction="up"
-                  duration={1.25}
-                  decimals={2}
-                  prefix="$"
-                />
-              </div>
-              <div className="text-[10px] text-[#8b9cb3]">via Dune SIM</div>
-            </motion.div>
-          )}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, type: "spring", stiffness: 320, damping: 30 }}
-          className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
-        >
-          <div className="mb-3 flex flex-col gap-2 min-[391px]:flex-row min-[391px]:items-center min-[391px]:justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-[#e8edf5]">Portfolio chart</h3>
-              <p className="mt-1 text-[10px] text-[#8b9cb3]">
-                15-day view · switch between value trend and daily net movement.
-              </p>
-            </div>
-            <div className="inline-flex rounded-xl border border-[#1a2235] bg-[#080c14] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <button
-                type="button"
-                onClick={() => setChartMode("total")}
-                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${
-                  chartMode === "total"
-                    ? "bg-[#00e5c3] text-[#080c14] shadow-[0_0_0_1px_rgba(0,229,195,0.25)]"
-                    : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
-                }`}
-              >
-                Total Value
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartMode("flow")}
-                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${
-                  chartMode === "flow"
-                    ? "bg-[#6366f1] text-white shadow-[0_0_0_1px_rgba(99,102,241,0.25)]"
-                    : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
-                }`}
-              >
-                Daily Flow
-              </button>
-            </div>
-          </div>
-          <p className="mb-2 text-[10px] text-[#8b9cb3] min-[391px]:mb-3 max-[390px]:leading-snug">
-            {chartMode === "total"
-              ? "15-day trend: vault deposit/withdraw history (Spectra program only) plus local app log, scaled to current redeemable value; otherwise one sample per day from live NAV."
-              : "15-day net daily USDC flow for Spectra vault deposits and withdrawals only (chain + local log)."}
-          </p>
-          <div className="mb-3 flex items-center gap-3 text-[10px] text-[#8b9cb3]">
+        </div>
+        <p className="mb-2 text-[10px] text-[#8b9cb3] min-[391px]:mb-3 max-[390px]:leading-snug">
+          {chartMode === "total"
+            ? "15-day trend: vault deposit/withdraw history (Spectra program only) plus local app log, scaled to current redeemable value; otherwise one sample per day from live NAV."
+            : "15-day net daily USDC flow for Spectra vault deposits and withdrawals only (chain + local log)."}
+        </p>
+        <div className="mb-3 flex items-center gap-3 text-[10px] text-[#8b9cb3]">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: chartMode === "total" ? "#00e5c3" : "#6366f1" }}
+            />
+            {chartMode === "total" ? "Total value trend" : "Net daily flow"}
+          </span>
+          {chartMode === "flow" && (
             <span className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ background: chartMode === "total" ? "#00e5c3" : "#6366f1" }}
-              />
-              {chartMode === "total" ? "Total value trend" : "Net daily flow"}
+              <span className="inline-block h-[1px] w-3 bg-white/25" />
+              Zero baseline
             </span>
-            {chartMode === "flow" && (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-[1px] w-3 bg-white/25" />
-                Zero baseline
-              </span>
-            )}
-          </div>
-          <div className="h-48 min-[391px]:h-56">
-            {chartData.length >= 2 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart key={narrow ? "narrow" : "wide"} data={chartData}>
-                  <defs>
-                    <linearGradient id="portfolio-gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00e5c3" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#00e5c3" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="flow-gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.28} />
-                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.04} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="rgba(139,156,179,0.12)" strokeDasharray="3 4" vertical={false} />
-                  {chartMode === "flow" && (
-                    <ReferenceLine y={0} stroke="rgba(255,255,255,0.28)" strokeDasharray="4 4" />
-                  )}
-                  <XAxis
-                    dataKey="t"
-                    type="number"
-                    scale="time"
-                    domain={[startOfDayMs(Date.now()) - 14 * 24 * 60 * 60 * 1000, startOfDayMs(Date.now())]}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#8b9cb3", fontSize: 10 }}
-                    tickFormatter={(v: number) =>
-                      new Date(v).toLocaleDateString("en-US", {
-                        day: "numeric",
-                        month: narrow ? "short" : "long",
-                      })
-                    }
-                    minTickGap={narrow ? 22 : 30}
-                  />
-                  <YAxis
-                    domain={(range: [number, number]) => {
-                      const [min, max] = range;
-                      if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
-                      if (min === max) {
-                        const pad = Math.max(0.01, Math.abs(min) * 0.005);
-                        return [min - pad, max + pad];
-                      }
-                      const pad = (max - min) * 0.08;
+          )}
+        </div>
+        <div className="h-48 min-[391px]:h-56">
+          {chartData.length >= 2 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart key={narrow ? "narrow" : "wide"} data={chartData}>
+                <defs>
+                  <linearGradient id="portfolio-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#00e5c3" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#00e5c3" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="flow-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(139,156,179,0.12)" strokeDasharray="3 4" vertical={false} />
+                {chartMode === "flow" && (
+                  <ReferenceLine y={0} stroke="rgba(255,255,255,0.28)" strokeDasharray="4 4" />
+                )}
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  scale="time"
+                  domain={[startOfDayMs(Date.now()) - 14 * 24 * 60 * 60 * 1000, startOfDayMs(Date.now())]}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#8b9cb3", fontSize: 10 }}
+                  tickFormatter={(v: number) =>
+                    new Date(v).toLocaleDateString("en-US", {
+                      day: "numeric",
+                      month: narrow ? "short" : "long",
+                    })
+                  }
+                  minTickGap={narrow ? 22 : 30}
+                />
+                <YAxis
+                  domain={(range: [number, number]) => {
+                    const [min, max] = range;
+                    if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
+                    if (min === max) {
+                      const pad = Math.max(0.01, Math.abs(min) * 0.005);
                       return [min - pad, max + pad];
-                    }}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
-                    tickFormatter={(v: number) => formatUsd(v)}
-                    width={narrow ? 56 : 72}
-                  />
-                  <RechartsTooltip
-                    contentStyle={{
-                      backgroundColor: "#0d1420",
-                      border: "1px solid #1a2235",
-                      borderRadius: 10,
-                      fontSize: narrow ? 11 : 12,
-                      maxWidth: narrow ? 200 : 280,
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-                    }}
-                    labelStyle={{ color: "#8b9cb3" }}
-                    labelFormatter={(v: number) =>
-                      new Date(v).toLocaleDateString("en-US", {
-                        day: "numeric",
-                        month: narrow ? "short" : "long",
-                      })
                     }
-                    formatter={(value: number) => [
-                      formatUsd(value),
-                      chartMode === "total" ? "Portfolio value" : "Net flow",
-                    ]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke={chartMode === "total" ? "#00e5c3" : "#6366f1"}
-                    strokeWidth={2}
-                    fill={chartMode === "total" ? "url(#portfolio-gradient)" : "url(#flow-gradient)"}
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-[#8b9cb3]">
-                {loading
-                  ? "Loading devnet balances…"
-                  : "No vault share positions yet. Deposit from a vault page to mint shares."}
-              </div>
-            )}
-          </div>
-        </motion.div>
+                    const pad = (max - min) * 0.08;
+                    return [min - pad, max + pad];
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#8b9cb3", fontSize: narrow ? 9 : 10 }}
+                  tickFormatter={(v: number) => formatUsd(v)}
+                  width={narrow ? 56 : 72}
+                />
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: "#0d1420",
+                    border: "1px solid #1a2235",
+                    borderRadius: 10,
+                    fontSize: narrow ? 11 : 12,
+                    maxWidth: narrow ? 200 : 280,
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+                  }}
+                  labelStyle={{ color: "#8b9cb3" }}
+                  labelFormatter={(v: number) =>
+                    new Date(v).toLocaleDateString("en-US", {
+                      day: "numeric",
+                      month: narrow ? "short" : "long",
+                    })
+                  }
+                  formatter={(value: number) => [
+                    formatUsd(value),
+                    chartMode === "total" ? "Portfolio value" : "Net flow",
+                  ]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={chartMode === "total" ? "#00e5c3" : "#6366f1"}
+                  strokeWidth={2}
+                  fill={chartMode === "total" ? "url(#portfolio-gradient)" : "url(#flow-gradient)"}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-[#8b9cb3]">
+              {loading
+                ? "Loading devnet balances…"
+                : "No vault share positions yet. Deposit from a vault page to mint shares."}
+            </div>
+          )}
+        </div>
+      </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.22, type: "spring", stiffness: 320, damping: 30 }}
-          className="mt-6"
-        >
-          <h3 className="mb-3 text-base font-semibold text-[#e8edf5] min-[391px]:mb-4 min-[391px]:text-lg">
-            Your positions
-          </h3>
-          <div className="space-y-4">
-            {positions.map((pos: LiveVaultPosition) => {
-              const cfg = pos.config;
-              const pps = pos.uiState?.pricePerShare ?? 0;
-              const totals = vaultActivityTotals.get(pos.vaultId) ?? { invested: 0, withdrawn: 0 };
-              const netInvested = Math.max(0, totals.invested - totals.withdrawn);
-              const pnl = pos.currentValueUsdc - netInvested;
-              const pnlPositive = pnl >= 0;
-              return (
-                <Link
-                  key={pos.vaultId}
-                  href={`/vaults/${pos.vaultId}`}
-                  className="group block"
-                >
-                  <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 transition-all hover:border-[#00e5c3]/30 min-[391px]:p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div
-                          className="flex size-10 items-center justify-center rounded-xl"
-                          style={{
-                            backgroundColor: `${cfg.accentColor}20`,
-                            color: cfg.accentColor,
-                          }}
-                        >
-                          {VAULT_ICONS[cfg.id] ?? <TrendingUp className="size-5" />}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22, type: "spring", stiffness: 320, damping: 30 }}
+        className="mt-6"
+      >
+        <h3 className="mb-3 text-base font-semibold text-[#e8edf5] min-[391px]:mb-4 min-[391px]:text-lg">
+          Your positions
+        </h3>
+        <div className="space-y-4">
+          {positions.map((pos: LiveVaultPosition) => {
+            const cfg = pos.config;
+            const pps = pos.uiState?.pricePerShare ?? 0;
+            const totals = vaultActivityTotals.get(pos.vaultId) ?? { invested: 0, withdrawn: 0 };
+            const netInvested = Math.max(0, totals.invested - totals.withdrawn);
+            const pnl = pos.currentValueUsdc - netInvested;
+            const pnlPositive = pnl >= 0;
+            return (
+              <Link
+                key={pos.vaultId}
+                href={`/vaults/${pos.vaultId}`}
+                className="group block"
+              >
+                <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 transition-all hover:border-[#00e5c3]/30 min-[391px]:p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className="flex size-10 items-center justify-center rounded-xl"
+                        style={{
+                          backgroundColor: `${cfg.accentColor}20`,
+                          color: cfg.accentColor,
+                        }}
+                      >
+                        {VAULT_ICONS[cfg.id] ?? <TrendingUp className="size-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="truncate font-semibold text-[#e8edf5]">{cfg.name}</h4>
+                          <ArrowUpRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-opacity group-hover:opacity-100" />
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="truncate font-semibold text-[#e8edf5]">{cfg.name}</h4>
-                            <ArrowUpRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-opacity group-hover:opacity-100" />
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b9cb3] min-[391px]:text-xs">
-                            <span className="font-[family-name:var(--font-space-mono)]">
-                              {formatShares(pos.sharesHuman)} {cfg.ticker}
-                            </span>
-                            <span className="hidden sm:inline">·</span>
-                            <span className="font-[family-name:var(--font-space-mono)]">
-                              PPS ${pps.toFixed(4)}
-                            </span>
-                          </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b9cb3] min-[391px]:text-xs">
+                          <span className="font-[family-name:var(--font-space-mono)]">
+                            {formatShares(pos.sharesHuman)} {cfg.ticker}
+                          </span>
+                          <span className="hidden sm:inline">·</span>
+                          <span className="font-[family-name:var(--font-space-mono)]">
+                            PPS ${pps.toFixed(4)}
+                          </span>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-3 sm:flex sm:items-center sm:gap-6 sm:border-t-0 sm:pt-0">
-                        <div className="text-left sm:text-right">
-                          <div className="text-xs text-[#8b9cb3]">Redeemable</div>
-                          <div className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
-                            {formatUsd(pos.currentValueUsdc)}
-                          </div>
+                    <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-3 sm:flex sm:items-center sm:gap-6 sm:border-t-0 sm:pt-0">
+                      <div className="text-left sm:text-right">
+                        <div className="text-xs text-[#8b9cb3]">Redeemable</div>
+                        <div className="font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
+                          {formatUsd(pos.currentValueUsdc)}
                         </div>
-                        <div className="text-left sm:text-right">
-                          <div className="text-xs text-[#8b9cb3]">P&amp;L</div>
-                          <div
-                            className={`font-[family-name:var(--font-space-mono)] text-sm font-semibold ${
-                              pnlPositive ? "text-emerald-400" : "text-rose-400"
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <div className="text-xs text-[#8b9cb3]">P&amp;L</div>
+                        <div
+                          className={`font-[family-name:var(--font-space-mono)] text-sm font-semibold ${pnlPositive ? "text-emerald-400" : "text-rose-400"
                             }`}
-                          >
-                            {pnlPositive ? "+" : "-"}
-                            {formatUsd(Math.abs(pnl))}
-                          </div>
-                          <div className="text-[10px] text-[#8b9cb3] min-[391px]:text-xs">
-                            vs{" "}
-                            <span className="font-[family-name:var(--font-space-mono)] text-[#8b9cb3]">
-                              {formatUsd(netInvested)}
-                            </span>
-                          </div>
+                        >
+                          {pnlPositive ? "+" : "-"}
+                          {formatUsd(Math.abs(pnl))}
+                        </div>
+                        <div className="text-[10px] text-[#8b9cb3] min-[391px]:text-xs">
+                          vs{" "}
+                          <span className="font-[family-name:var(--font-space-mono)] text-[#8b9cb3]">
+                            {formatUsd(netInvested)}
+                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        </motion.div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </motion.div>
 
-        {positions.length === 0 && !loading && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 rounded-2xl border border-dashed border-[#1a2235] bg-[#0d1420]/50 p-5 text-center min-[391px]:p-8"
+      {positions.length === 0 && !loading && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-8 rounded-2xl border border-dashed border-[#1a2235] bg-[#0d1420]/50 p-5 text-center min-[391px]:p-8"
+        >
+          <p className="text-sm text-[#8b9cb3]">
+            No vault share tokens detected. Explore strategies on the home page and deposit on
+            devnet.
+          </p>
+          <Link
+            href="/vaults"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#00e5c3] px-6 py-2.5 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
           >
-            <p className="text-sm text-[#8b9cb3]">
-              No vault share tokens detected. Explore strategies on the home page and deposit on
-              devnet.
-            </p>
-            <Link
-              href="/vaults"
-              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#00e5c3] px-6 py-2.5 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
-            >
-              Explore vaults
-              <ExternalLink className="size-4" />
-            </Link>
-          </motion.div>
-        )}
-      </main>
+            Explore vaults
+            <ExternalLink className="size-4" />
+          </Link>
+        </motion.div>
+      )}
+    </main>
   );
 }
 
