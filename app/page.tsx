@@ -18,13 +18,12 @@ import {
 
 import { Topbar } from "@/components/layout/Topbar";
 import { MorphingText } from "@/components/ui/morphing-text";
-import { VAULT_CONFIGS } from "@/constants";
+import BorderGlow from "@/components/ui/BorderGlow";
+import { SITE_PRIMARY_GRADIENT_COLORS, VAULT_BORDER_GLOW, VAULT_CONFIGS } from "@/constants";
 
 const ColorBends = dynamic(() => import("@/components/ui/ColorBends"), {
   ssr: false,
 });
-
-const SPECTRA_COLORS = ["#00e5c3", "#6366f1", "#a855f7", "#0ea5e9"];
 
 const HERO_PHRASES = [
   "prediction markets",
@@ -87,7 +86,7 @@ export default function Home() {
           <div className="absolute inset-0" style={{ zIndex: 0 }}>
             <div className="w-full h-full" style={{ minHeight: "85vh" }}>
               <ColorBends
-                colors={SPECTRA_COLORS}
+                colors={[...SITE_PRIMARY_GRADIENT_COLORS]}
                 rotation={35}
                 speed={0.2}
                 scale={1}
@@ -234,43 +233,62 @@ export default function Home() {
                 <ArrowRight className="size-4" />
               </Link>
             </div>
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {VAULT_CONFIGS.map((config, i) => (
-                <motion.div
-                  key={config.id}
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={fadeUp}
-                >
-                  <Link
-                    href={`/vaults/${config.id}`}
-                    className="group block rounded-xl border border-white/10 bg-[#080c14]/80 p-4 transition-all hover:border-[#00e5c3]/35 hover:bg-[#080c14]"
+            <div className="mt-8 grid gap-4 sm:grid-cols-3 sm:items-stretch">
+              {VAULT_CONFIGS.map((config, i) => {
+                const glow = VAULT_BORDER_GLOW[config.id];
+                return (
+                  <motion.div
+                    key={config.id}
+                    custom={i}
+                    initial="hidden"
+                    animate="visible"
+                    variants={fadeUp}
+                    className="h-full"
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex size-10 items-center justify-center rounded-lg"
-                        style={{
-                          backgroundColor: `${config.accentColor}22`,
-                          color: config.accentColor,
-                        }}
+                    <Link
+                      href={`/vaults/${config.id}`}
+                      className="group block h-full"
+                    >
+                      <BorderGlow
+                        className="h-full"
+                        borderRadius={12}
+                        backgroundColor="#080c14"
+                        glowColor={glow.glowHsl}
+                        colors={[...glow.colors]}
+                        glowRadius={22}
+                        glowIntensity={1}
+                        coneSpread={22}
+                        edgeSensitivity={26}
+                        animated
                       >
-                        {VAULT_TEASER_ICONS[config.id]}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-[#e8edf5] group-hover:text-white truncate">
-                          {config.name}
+                        <div className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="flex size-10 items-center justify-center rounded-lg"
+                              style={{
+                                backgroundColor: `${config.accentColor}22`,
+                                color: config.accentColor,
+                              }}
+                            >
+                              {VAULT_TEASER_ICONS[config.id]}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-semibold text-[#e8edf5] group-hover:text-white">
+                                {config.name}
+                              </div>
+                              <div className="text-xs text-[#8b9cb3]">{config.ticker}</div>
+                            </div>
+                            <ArrowRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
+                          </div>
+                          <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[#8b9cb3]">
+                            {config.description}
+                          </p>
                         </div>
-                        <div className="text-xs text-[#8b9cb3]">{config.ticker}</div>
-                      </div>
-                      <ArrowRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
-                    </div>
-                    <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[#8b9cb3]">
-                      {config.description}
-                    </p>
-                  </Link>
-                </motion.div>
-              ))}
+                      </BorderGlow>
+                    </Link>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         </section>

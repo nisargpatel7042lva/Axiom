@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Layers } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
+import { SiteAuroraBackdrop } from "@/components/layout/SiteAuroraBackdrop";
 import { VaultCard } from "@/components/vault/VaultCard";
 import { ProtocolStats } from "@/components/vault/ProtocolStats";
 import { VAULT_CONFIGS } from "@/constants";
@@ -24,10 +25,12 @@ export default function VaultsPage() {
     useDevnetVaults();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#080c14]">
-      <Topbar />
+    <div className="relative min-h-screen bg-[#080c14]">
+      <SiteAuroraBackdrop />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <Topbar />
 
-      <main className="flex-1 pt-[6rem]">
+        <main className="flex-1 pt-[6rem]">
         <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
           <Link
             href="/"
@@ -96,7 +99,7 @@ export default function VaultsPage() {
             <p className="mt-1 text-sm text-[#8b9cb3]">
               Select a card to open metrics, charts, and deposit / withdraw.
             </p>
-            <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3 md:items-stretch">
               {VAULT_CONFIGS.map((config, i) => {
                 const row = entries.find((e) => e.config.id === config.id);
                 return (
@@ -106,6 +109,7 @@ export default function VaultsPage() {
                     initial="hidden"
                     animate="visible"
                     variants={fadeUp}
+                    className="h-full"
                   >
                     <VaultCard
                       config={config}
@@ -139,6 +143,7 @@ export default function VaultsPage() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

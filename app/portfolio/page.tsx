@@ -26,6 +26,7 @@ import {
 } from "recharts";
 
 import { Topbar } from "@/components/layout/Topbar";
+import { SiteAuroraBackdrop } from "@/components/layout/SiteAuroraBackdrop";
 import { VAULT_CONFIGS } from "@/constants";
 import { formatUsd, formatShares } from "@/components/format";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
@@ -42,6 +43,7 @@ import {
   type PortfolioActivity,
 } from "@/lib/portfolio/activity-log";
 import { Skeleton } from "@/components/ui/Skeleton";
+import CountUp from "@/components/ui/CountUp";
 import { DEVNET_USDC_MINT, USDC_MINT, getNetwork } from "@/lib/spectra/constants";
 import { useMatchMedia } from "@/hooks/useMatchMedia";
 
@@ -273,12 +275,24 @@ function PortfolioConnectedView() {
         )}
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: { staggerChildren: 0.08, delayChildren: 0.06 },
+            },
+          }}
           className="mt-6 grid grid-cols-1 gap-3 min-[391px]:gap-4 sm:grid-cols-3"
         >
-          <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5">
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
+            }}
+            className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
+          >
             <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
               Redeemable value
             </div>
@@ -286,37 +300,72 @@ function PortfolioConnectedView() {
               {loading ? (
                 <Skeleton className="h-8 w-32 bg-white/5" />
               ) : (
-                formatUsd(totalValue)
+                <CountUp
+                  from={0}
+                  to={totalValue}
+                  separator=","
+                  direction="up"
+                  duration={1.25}
+                  decimals={2}
+                  prefix="$"
+                />
               )}
             </div>
             <p className="mt-1 text-[10px] text-[#8b9cb3]">From on-chain withdraw preview</p>
-          </div>
-          <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5">
+          </motion.div>
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
+            }}
+            className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
+          >
             <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
               Vaults with shares
             </div>
             <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
-              {loading ? <Skeleton className="h-8 w-12 bg-white/5" /> : positions.length}
+              {loading ? (
+                <Skeleton className="h-8 w-12 bg-white/5" />
+              ) : (
+                <CountUp from={0} to={positions.length} direction="up" duration={1} />
+              )}
             </div>
-            <div className="text-sm text-[#8b9cb3]">of {VAULT_CONFIGS.length} strategies</div>
-          </div>
+            <div className="text-sm text-[#8b9cb3]">
+              of <span className="font-[family-name:var(--font-space-mono)] text-[#e8edf5]">{VAULT_CONFIGS.length}</span>{" "}
+              strategies
+            </div>
+          </motion.div>
           {usdcBalance > 0 && (
-            <div className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5">
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 16 },
+                show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } },
+              }}
+              className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-5"
+            >
               <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
                 Wallet USDC
               </div>
               <div className="mt-2 font-[family-name:var(--font-space-mono)] text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl">
-                {formatUsd(usdcBalance)}
+                <CountUp
+                  from={0}
+                  to={usdcBalance}
+                  separator=","
+                  direction="up"
+                  duration={1.25}
+                  decimals={2}
+                  prefix="$"
+                />
               </div>
               <div className="text-[10px] text-[#8b9cb3]">via Dune SIM</div>
-            </div>
+            </motion.div>
           )}
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.15, type: "spring", stiffness: 320, damping: 30 }}
           className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
         >
           <div className="mb-3 flex flex-col gap-2 min-[391px]:flex-row min-[391px]:items-center min-[391px]:justify-between">
@@ -466,7 +515,7 @@ function PortfolioConnectedView() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.22, type: "spring", stiffness: 320, damping: 30 }}
           className="mt-6"
         >
           <h3 className="mb-3 text-base font-semibold text-[#e8edf5] min-[391px]:mb-4 min-[391px]:text-lg">
@@ -533,7 +582,10 @@ function PortfolioConnectedView() {
                             {formatUsd(Math.abs(pnl))}
                           </div>
                           <div className="text-[10px] text-[#8b9cb3] min-[391px]:text-xs">
-                            vs {formatUsd(netInvested)}
+                            vs{" "}
+                            <span className="font-[family-name:var(--font-space-mono)] text-[#8b9cb3]">
+                              {formatUsd(netInvested)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -572,21 +624,24 @@ function PortfolioConnectedView() {
 export default function PortfolioPage() {
   const { connected } = useWallet();
   return (
-    <div className="flex min-h-screen flex-col bg-[#080c14]">
-      <Topbar />
-      {!connected ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
-          <Wallet className="size-12 text-[#8b9cb3]" />
-          <h2 className="text-xl font-semibold text-[#e8edf5]">Connect Wallet</h2>
-          <p className="max-w-sm text-center text-sm text-[#8b9cb3]">
-            Connect your Solana wallet to view vault share balances and redeemable USDC from
-            devnet.
-          </p>
-          <WalletMultiButton className="!mt-2 !rounded-xl !bg-[#00e5c3] !px-8 !py-3 !text-sm !font-bold !text-[#080c14]" />
-        </div>
-      ) : (
-        <PortfolioConnectedView />
-      )}
+    <div className="relative min-h-screen bg-[#080c14]">
+      <SiteAuroraBackdrop />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <Topbar />
+        {!connected ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
+            <Wallet className="size-12 text-[#8b9cb3]" />
+            <h2 className="text-xl font-semibold text-[#e8edf5]">Connect Wallet</h2>
+            <p className="max-w-sm text-center text-sm text-[#8b9cb3]">
+              Connect your Solana wallet to view vault share balances and redeemable USDC from
+              devnet.
+            </p>
+            <WalletMultiButton className="!mt-2 !rounded-xl !bg-[#00e5c3] !px-8 !py-3 !text-sm !font-bold !text-[#080c14]" />
+          </div>
+        ) : (
+          <PortfolioConnectedView />
+        )}
+      </div>
     </div>
   );
 }

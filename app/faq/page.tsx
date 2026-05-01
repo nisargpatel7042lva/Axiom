@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Mail, MessageCircle } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
+import { SiteAuroraBackdrop } from "@/components/layout/SiteAuroraBackdrop";
 
 const FAQS = [
   {
@@ -41,21 +42,23 @@ const FAQS = [
 
 export default function FaqPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#080c14]">
-      <Topbar />
-      <main className="flex-1 pt-[6rem]">
-        <div className="mx-auto max-w-4xl px-4 py-10 md:px-6 md:py-14">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#00e5c3]">FAQ</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#e8edf5] md:text-4xl">
-              Frequently Asked Questions
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#8b9cb3]">
-              Short, clear answers to help you understand what to do on Axiom.
-            </p>
-          </motion.div>
+    <div className="relative min-h-screen bg-[#080c14]">
+      <SiteAuroraBackdrop />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <Topbar />
+        <main className="flex-1 pt-[6rem]">
+          <div className="mx-auto max-w-4xl px-4 py-10 md:px-6 md:py-14">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#00e5c3]">FAQ</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#e8edf5] md:text-4xl">
+                Frequently Asked Questions
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#8b9cb3]">
+                Short, clear answers to help you understand what to do on Axiom.
+              </p>
+            </motion.div>
 
-          <div className="mt-8 space-y-3">
+            <div className="mt-8 space-y-3">
             {FAQS.map((item, idx) => (
               <motion.details
                 key={item.question}
@@ -70,9 +73,9 @@ export default function FaqPage() {
                 <p className="mt-2 text-sm leading-relaxed text-[#8b9cb3]">{item.answer}</p>
               </motion.details>
             ))}
-          </div>
+            </div>
 
-          <div className="mt-10 rounded-2xl border border-[#00e5c3]/20 bg-[#00e5c3]/5 p-5">
+            <div className="mt-10 rounded-2xl border border-[#00e5c3]/20 bg-[#00e5c3]/5 p-5">
             <h2 className="text-lg font-semibold text-[#e8edf5]">Need a direct answer?</h2>
             <p className="mt-1 text-sm text-[#8b9cb3]">Reach out and we will help you quickly.</p>
             <div className="mt-4 flex flex-wrap gap-3">
@@ -108,9 +111,10 @@ export default function FaqPage() {
                 Read About
               </Link>
             </div>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

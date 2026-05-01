@@ -15,6 +15,8 @@ import { getNetwork } from "@/lib/spectra/constants";
 import { newAttemptId, trackEvent } from "@/lib/analytics/client";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
 import type { VaultConfig, VaultState } from "@/types";
+import { VaultTxErrorCallout } from "@/components/vault/VaultTxErrorCallout";
+import { VaultPaymentModalShell } from "@/components/vault/VaultPaymentModalShell";
 import { VaultTxSuccessStep } from "@/components/vault/VaultTxSuccessStep";
 
 const WalletMultiButton = dynamic(
@@ -179,7 +181,9 @@ export function WithdrawModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[min(92dvh,90vh)] w-[calc(100vw-1rem)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overflow-x-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 shadow-2xl min-[391px]:max-h-[90vh] min-[391px]:w-[min(100vw-2rem,480px)] min-[391px]:p-6">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-1rem)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none outline-none focus:outline-none min-[391px]:w-[min(100vw-2rem,480px)]">
+          <VaultPaymentModalShell vaultId={vaultConfig.id}>
+          <div className="relative z-10 p-4 min-[391px]:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 pr-2">
               <Dialog.Title className="text-base font-semibold text-[#e8edf5] min-[391px]:text-lg">
@@ -324,11 +328,7 @@ export function WithdrawModal({
                 </div>
               </div>
 
-              {txError && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200/95">
-                  {txError}
-                </div>
-              )}
+              {txError ? <VaultTxErrorCallout key={txError} message={txError} /> : null}
 
               <div className="flex flex-col gap-2 min-[391px]:flex-row min-[391px]:gap-3">
                 <button
@@ -359,9 +359,12 @@ export function WithdrawModal({
               description={`${formatUsd(usdcOut)} USDC sent to your wallet (est.).`}
               txSig={lastSig}
               explorerClusterParam={explorerClusterParam}
+              accentColor={vaultConfig.accentColor}
               onDone={() => onOpenChange(false)}
             />
           )}
+          </div>
+          </VaultPaymentModalShell>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
