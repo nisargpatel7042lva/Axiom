@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type MetricPoint = { date: string; value: number; t: number };
 
@@ -9,11 +9,14 @@ const LOOKBACK_DAYS = 15;
 const LOOKBACK_MS = LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
 
 /**
- * Appends time-series samples while a value is available.
- * Default sampling interval is 24h, so portfolio charts represent day-level history.
+ * Samples the latest metric on a fixed interval only (no burst appends on refetch).
+ * Uses a ref so Solana / React Query refetches do not schedule duplicate samples.
  */
 export function useLiveMetricHistory(value: number | null, sampleMs = 24 * 60 * 60 * 1000) {
   const [points, setPoints] = useState<MetricPoint[]>([]);
+  const valueRef = useRef<number | null>(null);
+  valueRef.current = value;
+  const seededRef = useRef(false);
 
   const append = useCallback((nextValue: number) => {
     const t = Date.now();
@@ -30,11 +33,28 @@ export function useLiveMetricHistory(value: number | null, sampleMs = 24 * 60 * 
   }, []);
 
   useEffect(() => {
-    if (value == null || !Number.isFinite(value)) return;
-    append(value);
-    const id = window.setInterval(() => append(value), sampleMs);
+    if (value == null || !Number.isFinite(value)) {
+      seededRef.current = false;
+      return;
+    }
+    if (!seededRef.current) {
+      seededRef.current = true;
+      append(value);
+    }
+  }, [value, append]);
+
+  useEffect(() => {
+    if (!Number.isFinite(sampleMs) || sampleMs < 60_000) return;
+
+    const tick = () => {
+      const v = valueRef.current;
+      if (v == null || !Number.isFinite(v)) return;
+      append(v);
+    };
+
+    const id = window.setInterval(tick, sampleMs);
     return () => window.clearInterval(id);
-  }, [value, sampleMs, append]);
+  }, [sampleMs, append]);
 
   return points;
 }

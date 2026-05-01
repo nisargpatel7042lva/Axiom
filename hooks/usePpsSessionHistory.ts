@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 export type PpsPoint = { date: string; pps: number; t: number };
 
@@ -9,8 +16,8 @@ const MAX_POINTS = 5000;
 const STORAGE_PREFIX = "axiom:pps-history:";
 
 /**
- * Builds a lightweight session chart from live PPS polls (no fabricated history).
- * Samples keep appending on schedule even when PPS is unchanged.
+ * Session PPS chart: hydrate from localStorage first (layout), then sample on a fixed interval.
+ * Avoids burst duplicates from React Query / parent re-renders moving `livePps` every tick.
  */
 export function usePpsSessionHistory(
   livePps: number | null,
@@ -18,6 +25,10 @@ export function usePpsSessionHistory(
   storageKey?: string,
 ) {
   const [points, setPoints] = useState<PpsPoint[]>([]);
+  const liveRef = useRef<number | null>(null);
+  liveRef.current = livePps;
+  /** True after we restored points from cache, or after the first synthetic append for an empty cache. */
+  const skipInitialAppendRef = useRef(false);
 
   const scopedStorageKey = storageKey
     ? `${STORAGE_PREFIX}${storageKey}`
@@ -36,7 +47,8 @@ export function usePpsSessionHistory(
     });
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    skipInitialAppendRef.current = false;
     if (!scopedStorageKey || typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(scopedStorageKey);
@@ -44,7 +56,6 @@ export function usePpsSessionHistory(
       const parsed = JSON.parse(raw) as PpsPoint[];
       if (!Array.isArray(parsed)) return;
       const now = Date.now();
-      // Keep roughly one year of chart points for the "1y" selector.
       const cutoff = now - 365 * 24 * 60 * 60 * 1000;
       const clean = parsed.filter(
         (p) =>
@@ -58,6 +69,7 @@ export function usePpsSessionHistory(
       );
       if (clean.length > 0) {
         setPoints(clean.slice(-MAX_POINTS));
+        skipInitialAppendRef.current = true;
       }
     } catch {
       // Ignore malformed local cache.
@@ -75,10 +87,23 @@ export function usePpsSessionHistory(
 
   useEffect(() => {
     if (livePps == null || !Number.isFinite(livePps)) return;
+    if (skipInitialAppendRef.current) return;
     append(livePps);
-    const id = window.setInterval(() => append(livePps), pollMs);
+    skipInitialAppendRef.current = true;
+  }, [livePps, append]);
+
+  useEffect(() => {
+    if (!Number.isFinite(pollMs) || pollMs < 1000) return;
+
+    const tick = () => {
+      const v = liveRef.current;
+      if (v == null || !Number.isFinite(v)) return;
+      append(v);
+    };
+
+    const id = window.setInterval(tick, pollMs);
     return () => window.clearInterval(id);
-  }, [livePps, pollMs, append]);
+  }, [pollMs, append]);
 
   const chartData = useMemo(() => {
     if (points.length >= 2) return points;

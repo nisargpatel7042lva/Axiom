@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -33,11 +33,14 @@ import {
   useWalletVaultPositions,
   type LiveVaultPosition,
 } from "@/hooks/useWalletVaultPositions";
-import { useLiveMetricHistory } from "@/hooks/useLiveMetricHistory";
+import { useLiveMetricHistory, type MetricPoint } from "@/hooks/useLiveMetricHistory";
 import { usePortfolioActivities } from "@/hooks/usePortfolioActivities";
 import { useTransactionHistory } from "@/hooks/useTransactionHistory";
 import { inferWalletUsdcFlow } from "@/lib/services/dune-sim";
-import type { PortfolioActivity } from "@/lib/portfolio/activity-log";
+import {
+  PORTFOLIO_ACTIVITY_EVENT,
+  type PortfolioActivity,
+} from "@/lib/portfolio/activity-log";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { DEVNET_USDC_MINT, USDC_MINT, getNetwork } from "@/lib/spectra/constants";
 import { useMatchMedia } from "@/hooks/useMatchMedia";
@@ -64,7 +67,19 @@ function startOfDayMs(ts: number): number {
   return d.getTime();
 }
 
-export default function PortfolioPage() {
+/** One sample per local calendar day — keeps refetch jitter from painting fake spikes. */
+function dedupeMetricPointsByDay(points: MetricPoint[]): MetricPoint[] {
+  const byDay = new Map<string, MetricPoint>();
+  for (const p of points) {
+    if (!Number.isFinite(p.t) || !Number.isFinite(p.value)) continue;
+    const k = dayKey(p.t);
+    const prev = byDay.get(k);
+    if (!prev || p.t >= prev.t) byDay.set(k, p);
+  }
+  return Array.from(byDay.values()).sort((a, b) => a.t - b.t);
+}
+
+function PortfolioConnectedView() {
   const [chartMode, setChartMode] = useState<"total" | "flow">("total");
   const narrow = useMatchMedia("(max-width: 390px)");
   const { connected, publicKey } = useWallet();
@@ -72,8 +87,12 @@ export default function PortfolioPage() {
   const { usdcBalance } = useWalletBalances();
   const { positions, totalValue, loading, error, refetch } = useWalletVaultPositions();
   const chartPoints = useLiveMetricHistory(connected ? totalValue : null, 24 * 60 * 60 * 1000);
+  const sampledPortfolioPoints = useMemo(
+    () => dedupeMetricPointsByDay(chartPoints),
+    [chartPoints],
+  );
   const activities = usePortfolioActivities(walletAddress);
-  const { transactions } = useTransactionHistory(250);
+  const { transactions, refetch: refetchTransactions } = useTransactionHistory(100);
   const usdcMint = getNetwork() === "mainnet-beta" ? USDC_MINT.toBase58() : DEVNET_USDC_MINT.toBase58();
   const historyActivities = useMemo(() => {
     if (!walletAddress) return activities;
@@ -116,10 +135,10 @@ export default function PortfolioPage() {
     const firstDay = todayStart - 14 * 24 * 60 * 60 * 1000;
 
     if (historyActivities.length === 0) {
-      if (chartPoints.length >= 2) {
+      if (sampledPortfolioPoints.length >= 2) {
         return {
-          total: chartPoints,
-          flow: chartPoints.map((d) => ({ ...d, value: 0 })),
+          total: sampledPortfolioPoints,
+          flow: sampledPortfolioPoints.map((d) => ({ ...d, value: 0 })),
         };
       }
       if (totalValue > 0) {
@@ -178,10 +197,10 @@ export default function PortfolioPage() {
     }
 
     if (!hasAnyFlowInWindow) {
-      if (chartPoints.length >= 2) {
+      if (sampledPortfolioPoints.length >= 2) {
         return {
-          total: chartPoints,
-          flow: chartPoints.map((d) => ({ ...d, value: 0 })),
+          total: sampledPortfolioPoints,
+          flow: sampledPortfolioPoints.map((d) => ({ ...d, value: 0 })),
         };
       }
       if (totalValue > 0) {
@@ -211,31 +230,27 @@ export default function PortfolioPage() {
       total: dailyTotal.map((d) => ({ ...d, value: d.value * scale })),
       flow: dailyFlowSeries,
     };
-  }, [historyActivities, chartPoints, totalValue]);
+  }, [historyActivities, sampledPortfolioPoints, totalValue]);
+
+  useEffect(() => {
+    if (!connected || !walletAddress) return;
+    const bump = () => {
+      void refetchTransactions();
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") bump();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener(PORTFOLIO_ACTIVITY_EVENT, bump);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener(PORTFOLIO_ACTIVITY_EVENT, bump);
+    };
+  }, [connected, walletAddress, refetchTransactions]);
 
   const chartData = chartMode === "total" ? chartSeries.total : chartSeries.flow;
 
-  if (!connected) {
-    return (
-      <div className="flex min-h-screen flex-col bg-[#080c14]">
-        <Topbar />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
-          <Wallet className="size-12 text-[#8b9cb3]" />
-          <h2 className="text-xl font-semibold text-[#e8edf5]">Connect Wallet</h2>
-          <p className="max-w-sm text-center text-sm text-[#8b9cb3]">
-            Connect your Solana wallet to view vault share balances and redeemable USDC from
-            devnet.
-          </p>
-          <WalletMultiButton className="!mt-2 !rounded-xl !bg-[#00e5c3] !px-8 !py-3 !text-sm !font-bold !text-[#080c14]" />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen flex-col bg-[#080c14]">
-      <Topbar />
-
       <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">Portfolio</h1>
@@ -338,8 +353,8 @@ export default function PortfolioPage() {
           </div>
           <p className="mb-2 text-[10px] text-[#8b9cb3] min-[391px]:mb-3 max-[390px]:leading-snug">
             {chartMode === "total"
-              ? "15-day estimated portfolio total. Backfilled from on-chain USDC flow plus local app logs."
-              : "15-day net daily flow (deposits - withdrawals). Positive means net inflow."}
+              ? "15-day trend: vault deposit/withdraw history (Spectra program only) plus local app log, scaled to current redeemable value; otherwise one sample per day from live NAV."
+              : "15-day net daily USDC flow for Spectra vault deposits and withdrawals only (chain + local log)."}
           </p>
           <div className="mb-3 flex items-center gap-3 text-[10px] text-[#8b9cb3]">
             <span className="inline-flex items-center gap-1.5">
@@ -551,6 +566,27 @@ export default function PortfolioPage() {
           </motion.div>
         )}
       </main>
+  );
+}
+
+export default function PortfolioPage() {
+  const { connected } = useWallet();
+  return (
+    <div className="flex min-h-screen flex-col bg-[#080c14]">
+      <Topbar />
+      {!connected ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
+          <Wallet className="size-12 text-[#8b9cb3]" />
+          <h2 className="text-xl font-semibold text-[#e8edf5]">Connect Wallet</h2>
+          <p className="max-w-sm text-center text-sm text-[#8b9cb3]">
+            Connect your Solana wallet to view vault share balances and redeemable USDC from
+            devnet.
+          </p>
+          <WalletMultiButton className="!mt-2 !rounded-xl !bg-[#00e5c3] !px-8 !py-3 !text-sm !font-bold !text-[#080c14]" />
+        </div>
+      ) : (
+        <PortfolioConnectedView />
+      )}
     </div>
   );
 }

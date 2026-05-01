@@ -1,11 +1,16 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { X, Wallet, ArrowRight, Check, Loader2 } from "lucide-react";
+import { X, Wallet, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
 import BN from "bn.js";
+import {
+  getAssociatedTokenAddressSync,
+  getAccount,
+  TOKEN_PROGRAM_ID as SPL_TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 
 import { formatUsd, formatShares } from "@/components/format";
 import { useWalletBalances } from "@/hooks/useWalletBalances";
@@ -13,9 +18,10 @@ import { useDeposit } from "@/lib/spectra/hooks/use-deposit";
 import { previewDeposit } from "@/lib/spectra/vault-client";
 import { recordPortfolioActivity } from "@/lib/portfolio/activity-log";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
-import { USDC_DECIMALS, getNetwork } from "@/lib/spectra/constants";
+import { USDC_DECIMALS, getNetwork, getUsdcMint } from "@/lib/spectra/constants";
 import { newAttemptId, trackEvent } from "@/lib/analytics/client";
 import type { VaultConfig, VaultState } from "@/types";
+import { VaultTxSuccessStep } from "@/components/vault/VaultTxSuccessStep";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -39,6 +45,16 @@ function toUserFacingDepositError(err: unknown): string {
   if (lower.includes("already in progress")) {
     return "A deposit request is already in progress. Please wait for it to finish.";
   }
+  if (
+    lower.includes("insufficient funds") ||
+    (lower.includes("custom program error: 0x1") &&
+      lower.includes("tokenkeg"))
+  ) {
+    return (
+      "Not enough USDC in your wallet for this deposit (SPL Token: insufficient funds). " +
+      "Fund your devnet USDC token account, lower the amount, or click Max to use your on-chain balance."
+    );
+  }
 
   return raw || "Transaction failed. Please try again.";
 }
@@ -60,6 +76,7 @@ export function DepositModal({
   onOpenChange: (v: boolean) => void;
   onDeposited?: () => void;
 }) {
+  const { connection } = useConnection();
   const { connected, publicKey } = useWallet();
   const { usdcBalance, isLoading: balanceLoading } = useWalletBalances();
   const { deposit, loading: txLoading } = useDeposit(chainVaultId);
@@ -81,10 +98,16 @@ export function DepositModal({
   }, [open]);
 
   const amount = Number(amountStr) || 0;
-  const lamports = useMemo(
-    () => new BN(Math.floor(amount * 10 ** USDC_DECIMALS)),
-    [amount],
-  );
+  const lamports = useMemo(() => {
+    if (!Number.isFinite(amount) || amount <= 0) return new BN(0);
+    const micros = Math.floor(amount * 10 ** USDC_DECIMALS);
+    return new BN(micros);
+  }, [amount]);
+
+  const walletLamportsMax = useMemo(() => {
+    if (!Number.isFinite(walletBalance) || walletBalance <= 0) return new BN(0);
+    return new BN(Math.floor(walletBalance * 10 ** USDC_DECIMALS));
+  }, [walletBalance]);
 
   const preview = useMemo(() => {
     if (!onChainVault || amount <= 0) return null;
@@ -102,7 +125,8 @@ export function DepositModal({
     !onChainVault.isPaused &&
     amount >= vaultConfig.minDeposit &&
     amount > 0 &&
-    amount <= walletBalance;
+    !lamports.isZero() &&
+    lamports.lte(walletLamportsMax);
 
   async function handleConfirm() {
     if (!onChainVault) return;
@@ -119,6 +143,31 @@ export function DepositModal({
       amountUsdc: amount,
     });
     try {
+      if (!publicKey) throw new Error("Wallet not connected");
+
+      const mint = getUsdcMint();
+      const userAta = getAssociatedTokenAddressSync(
+        mint,
+        publicKey,
+        false,
+        SPL_TOKEN_PROGRAM_ID,
+      );
+      const userAcc = await getAccount(
+        connection,
+        userAta,
+        "confirmed",
+        SPL_TOKEN_PROGRAM_ID,
+      );
+      const onChainLamports = new BN(userAcc.amount.toString());
+      if (lamports.gt(onChainLamports)) {
+        const have = onChainLamports.toNumber() / 10 ** USDC_DECIMALS;
+        setTxError(
+          `Insufficient USDC: this wallet’s token account has ${have.toFixed(6)} USDC on-chain, but the deposit is ${amount.toFixed(6)} USDC. Lower the amount or add devnet USDC to this mint’s ATA.`,
+        );
+        setStep("confirm");
+        return;
+      }
+
       const sig = await deposit(lamports, {
         attemptId,
         wallet: publicKey?.toBase58(),
@@ -216,11 +265,14 @@ export function DepositModal({
                   </label>
                   <button
                     type="button"
-                    onClick={() =>
-                      setAmountStr(
-                        walletBalance > 0 ? String(Math.floor(walletBalance * 100) / 100) : "0",
-                      )
-                    }
+                    onClick={() => {
+                      if (walletLamportsMax.isZero()) {
+                        setAmountStr("0");
+                        return;
+                      }
+                      const human = walletLamportsMax.toNumber() / 10 ** USDC_DECIMALS;
+                      setAmountStr(String(human));
+                    }}
                     className="text-xs text-[#00e5c3] hover:underline"
                   >
                     {balanceLoading ? "Loading…" : `Max: ${formatUsd(walletBalance)}`}
@@ -239,6 +291,11 @@ export function DepositModal({
                     USDC
                   </span>
                 </div>
+                {amount > 0 && lamports.gt(walletLamportsMax) && (
+                  <p className="mt-1 text-xs text-[#ef4444]">
+                    Amount exceeds on-wallet USDC ({formatUsd(walletBalance)} available).
+                  </p>
+                )}
                 {amount > 0 && amount < vaultConfig.minDeposit && (
                   <p className="mt-1 text-xs text-[#ef4444]">
                     Minimum deposit: {formatUsd(vaultConfig.minDeposit)}
@@ -347,39 +404,17 @@ export function DepositModal({
               <p className="text-sm text-[#8b9cb3]">Confirm the transaction in your wallet…</p>
             </div>
           ) : (
-            <div className="mt-6 flex flex-col items-center gap-4 py-8">
-              <div className="flex size-14 items-center justify-center rounded-full bg-[#00e5c3]/20">
-                <Check className="size-7 text-[#00e5c3]" />
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-semibold text-[#e8edf5]">Deposit submitted</p>
-                <p className="mt-1 text-sm text-[#8b9cb3]">
-                  {preview ? formatShares(sharesHuman) : "—"} {vaultConfig.ticker} (est.)
-                </p>
-                {lastSig && (
-                  <>
-                    <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
-                      {lastSig}
-                    </p>
-                    <a
-                      href={`https://solscan.io/tx/${lastSig}${explorerClusterParam}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center text-xs text-[#00e5c3] hover:underline"
-                    >
-                      View on Solscan
-                    </a>
-                  </>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="mt-2 rounded-xl bg-[#00e5c3] px-8 py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
-              >
-                Done
-              </button>
-            </div>
+            <VaultTxSuccessStep
+              title="Deposit successful"
+              description={
+                preview
+                  ? `${formatShares(sharesHuman)} ${vaultConfig.ticker} minted to your wallet (est.).`
+                  : "Your deposit was confirmed on-chain."
+              }
+              txSig={lastSig}
+              explorerClusterParam={explorerClusterParam}
+              onDone={() => onOpenChange(false)}
+            />
           )}
         </Dialog.Content>
       </Dialog.Portal>

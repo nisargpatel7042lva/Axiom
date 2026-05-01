@@ -13,6 +13,7 @@ import {
   Shield,
   Target,
   Gem,
+  Mail,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -30,33 +31,6 @@ const HERO_PHRASES = [
   "DeFi yield",
   "smart portfolios",
   "automated alpha",
-];
-
-const FAQ_ITEMS = [
-  {
-    q: "What do I need to do first?",
-    a: "Open Vaults, connect your wallet, choose one strategy, and deposit USDC. That's enough to get started.",
-  },
-  {
-    q: "Do I need to trade manually every day?",
-    a: "No. The strategy engine handles scanning and execution. You can monitor performance and withdraw when you want.",
-  },
-  {
-    q: "Where can I see my position?",
-    a: "Use the Vault and Portfolio pages to track NAV, price per share (PPS), and your wallet's vault shares.",
-  },
-  {
-    q: "Can I withdraw anytime?",
-    a: "Yes. There is no lock-up period. Withdrawals are based on your share of the vault NAV.",
-  },
-  {
-    q: "How does idle USDC earn?",
-    a: "When strategy capital is not deployed, idle USDC can be routed to Jupiter Lend to earn yield.",
-  },
-  {
-    q: "How can I contact Axiom?",
-    a: "You can email axiomvaults1@gmail.com or message us on X at @axiom_vaults.",
-  },
 ];
 
 const FEATURES = [
@@ -396,58 +370,43 @@ export default function Home() {
           </div>
         </section>
 
-        {/* FAQ + contact */}
+        {/* Help + contact — full FAQ lives on /faq */}
         <section className="border-t border-white/5 bg-[#0d1420]/40">
           <div className="mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-16">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-[#e8edf5] md:text-3xl">FAQ</h2>
-              <p className="mt-2 max-w-2xl text-sm text-[#8b9cb3]">
-                Quick answers to common questions before you deposit.
+            <div className="mx-auto max-w-2xl rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 text-center md:p-8">
+              <h2 className="text-xl font-bold text-[#e8edf5] md:text-2xl">
+                Still have questions?
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[#8b9cb3]">
+                All common topics are on our FAQ page. Prefer email or X? Reach us below.
               </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {FAQ_ITEMS.map((item) => (
-                <details
-                  key={item.q}
-                  className="group rounded-xl border border-[#1a2235] bg-[#0d1420] p-4"
-                >
-                  <summary className="cursor-pointer list-none text-sm font-semibold text-[#e8edf5]">
-                    {item.q}
-                  </summary>
-                  <p className="mt-2 text-sm leading-relaxed text-[#8b9cb3]">{item.a}</p>
-                </details>
-              ))}
-            </div>
-            <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-[#e8edf5] md:text-3xl">Still have questions?</h2>
-                <p className="mt-2 max-w-2xl text-sm text-[#8b9cb3]">
-                  Read the FAQ for quick answers, or contact us directly by email or on X.
-                </p>
-              </div>
               <Link
                 href="/faq"
-                className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#00e5c3] px-5 py-2.5 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#00e5c3] px-6 py-3 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3]"
               >
-                Open FAQ
+                Go to FAQ
                 <ArrowRight className="size-4" />
               </Link>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-3 text-sm">
-              <a
-                href="mailto:axiomvaults1@gmail.com"
-                className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-[#e8edf5] hover:bg-white/10"
-              >
-                Email: axiomvaults1@gmail.com
-              </a>
-              <a
-                href="https://x.com/axiom_vaults"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-[#e8edf5] hover:bg-white/10"
-              >
-                X: @axiom_vaults
-              </a>
+              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+                <a
+                  href="mailto:axiomvaults1@gmail.com"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-colors hover:border-[#00e5c3]/40 hover:bg-white/[0.04]"
+                >
+                  <Mail className="size-4 shrink-0 text-[#00e5c3]" aria-hidden />
+                  axiomvaults1@gmail.com
+                </a>
+                <a
+                  href="https://x.com/axiom_vaults"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-colors hover:border-[#00e5c3]/40 hover:bg-white/[0.04]"
+                >
+                  <span className="flex size-4 items-center justify-center rounded bg-[#00e5c3]/20 text-[10px] font-bold text-[#00e5c3]">
+                    X
+                  </span>
+                  @axiom_vaults
+                </a>
+              </div>
             </div>
           </div>
         </section>
