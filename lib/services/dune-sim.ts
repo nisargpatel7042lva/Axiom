@@ -3,6 +3,22 @@ import type { Connection, ParsedTransactionWithMeta } from "@solana/web3.js";
 import { PublicKey } from "@solana/web3.js";
 
 import { IDL } from "@/lib/spectra/idl";
+import { VAULT_CONFIGS } from "@/constants";
+import { deriveVaultPda, deriveSharesMintPda } from "@/lib/spectra/vault-client";
+
+let shareMintToVaultId: Map<string, string> | null = null;
+function getVaultIdFromShareMint(mint: string): string | null {
+  if (!shareMintToVaultId) {
+    shareMintToVaultId = new Map();
+    for (const cfg of VAULT_CONFIGS) {
+      if (cfg.chainVaultId == null) continue;
+      const [vaultPda] = deriveVaultPda(cfg.chainVaultId);
+      const [sharesMint] = deriveSharesMintPda(vaultPda);
+      shareMintToVaultId.set(sharesMint.toBase58().toLowerCase(), cfg.id);
+    }
+  }
+  return shareMintToVaultId.get(mint.toLowerCase()) ?? null;
+}
 
 /** Sim SVM routes live under `/beta/svm`, not `/v1/.../solana/...`. */
 const DUNE_SIM_BASE = "https://api.sim.dune.com";
@@ -223,6 +239,7 @@ export type WalletUsdcFlow = {
   amountUsdc: number;
   timestamp: number;
   txSig: string;
+  vaultId?: string;
 };
 
 function tokenUiAmount(row: SvmTokenBalanceRow): number {
@@ -277,12 +294,24 @@ export function inferWalletUsdcFlow(
   const delta = postAmount - preAmount;
   if (Math.abs(delta) < 1e-9) return null;
 
+  let inferredVaultId: string | undefined = undefined;
+  for (const r of [...pre, ...post]) {
+    if (r.owner?.toLowerCase() === wallet && r.mint && r.mint.toLowerCase() !== mint) {
+      const match = getVaultIdFromShareMint(r.mint);
+      if (match) {
+        inferredVaultId = match;
+        break;
+      }
+    }
+  }
+
   const ts = Date.parse(tx.block_time);
   return {
     kind: delta < 0 ? "deposit" : "withdraw",
     amountUsdc: Math.abs(delta),
     timestamp: Number.isFinite(ts) ? ts : Date.now(),
     txSig: tx.hash,
+    vaultId: inferredVaultId,
   };
 }
 
