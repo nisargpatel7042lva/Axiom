@@ -1,19 +1,18 @@
 import type { VaultStrategyType } from "../types/index.js";
 
-const SYSTEM_BASE = `You are a structured-output assistant for a Solana prediction-market vault.
-You MUST respond with ONLY valid JSON: an array of objects, one per market, in the SAME ORDER as the input markets.
-No markdown fences, no commentary.
+const SYSTEM_BASE = `Return ONLY valid JSON array in input order.
+No markdown, no extra text.
 
 Each object MUST have exactly these keys:
 - "marketId": string (copy from input)
 - "conviction": number 0-100
 - "mispricing_signal": number -50 to +50 (0 if neutral)
 - "resolution_clarity": number 0-100
-- "reasoning": string (1-3 sentences)
+- "reasoning": string (max 1 sentence)
 - "recommended_side": "YES" | "NO" | "SKIP"
 - "risk_flags": string[] (empty array if none)
 
-Be conservative with risk_flags: any ambiguity in resolution rules, illiquid markets, or manipulation risk should add a flag.`;
+Set risk_flags for ambiguity, illiquidity, or manipulation risk.`;
 
 export function strategySystemPrompt(strategyType: VaultStrategyType): string {
   const persona =
@@ -56,7 +55,7 @@ export function buildBatchUserPrompt(
     (m, i) =>
       `${i + 1}. marketId=${m.marketId}
    title: ${m.title}
-   description: ${m.description?.slice(0, 1200) ?? ""}
+   description: ${m.description?.slice(0, 240) ?? ""}
    category: ${m.category}
    buyYesPriceUsd: ${m.buyYesPriceUsd}
    buyNoPriceUsd: ${m.buyNoPriceUsd}

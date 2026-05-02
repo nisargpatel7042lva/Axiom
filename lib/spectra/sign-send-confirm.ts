@@ -65,6 +65,27 @@ export async function signSendAndConfirmLegacyTx(
     return sig;
   } catch (err) {
     if (err instanceof SendTransactionError) {
+      if (messageLooksLikeAlreadyProcessed(err)) {
+        const { value } = await connection.getSignatureStatuses([expectedSig]);
+        const st = value[0];
+        if (st && !st.err) {
+          try {
+            await ensureConfirmed(connection, expectedSig, blockhash, lastValidBlockHeight);
+          } catch {
+            const again = await connection.getSignatureStatuses([expectedSig]);
+            const st2 = again.value[0];
+            if (
+              !st2 ||
+              st2.err ||
+              (st2.confirmationStatus !== "confirmed" &&
+                st2.confirmationStatus !== "finalized")
+            ) {
+              throw err;
+            }
+          }
+          return expectedSig;
+        }
+      }
       const logs = await err.getLogs(connection).catch(() => null);
       const logBlob = logs?.length ? `\nLogs:\n${logs.join("\n")}` : "";
       const wrapped = new Error(`${err.message}${logBlob}`);

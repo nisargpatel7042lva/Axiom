@@ -64,6 +64,7 @@ export function useWithdraw(vaultId: number) {
         queryClient.invalidateQueries({ queryKey: ["wallet-vault-positions"] });
         queryClient.invalidateQueries({ queryKey: ["vault-user-shares"] });
         queryClient.invalidateQueries({ queryKey: ["onchain-usdc"] });
+        queryClient.invalidateQueries({ queryKey: ["wallet-tx-history-merged"] });
 
         return sig;
       } catch (e) {

@@ -36,3 +36,4 @@ posthog-setup-report.md
 
 # Nested program build output (if Anchor writes under programs/)
 programs/**/target/
+

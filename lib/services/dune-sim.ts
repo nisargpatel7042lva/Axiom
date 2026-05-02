@@ -1,7 +1,52 @@
 import axios, { type AxiosInstance } from "axios";
+import type { Connection, ParsedTransactionWithMeta } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
+
+import { IDL } from "@/lib/spectra/idl";
+import { VAULT_CONFIGS } from "@/constants";
+import { deriveVaultPda, deriveSharesMintPda } from "@/lib/spectra/vault-client";
+
+let shareMintToVaultId: Map<string, string> | null = null;
+function getVaultIdFromShareMint(mint: string): string | null {
+  if (!shareMintToVaultId) {
+    shareMintToVaultId = new Map();
+    for (const cfg of VAULT_CONFIGS) {
+      if (cfg.chainVaultId == null) continue;
+      const [vaultPda] = deriveVaultPda(cfg.chainVaultId);
+      const [sharesMint] = deriveSharesMintPda(vaultPda);
+      shareMintToVaultId.set(sharesMint.toBase58().toLowerCase(), cfg.id);
+    }
+  }
+  return shareMintToVaultId.get(mint.toLowerCase()) ?? null;
+}
 
 /** Sim SVM routes live under `/beta/svm`, not `/v1/.../solana/...`. */
 const DUNE_SIM_BASE = "https://api.sim.dune.com";
+
+/** Spectra vault program (IDL); override when testing a forked program. */
+export function spectraVaultProgramId(): string {
+  const env =
+    typeof process !== "undefined"
+      ? process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID?.trim()
+      : undefined;
+  return env || IDL.address;
+}
+
+function logsInvokeSpectraVault(
+  logs: string[] | undefined,
+  vaultProgramId: string,
+): boolean {
+  if (!logs?.length) return false;
+  return logs.some((line) => line.includes(vaultProgramId));
+}
+
+/** Anchor-style: `Program log: Instruction: Deposit` — avoids matching Jupiter SPL withdraws. */
+function hasSpectraLiquidityInstruction(logsLower: string): boolean {
+  return (
+    /\binstruction:\s*deposit\b/i.test(logsLower) ||
+    /\binstruction:\s*withdraw\b/i.test(logsLower)
+  );
+}
 
 /**
  * API key resolution:
@@ -146,13 +191,23 @@ function svmTxSuccess(meta: { err?: unknown } | undefined): boolean {
 
 function inferIxFromLogs(
   logs: string[] | undefined,
+  vaultProgramId: string,
 ): DuneTransaction["decoded"] {
   if (!logs?.length) return null;
   const blob = logs.join(" ").toLowerCase();
-  if (blob.includes("withdraw")) return { name: "withdraw", inputs: {} };
-  if (blob.includes("deposit")) return { name: "deposit", inputs: {} };
-  if (blob.includes("sync_nav") || blob.includes("sync nav"))
+  const vault = logsInvokeSpectraVault(logs, vaultProgramId);
+
+  if (vault && /\binstruction:\s*deposit\b/i.test(blob))
+    return { name: "deposit", inputs: {} };
+  if (vault && /\binstruction:\s*withdraw\b/i.test(blob))
+    return { name: "withdraw", inputs: {} };
+  if (
+    vault &&
+    (blob.includes("sync_nav") || blob.includes("sync nav"))
+  ) {
     return { name: "sync_nav", inputs: {} };
+  }
+  // DeFi routes often log "withdraw"/"deposit" for SPL — classify as swap only when not a Spectra tx.
   if (blob.includes("swap") || blob.includes("jupiter"))
     return { name: "swap", inputs: {} };
   return null;
@@ -164,6 +219,7 @@ function mapSvmTransactionToDune(tx: SvmTransactionRow): DuneTransaction {
     `slot-${tx.block_slot}`;
   const ms = Math.floor(tx.block_time / 1000);
   const logs = tx.raw_transaction?.meta?.logMessages;
+  const vaultProgramId = spectraVaultProgramId();
   return {
     hash: sig,
     block_number: tx.block_slot,
@@ -173,7 +229,7 @@ function mapSvmTransactionToDune(tx: SvmTransactionRow): DuneTransaction {
     value: "0",
     success: svmTxSuccess(tx.raw_transaction?.meta),
     transaction_type: "svm",
-    decoded: inferIxFromLogs(logs),
+    decoded: inferIxFromLogs(logs, vaultProgramId),
     raw_transaction: tx.raw_transaction,
   };
 }
@@ -183,6 +239,7 @@ export type WalletUsdcFlow = {
   amountUsdc: number;
   timestamp: number;
   txSig: string;
+  vaultId?: string;
 };
 
 function tokenUiAmount(row: SvmTokenBalanceRow): number {
@@ -207,13 +264,14 @@ export function inferWalletUsdcFlow(
   walletAddress: string,
   usdcMint: string,
 ): WalletUsdcFlow | null {
-  const logsBlob = tx.raw_transaction?.meta?.logMessages?.join(" ").toLowerCase() ?? "";
-  const looksLikeVaultFlow =
-    tx.decoded?.name?.toLowerCase().includes("deposit") ||
-    tx.decoded?.name?.toLowerCase().includes("withdraw") ||
-    logsBlob.includes("instruction: deposit") ||
-    logsBlob.includes("instruction: withdraw");
-  if (!looksLikeVaultFlow) return null;
+  if (!tx.success) return null;
+
+  const logs = tx.raw_transaction?.meta?.logMessages ?? [];
+  const vaultProgramId = spectraVaultProgramId();
+  if (!logsInvokeSpectraVault(logs, vaultProgramId)) return null;
+
+  const logsBlob = logs.join(" ").toLowerCase();
+  if (!hasSpectraLiquidityInstruction(logsBlob)) return null;
 
   const pre = tx.raw_transaction?.meta?.preTokenBalances ?? [];
   const post = tx.raw_transaction?.meta?.postTokenBalances ?? [];
@@ -236,12 +294,24 @@ export function inferWalletUsdcFlow(
   const delta = postAmount - preAmount;
   if (Math.abs(delta) < 1e-9) return null;
 
+  let inferredVaultId: string | undefined = undefined;
+  for (const r of [...pre, ...post]) {
+    if (r.owner?.toLowerCase() === wallet && r.mint && r.mint.toLowerCase() !== mint) {
+      const match = getVaultIdFromShareMint(r.mint);
+      if (match) {
+        inferredVaultId = match;
+        break;
+      }
+    }
+  }
+
   const ts = Date.parse(tx.block_time);
   return {
     kind: delta < 0 ? "deposit" : "withdraw",
     amountUsdc: Math.abs(delta),
     timestamp: Number.isFinite(ts) ? ts : Date.now(),
     txSig: tx.hash,
+    vaultId: inferredVaultId,
   };
 }
 
@@ -303,6 +373,132 @@ export async function getTransactionHistory(
     console.error("[dune-sim] getTransactionHistory failed:", err);
     return [];
   }
+}
+
+type ParsedMeta = NonNullable<ParsedTransactionWithMeta["meta"]>;
+
+function mapParsedTokenBalancesForInfer(
+  rows: ParsedMeta["preTokenBalances"],
+): SvmTokenBalanceRow[] {
+  if (!rows?.length) return [];
+  return rows.map((r) => ({
+    owner: r.owner,
+    mint: r.mint,
+    uiTokenAmount: {
+      amount: r.uiTokenAmount.amount,
+      decimals: r.uiTokenAmount.decimals,
+      uiAmountString:
+        r.uiTokenAmount.uiAmountString ??
+        (r.uiTokenAmount.uiAmount != null
+          ? String(r.uiTokenAmount.uiAmount)
+          : undefined),
+    },
+  }));
+}
+
+/**
+ * Build a rich {@link DuneTransaction} from RPC `getParsedTransaction` meta so
+ * {@link inferWalletUsdcFlow} has logs + token balance deltas (Dune rows often omit `raw_transaction`).
+ */
+export function duneTransactionFromParsedMeta(
+  walletAddress: string,
+  signature: string,
+  slot: number,
+  blockTimeUnixSec: number | null | undefined,
+  meta: ParsedMeta,
+): DuneTransaction {
+  const raw_transaction: SvmRawTransaction = {
+    meta: {
+      err: meta.err,
+      logMessages: meta.logMessages ?? undefined,
+      preTokenBalances: mapParsedTokenBalancesForInfer(meta.preTokenBalances),
+      postTokenBalances: mapParsedTokenBalancesForInfer(meta.postTokenBalances),
+    },
+    transaction: { signatures: [signature] },
+  };
+  const vaultProgramId = spectraVaultProgramId();
+  const block_time =
+    blockTimeUnixSec != null && Number.isFinite(blockTimeUnixSec)
+      ? new Date(blockTimeUnixSec * 1000).toISOString()
+      : new Date().toISOString();
+
+  return {
+    hash: signature,
+    block_number: slot,
+    block_time,
+    from: walletAddress,
+    to: "",
+    value: "0",
+    success: meta.err == null,
+    transaction_type: "svm",
+    decoded: inferIxFromLogs(meta.logMessages ?? undefined, vaultProgramId),
+    raw_transaction,
+  };
+}
+
+const TX_PARSE_DELAY_MS = 90;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Recent wallet history for portfolio / activity: **merge** Dune Sim with RPC
+ * `getParsedTransaction` (one request per signature — many free RPC tiers disallow JSON-RPC **batch** calls used by `getParsedTransactions`).
+ * Deposit/withdraw inference needs logs + `pre`/`post` token balances from parsed meta.
+ */
+export async function getWalletTransactionHistoryMerged(
+  connection: Connection,
+  walletAddress: string,
+  limit: number,
+): Promise<DuneTransaction[]> {
+  const pk = new PublicKey(walletAddress);
+  const cap = Math.max(1, Math.min(limit, 100));
+
+  const [sigInfos, duneRows] = await Promise.all([
+    connection.getSignaturesForAddress(pk, { limit: cap }, "confirmed"),
+    getTransactionHistory(walletAddress, cap).catch(() => [] as DuneTransaction[]),
+  ]);
+
+  const duneBySig = new Map(duneRows.map((t) => [t.hash, t]));
+  if (sigInfos.length === 0) {
+    return duneRows;
+  }
+
+  const merged: DuneTransaction[] = [];
+
+  for (let i = 0; i < sigInfos.length; i++) {
+    const info = sigInfos[i]!;
+    try {
+      const parsed = await connection.getParsedTransaction(info.signature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: "confirmed",
+      });
+      if (parsed?.meta) {
+        merged.push(
+          duneTransactionFromParsedMeta(
+            walletAddress,
+            info.signature,
+            info.slot,
+            info.blockTime ?? parsed.blockTime ?? null,
+            parsed.meta,
+          ),
+        );
+      } else {
+        const fb = duneBySig.get(info.signature);
+        if (fb) merged.push(fb);
+      }
+    } catch {
+      const fb = duneBySig.get(info.signature);
+      if (fb) merged.push(fb);
+    }
+
+    if (i + 1 < sigInfos.length) {
+      await sleepMs(TX_PARSE_DELAY_MS);
+    }
+  }
+
+  return merged;
 }
 
 /**

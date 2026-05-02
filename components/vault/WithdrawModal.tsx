@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { X, ArrowRight, Check, Loader2, Wallet } from "lucide-react";
+import { X, ArrowRight, Loader2, Wallet } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
@@ -15,6 +15,9 @@ import { getNetwork } from "@/lib/spectra/constants";
 import { newAttemptId, trackEvent } from "@/lib/analytics/client";
 import type { VaultState as OnChainVault } from "@/lib/spectra/types";
 import type { VaultConfig, VaultState } from "@/types";
+import { VaultTxErrorCallout } from "@/components/vault/VaultTxErrorCallout";
+import { VaultPaymentModalShell } from "@/components/vault/VaultPaymentModalShell";
+import { VaultTxSuccessStep } from "@/components/vault/VaultTxSuccessStep";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -34,6 +37,12 @@ function toUserFacingWithdrawError(err: unknown): string {
   const lower = raw.toLowerCase();
   if (lower.includes("user rejected") || lower.includes("walletsigntransactionerror") || lower.includes("rejected the request") || lower.includes("declined")) {
     return "Transaction rejected in wallet. No funds were moved.";
+  }
+  if (lower.includes("already been processed")) {
+    return (
+      "This withdrawal may have already landed (duplicate submit or RPC retry). " +
+      "Check your wallet / Solscan for a recent withdraw; refresh the page before trying again."
+    );
   }
 
   return raw || "Withdrawal failed. Please try again.";
@@ -172,7 +181,9 @@ export function WithdrawModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[min(92dvh,90vh)] w-[calc(100vw-1rem)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overflow-x-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 shadow-2xl min-[391px]:max-h-[90vh] min-[391px]:w-[min(100vw-2rem,480px)] min-[391px]:p-6">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-1rem)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none outline-none focus:outline-none min-[391px]:w-[min(100vw-2rem,480px)]">
+          <VaultPaymentModalShell vaultId={vaultConfig.id}>
+          <div className="relative z-10 p-4 min-[391px]:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 pr-2">
               <Dialog.Title className="text-base font-semibold text-[#e8edf5] min-[391px]:text-lg">
@@ -317,11 +328,7 @@ export function WithdrawModal({
                 </div>
               </div>
 
-              {txError && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200/95">
-                  {txError}
-                </div>
-              )}
+              {txError ? <VaultTxErrorCallout key={txError} message={txError} /> : null}
 
               <div className="flex flex-col gap-2 min-[391px]:flex-row min-[391px]:gap-3">
                 <button
@@ -347,40 +354,17 @@ export function WithdrawModal({
               <p className="text-sm text-[#8b9cb3]">Confirm the transaction in your wallet…</p>
             </div>
           ) : (
-            <div className="mt-6 flex flex-col items-center gap-4 py-8">
-              <div className="flex size-14 items-center justify-center rounded-full bg-[#00e5c3]/20">
-                <Check className="size-7 text-[#00e5c3]" />
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-semibold text-[#e8edf5]">Withdrawal submitted</p>
-                <p className="mt-1 text-sm text-[#8b9cb3]">
-                  {formatUsd(usdcOut)} USDC (est.) to your wallet
-                </p>
-                {lastSig && (
-                  <>
-                    <p className="mt-2 font-[family-name:var(--font-space-mono)] text-[10px] text-[#8b9cb3] break-all">
-                      {lastSig}
-                    </p>
-                    <a
-                      href={`https://solscan.io/tx/${lastSig}${explorerClusterParam}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center text-xs text-[#00e5c3] hover:underline"
-                    >
-                      View on Solscan
-                    </a>
-                  </>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="mt-2 rounded-xl bg-[#00e5c3] px-8 py-3 text-sm font-bold text-[#080c14] hover:bg-[#33ebd3]"
-              >
-                Done
-              </button>
-            </div>
+            <VaultTxSuccessStep
+              title="Withdrawal successful"
+              description={`${formatUsd(usdcOut)} USDC sent to your wallet (est.).`}
+              txSig={lastSig}
+              explorerClusterParam={explorerClusterParam}
+              accentColor={vaultConfig.accentColor}
+              onDone={() => onOpenChange(false)}
+            />
           )}
+          </div>
+          </VaultPaymentModalShell>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

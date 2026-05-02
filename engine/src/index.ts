@@ -7,12 +7,34 @@ import { runYieldRouter } from "./jobs/yield-router.js";
 import { runNavCalculator, getAllNavs } from "./jobs/nav-calculator.js";
 import { getActivePositions, getDecisionHistory, getTradeHistory } from "./jobs/position-manager.js";
 import { getVaultNavYieldMetrics } from "./data/vault-nav-snapshots.js";
-import { getAllVaultConfigs, CONFIG } from "./config.js";
+import { getAllVaultConfigs, CONFIG, inferClusterFromRpc } from "./config.js";
 import { createLogger } from "./utils/logger.js";
 import type { EngineHealth } from "./types/index.js";
 
 const log = createLogger("engine");
 const startTime = Date.now();
+
+function validateStartupEnvironment(): void {
+  const cluster = inferClusterFromRpc(CONFIG.RPC_URL);
+  const isMainnetUsdc =
+    CONFIG.USDC_MINT === "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+  const isDevnetUsdc =
+    CONFIG.USDC_MINT === "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
+  log.info(
+    `Startup profile: cluster=${cluster}, execution_mode=${CONFIG.EXECUTION_MODE}, usdc_mint=${CONFIG.USDC_MINT}`,
+  );
+
+  if (cluster === "devnet" && !isDevnetUsdc) {
+    log.warn("RPC is devnet but USDC mint is not devnet USDC; expect transaction simulation failures.");
+  }
+  if (cluster === "mainnet-beta" && !isMainnetUsdc) {
+    log.warn("RPC is mainnet but USDC mint is not mainnet USDC; check env consistency.");
+  }
+  if (cluster !== "mainnet-beta" && CONFIG.EXECUTION_MODE === "live") {
+    log.warn("Live execution requested on non-mainnet RPC; prediction orders may fail and fallback behavior may trigger.");
+  }
+}
 
 let lastScan: string | null = null;
 let lastNavSync: string | null = null;
@@ -137,6 +159,7 @@ app.listen(CONFIG.HEALTH_PORT, () => {
 
 async function bootstrap(): Promise<void> {
   log.info("Spectra Engine starting...");
+  validateStartupEnvironment();
 
   try {
     log.info("Running initial market scan...");
@@ -152,6 +175,14 @@ async function bootstrap(): Promise<void> {
     lastNavSync = new Date().toISOString();
   } catch (err) {
     log.error("Initial NAV calculation failed (non-fatal)", err);
+  }
+
+  try {
+    log.info("Running initial position check (after NAV)...");
+    await runPositionManager();
+    lastPositionCheck = new Date().toISOString();
+  } catch (err) {
+    log.error("Initial position check failed (non-fatal)", err);
   }
 
   log.info("Spectra Engine running. Cron jobs active.");

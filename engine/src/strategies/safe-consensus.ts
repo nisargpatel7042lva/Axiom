@@ -12,7 +12,8 @@ export class SafeConsensusStrategy extends BaseStrategy {
   }
 
   passesFilter(event: PredictionEvent, market: PredictionMarket): boolean {
-    const prob = market.buyYesPriceUsd;
+    // Use dominant-side probability so we can also take high-conviction NO setups.
+    const prob = Math.max(market.buyYesPriceUsd, market.buyNoPriceUsd);
     const days = this.daysUntil(event.endDate);
 
     return (

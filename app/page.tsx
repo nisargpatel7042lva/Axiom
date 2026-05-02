@@ -13,17 +13,17 @@ import {
   Shield,
   Target,
   Gem,
+  Mail,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { MorphingText } from "@/components/ui/morphing-text";
-import { VAULT_CONFIGS } from "@/constants";
+import BorderGlow from "@/components/ui/BorderGlow";
+import { SITE_PRIMARY_GRADIENT_COLORS, VAULT_BORDER_GLOW, VAULT_CONFIGS } from "@/constants";
 
 const ColorBends = dynamic(() => import("@/components/ui/ColorBends"), {
   ssr: false,
 });
-
-const SPECTRA_COLORS = ["#00e5c3", "#6366f1", "#a855f7", "#0ea5e9"];
 
 const HERO_PHRASES = [
   "prediction markets",
@@ -86,7 +86,7 @@ export default function Home() {
           <div className="absolute inset-0" style={{ zIndex: 0 }}>
             <div className="w-full h-full" style={{ minHeight: "85vh" }}>
               <ColorBends
-                colors={SPECTRA_COLORS}
+                colors={[...SITE_PRIMARY_GRADIENT_COLORS]}
                 rotation={35}
                 speed={0.2}
                 scale={1}
@@ -183,9 +183,9 @@ export default function Home() {
                 className="mt-6 max-w-xl text-lg leading-relaxed text-[#c0c9d8]"
                 style={{ textShadow: "0 1px 10px rgba(0,0,0,0.4)" }}
               >
-                Deposit USDC into AI-managed vaults. Our strategy engine
-                diversifies across prediction markets while idle capital earns
-                yield on Jupiter Lend. One click in, one click out.
+                Deposit USDC in a vault, let Axiom run the strategy, and track
+                everything in one place. No complex setup, no constant chart
+                watching, and you can withdraw anytime.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -233,43 +233,62 @@ export default function Home() {
                 <ArrowRight className="size-4" />
               </Link>
             </div>
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {VAULT_CONFIGS.map((config, i) => (
-                <motion.div
-                  key={config.id}
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={fadeUp}
-                >
-                  <Link
-                    href={`/vaults/${config.id}`}
-                    className="group block rounded-xl border border-white/10 bg-[#080c14]/80 p-4 transition-all hover:border-[#00e5c3]/35 hover:bg-[#080c14]"
+            <div className="mt-8 grid gap-4 sm:grid-cols-3 sm:items-stretch">
+              {VAULT_CONFIGS.map((config, i) => {
+                const glow = VAULT_BORDER_GLOW[config.id];
+                return (
+                  <motion.div
+                    key={config.id}
+                    custom={i}
+                    initial="hidden"
+                    animate="visible"
+                    variants={fadeUp}
+                    className="h-full"
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex size-10 items-center justify-center rounded-lg"
-                        style={{
-                          backgroundColor: `${config.accentColor}22`,
-                          color: config.accentColor,
-                        }}
+                    <Link
+                      href={`/vaults/${config.id}`}
+                      className="group block h-full"
+                    >
+                      <BorderGlow
+                        className="h-full"
+                        borderRadius={12}
+                        backgroundColor="#080c14"
+                        glowColor={glow.glowHsl}
+                        colors={[...glow.colors]}
+                        glowRadius={22}
+                        glowIntensity={1}
+                        coneSpread={22}
+                        edgeSensitivity={26}
+                        animated
                       >
-                        {VAULT_TEASER_ICONS[config.id]}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-[#e8edf5] group-hover:text-white truncate">
-                          {config.name}
+                        <div className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="flex size-10 items-center justify-center rounded-lg"
+                              style={{
+                                backgroundColor: `${config.accentColor}22`,
+                                color: config.accentColor,
+                              }}
+                            >
+                              {VAULT_TEASER_ICONS[config.id]}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-semibold text-[#e8edf5] group-hover:text-white">
+                                {config.name}
+                              </div>
+                              <div className="text-xs text-[#8b9cb3]">{config.ticker}</div>
+                            </div>
+                            <ArrowRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
+                          </div>
+                          <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[#8b9cb3]">
+                            {config.description}
+                          </p>
                         </div>
-                        <div className="text-xs text-[#8b9cb3]">{config.ticker}</div>
-                      </div>
-                      <ArrowRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
-                    </div>
-                    <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[#8b9cb3]">
-                      {config.description}
-                    </p>
-                  </Link>
-                </motion.div>
-              ))}
+                      </BorderGlow>
+                    </Link>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         </section>
@@ -368,6 +387,47 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        {/* Help + contact — full FAQ lives on /faq */}
+        <section className="border-t border-white/5 bg-[#0d1420]/40">
+          <div className="mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-16">
+            <div className="mx-auto max-w-2xl rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 text-center md:p-8">
+              <h2 className="text-xl font-bold text-[#e8edf5] md:text-2xl">
+                Still have questions?
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[#8b9cb3]">
+                All common topics are on our FAQ page. Prefer email or X? Reach us below.
+              </p>
+              <Link
+                href="/faq"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#00e5c3] px-6 py-3 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3]"
+              >
+                Go to FAQ
+                <ArrowRight className="size-4" />
+              </Link>
+              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+                <a
+                  href="mailto:axiomvaults1@gmail.com"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-colors hover:border-[#00e5c3]/40 hover:bg-white/[0.04]"
+                >
+                  <Mail className="size-4 shrink-0 text-[#00e5c3]" aria-hidden />
+                  axiomvaults1@gmail.com
+                </a>
+                <a
+                  href="https://x.com/axiom_vaults"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-colors hover:border-[#00e5c3]/40 hover:bg-white/[0.04]"
+                >
+                  <span className="flex size-4 items-center justify-center rounded bg-[#00e5c3]/20 text-[10px] font-bold text-[#00e5c3]">
+                    X
+                  </span>
+                  @axiom_vaults
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
@@ -387,6 +447,9 @@ export default function Home() {
             </Link>
             <Link href="/about" className="hover:text-[#00e5c3]">
               About
+            </Link>
+            <Link href="/faq" className="hover:text-[#00e5c3]">
+              FAQ
             </Link>
             <Link href="/portfolio" className="hover:text-[#00e5c3]">
               Portfolio

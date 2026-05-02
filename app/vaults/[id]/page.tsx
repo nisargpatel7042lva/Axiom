@@ -43,6 +43,7 @@ import { parseActivityFeed } from "@/lib/services/dune-sim";
 import { usePortfolioActivities } from "@/hooks/usePortfolioActivities";
 import type { VaultId } from "@/types";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { VaultPrismBackdrop } from "@/components/vault/VaultPrismBackdrop";
 import { useMatchMedia } from "@/hooks/useMatchMedia";
 import { useWallet } from "@solana/wallet-adapter-react";
 
@@ -207,10 +208,13 @@ export default function VaultDetailPage({
 
   if (!config) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#080c14]">
-        <Topbar />
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-[#8b9cb3]">Vault not found.</p>
+      <div className="relative min-h-screen bg-[#080c14]">
+        <VaultPrismBackdrop />
+        <div className="relative z-10 flex min-h-screen flex-col">
+          <Topbar />
+          <div className="flex flex-1 items-center justify-center px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
+            <p className="text-[#8b9cb3]">Vault not found.</p>
+          </div>
         </div>
       </div>
     );
@@ -220,10 +224,13 @@ export default function VaultDetailPage({
 
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#080c14]">
-      <Topbar />
+    <div className="relative min-h-screen bg-[#080c14]">
+      <VaultPrismBackdrop vaultId={vaultKey} />
 
-      <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <Topbar />
+
+        <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
         <button
           type="button"
           onClick={() => router.push("/vaults")}
@@ -665,6 +672,7 @@ export default function VaultDetailPage({
         onOpenChange={setShowWithdraw}
         onWithdrawn={() => void refetch()}
       />
+      </div>
     </div>
   );
 }

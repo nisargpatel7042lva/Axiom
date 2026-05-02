@@ -23,6 +23,39 @@ const log = createLogger("position-manager");
 const activePositions = new Map<string, ActivePosition[]>();
 const tradeHistory: TradeLog[] = [];
 const decisionHistory: DecisionLog[] = [];
+const ORDER_REQUEST_DELAY_MS = Math.max(0, CONFIG.ORDER_REQUEST_DELAY_MS);
+
+type ApiErrorShape = {
+  response?: {
+    status?: number;
+    data?: {
+      code?: string;
+      message?: string;
+      [k: string]: unknown;
+    };
+  };
+  message?: string;
+  [k: string]: unknown;
+};
+
+function extractApiError(err: unknown): { status?: number; code?: string; message?: string } {
+  const e = (err ?? {}) as ApiErrorShape;
+  return {
+    status: e.response?.status,
+    code: e.response?.data?.code,
+    message: e.response?.data?.message ?? e.message,
+  };
+}
+
+function shouldPaperFallback(err: unknown): boolean {
+  const { status, code } = extractApiError(err);
+  if (CONFIG.EXECUTION_MODE === "paper") return true;
+  return status === 400 && (code === "transaction_simulation_failed" || code === "create_order_failed");
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function runPositionManager(): Promise<void> {
   log.info("Running position check...");
@@ -109,15 +142,17 @@ export async function runPositionManager(): Promise<void> {
       continue;
     }
 
-    // 4. Check pending trigger (limit) orders
-    try {
-      const triggerOrders = await jupiterTrigger.getOrders(ownerPubkey);
-      const filledOrders = triggerOrders.filter((o) => o.status === "filled");
-      if (filledOrders.length > 0) {
-        log.info(`[${vaultConfig.name}] ${filledOrders.length} trigger orders filled`);
+    // 4. Check pending trigger (limit) orders (only in live mode)
+    if (CONFIG.EXECUTION_MODE === "live") {
+      try {
+        const triggerOrders = await jupiterTrigger.getOrders(ownerPubkey);
+        const filledOrders = triggerOrders.filter((o) => o.status === "filled");
+        if (filledOrders.length > 0) {
+          log.info(`[${vaultConfig.name}] ${filledOrders.length} trigger orders filled`);
+        }
+      } catch (err) {
+        log.debug("Trigger order check failed (non-fatal)", err);
       }
-    } catch (err) {
-      log.debug("Trigger order check failed (non-fatal)", err);
     }
 
     // 5. Open positions for top opportunities (up to 3 per cycle)
@@ -142,7 +177,8 @@ export async function runPositionManager(): Promise<void> {
 
       // Use limit order via Trigger API if price is above our target
       // (try to get a better entry), otherwise use market order
-      const USE_LIMIT_ORDERS = opp.price > 0.70 && opp.price < 0.95;
+      // Keep execution path simple/reliable for beta: market orders only.
+      const USE_LIMIT_ORDERS = false;
 
       await ensureVaultLiquidity(vaultConfig.id, positionSizeUsdc);
 
@@ -180,6 +216,10 @@ export async function runPositionManager(): Promise<void> {
         );
         await openPosition(ownerPubkey, vaultId, opp, positionSizeUsdc);
       }
+
+      if (ORDER_REQUEST_DELAY_MS > 0) {
+        await sleep(ORDER_REQUEST_DELAY_MS);
+      }
     }
 
     const updatedPositions = activePositions.get(vaultId) ?? [];
@@ -195,13 +235,42 @@ async function openPosition(
   opp: ScoredOpportunity,
   usdcAmount: number,
 ): Promise<void> {
+  if (CONFIG.EXECUTION_MODE === "paper") {
+    const pos: ActivePosition = {
+      vaultId,
+      marketId: opp.marketId,
+      eventId: opp.eventId,
+      title: opp.title,
+      side: opp.side,
+      contracts: usdcAmount / Math.max(opp.price, 0.000001),
+      avgEntryPrice: opp.price,
+      currentPrice: opp.price,
+      usdcDeployed: usdcAmount,
+      pnlUsd: 0,
+      openedAt: new Date().toISOString(),
+    };
+
+    const positions = activePositions.get(vaultId) ?? [];
+    positions.push(pos);
+    activePositions.set(vaultId, positions);
+
+    logTrade(vaultId, "open", pos, {
+      reasonCode: "market_entry",
+      expectedPrice: opp.price,
+      filledPrice: opp.price,
+      status: "pending",
+    });
+    log.info(`Paper mode: recorded simulated position for ${opp.title}`);
+    return;
+  }
+
   try {
     const result = (await jupiterPrediction.createOrder({
       ownerPubkey,
       marketId: opp.marketId,
       isYes: opp.side === "yes",
       isBuy: true,
-      depositAmount: (usdcAmount * 1e6).toString(),
+      depositAmount: Math.max(1, Math.floor(usdcAmount * 1e6)).toString(),
       depositMint: CONFIG.USDC_MINT,
     })) as { transaction?: string };
 
@@ -234,7 +303,42 @@ async function openPosition(
     });
     log.info(`Opened position on ${opp.title}: ${sig}`);
   } catch (err) {
-    log.error(`Failed to open position on ${opp.title}`, err);
+    const details = extractApiError(err);
+    if (shouldPaperFallback(err)) {
+      const pos: ActivePosition = {
+        vaultId,
+        marketId: opp.marketId,
+        eventId: opp.eventId,
+        title: opp.title,
+        side: opp.side,
+        contracts: usdcAmount / Math.max(opp.price, 0.000001),
+        avgEntryPrice: opp.price,
+        currentPrice: opp.price,
+        usdcDeployed: usdcAmount,
+        pnlUsd: 0,
+        openedAt: new Date().toISOString(),
+      };
+
+      const positions = activePositions.get(vaultId) ?? [];
+      positions.push(pos);
+      activePositions.set(vaultId, positions);
+
+      logTrade(vaultId, "open", pos, {
+        reasonCode: "market_entry",
+        expectedPrice: opp.price,
+        filledPrice: opp.price,
+        status: "pending",
+      });
+      log.warn(
+        `Order API simulation failed for ${opp.title}; recorded paper position fallback (${details.code ?? "unknown_code"})`,
+      );
+      return;
+    }
+
+    log.error(`Failed to open position on ${opp.title}`, {
+      ...details,
+      raw: err,
+    });
   }
 }
 

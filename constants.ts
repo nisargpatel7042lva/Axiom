@@ -3,6 +3,46 @@ import type { VaultConfig, VaultId } from "@/types";
 
 export const SPECTRA_PROGRAM_ADDRESS = IDL.address as string;
 
+/** Hero / aurora palette: teal, indigo, violet, sky (matches marketing UI). */
+export const SITE_PRIMARY_GRADIENT_COLORS = [
+  "#00e5c3",
+  "#6366f1",
+  "#a855f7",
+  "#0ea5e9",
+] as const;
+
+/** Three-stop gradient for vault detail PrismaticBurst (matches each vault’s theme). */
+export const VAULT_PRISMATIC_BURST_COLORS: Record<VaultId, string[]> = {
+  "safe-consensus": ["#38bdf8", "#0284c7", "#e0f2fe"],
+  "macro-contrarian": ["#c4b5fd", "#7c3aed", "#ede9fe"],
+  "yield-maximizer": ["#fb923c", "#ea580c", "#ffedd5"],
+};
+
+export function getVaultPrismaticBurstColors(id: VaultId): string[] {
+  return VAULT_PRISMATIC_BURST_COLORS[id];
+}
+
+/** BorderGlow mesh + HSL shadow per vault (listing cards, home teasers). */
+export type VaultBorderGlowSpec = {
+  colors: [string, string, string];
+  glowHsl: string;
+};
+
+export const VAULT_BORDER_GLOW: Record<VaultId, VaultBorderGlowSpec> = {
+  "safe-consensus": {
+    colors: ["#00e5c3", "#34d399", "#a7f3d0"],
+    glowHsl: "162 78 52",
+  },
+  "macro-contrarian": {
+    colors: ["#c084fc", "#8b5cf6", "#ddd6fe"],
+    glowHsl: "258 88 65",
+  },
+  "yield-maximizer": {
+    colors: ["#fbbf24", "#f59e0b", "#fed7aa"],
+    glowHsl: "32 92 56",
+  },
+};
+
 const riskDim = (
   id: string,
   label: string,

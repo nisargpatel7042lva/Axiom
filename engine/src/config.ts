@@ -66,18 +66,36 @@ export const CONFIG = {
   IDLE_BUFFER_PCT: 0.05,
 
   AI_ENABLED: process.env.AI_ENABLED !== "false",
-  AI_PROVIDER: ((raw: string | undefined): "anthropic" | "openai" => {
+  AI_PROVIDER: ((raw: string | undefined): "anthropic" | "openai" | "gemini" => {
     const p = (raw || "anthropic").toLowerCase();
-    return p === "openai" ? "openai" : "anthropic";
+    if (p === "openai") return "openai";
+    if (p === "gemini") return "gemini";
+    return "anthropic";
   })(process.env.AI_PROVIDER),
   AI_API_KEY: process.env.AI_API_KEY || "",
   AI_MODEL:
     process.env.AI_MODEL ||
-    ((process.env.AI_PROVIDER || "anthropic").toLowerCase() === "openai"
-      ? "gpt-4o-mini"
-      : "claude-3-5-haiku-20241022"),
+    ((provider: string) => {
+      if (provider === "openai") return "gpt-4o-mini";
+      if (provider === "gemini") return "gemini-2.0-flash";
+      return "claude-3-5-haiku-20241022";
+    })((process.env.AI_PROVIDER || "anthropic").toLowerCase()),
   AI_MAX_CALLS_PER_HOUR: parseInt(process.env.AI_MAX_CALLS_PER_HOUR || "50", 10),
+  AI_BATCH_SIZE: parseInt(process.env.AI_BATCH_SIZE || "2", 10),
+  AI_BATCH_DELAY_MS: parseInt(process.env.AI_BATCH_DELAY_MS || "700", 10),
+  ORDER_REQUEST_DELAY_MS: parseInt(process.env.ORDER_REQUEST_DELAY_MS || "800", 10),
+  EXECUTION_MODE: ((raw: string | undefined): "paper" | "live" => {
+    const v = (raw || "").toLowerCase();
+    return v === "live" ? "live" : "paper";
+  })(process.env.EXECUTION_MODE),
 } as const;
+
+export function inferClusterFromRpc(rpcUrl: string): "devnet" | "mainnet-beta" | "unknown" {
+  const url = rpcUrl.toLowerCase();
+  if (url.includes("devnet")) return "devnet";
+  if (url.includes("mainnet")) return "mainnet-beta";
+  return "unknown";
+}
 
 export const VAULT_CONFIGS: Record<VaultStrategyType, VaultConfig> = {
   "safe-consensus": {

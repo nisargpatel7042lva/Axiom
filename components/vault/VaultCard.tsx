@@ -10,10 +10,12 @@ import {
   Radio,
   Info,
 } from "lucide-react";
-import type { VaultConfig, VaultState } from "@/types";
+import type { VaultConfig, VaultId, VaultState } from "@/types";
 import { formatUsd, formatUsdCompact, formatShares } from "@/components/format";
+import BorderGlow from "@/components/ui/BorderGlow";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ExposureVenues } from "@/components/vault/ExposureVenues";
+import { VAULT_BORDER_GLOW } from "@/constants";
 
 const RISK_BADGE: Record<string, { label: string; className: string }> = {
   low: { label: "Low Risk", className: "bg-[#00e5c3]/15 text-[#00e5c3]" },
@@ -50,19 +52,23 @@ export function VaultCard({
   const fillPct =
     state != null ? Math.min(100, Math.round((state.nav / cap) * 1000) / 10) : 0;
 
-  return (
-    <Link href={`/vaults/${config.id}`} className="group block">
-      <div
-        className="relative overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 transition-all duration-300 hover:border-[#00e5c3]/30 hover:glow-accent"
-      >
-        <div
-          className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-          style={{
-            background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${config.accentColor}08, transparent 40%)`,
-          }}
-        />
+  const glow = VAULT_BORDER_GLOW[config.id];
 
-        <div className="relative">
+  return (
+    <Link href={`/vaults/${config.id}`} className="group block h-full">
+      <BorderGlow
+        className="h-full"
+        borderRadius={16}
+        backgroundColor="#0d1420"
+        glowColor={glow.glowHsl}
+        colors={[...glow.colors]}
+        glowRadius={28}
+        glowIntensity={1.05}
+        coneSpread={22}
+        edgeSensitivity={26}
+        animated
+      >
+        <div className="p-6">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <div
@@ -240,7 +246,7 @@ export function VaultCard({
 
           <ExposureVenues venues={config.exposureVenues} accentColor={config.accentColor} />
         </div>
-      </div>
+      </BorderGlow>
     </Link>
   );
 }

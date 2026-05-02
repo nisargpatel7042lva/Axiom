@@ -13,7 +13,8 @@ export class YieldMaximizerStrategy extends BaseStrategy {
   }
 
   passesFilter(event: PredictionEvent, market: PredictionMarket): boolean {
-    const prob = market.buyYesPriceUsd;
+    // Use dominant-side probability so YES and NO opportunities are both considered.
+    const prob = Math.max(market.buyYesPriceUsd, market.buyNoPriceUsd);
     const days = this.daysUntil(event.endDate);
 
     return (
