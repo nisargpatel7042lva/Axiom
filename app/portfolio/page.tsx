@@ -71,7 +71,7 @@ export default function PortfolioPage() {
   const walletAddress = publicKey?.toBase58() ?? null;
   const { usdcBalance } = useWalletBalances();
   const { positions, totalValue, loading, error, refetch } = useWalletVaultPositions();
-  const chartPoints = useLiveMetricHistory(connected ? totalValue : null, 24 * 60 * 60 * 1000);
+  const chartPoints = useLiveMetricHistory(connected ? totalValue : null);
   const activities = usePortfolioActivities(walletAddress);
   const { transactions } = useTransactionHistory(250);
   const usdcMint = getNetwork() === "mainnet-beta" ? USDC_MINT.toBase58() : DEVNET_USDC_MINT.toBase58();
@@ -315,22 +315,20 @@ export default function PortfolioPage() {
               <button
                 type="button"
                 onClick={() => setChartMode("total")}
-                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${
-                  chartMode === "total"
+                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "total"
                     ? "bg-[#00e5c3] text-[#080c14] shadow-[0_0_0_1px_rgba(0,229,195,0.25)]"
                     : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
-                }`}
+                  }`}
               >
                 Total Value
               </button>
               <button
                 type="button"
                 onClick={() => setChartMode("flow")}
-                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${
-                  chartMode === "flow"
+                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "flow"
                     ? "bg-[#6366f1] text-white shadow-[0_0_0_1px_rgba(99,102,241,0.25)]"
                     : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
-                }`}
+                  }`}
               >
                 Daily Flow
               </button>
@@ -510,9 +508,8 @@ export default function PortfolioPage() {
                         <div className="text-left sm:text-right">
                           <div className="text-xs text-[#8b9cb3]">P&amp;L</div>
                           <div
-                            className={`font-[family-name:var(--font-space-mono)] text-sm font-semibold ${
-                              pnlPositive ? "text-emerald-400" : "text-rose-400"
-                            }`}
+                            className={`font-[family-name:var(--font-space-mono)] text-sm font-semibold ${pnlPositive ? "text-emerald-400" : "text-rose-400"
+                              }`}
                           >
                             {pnlPositive ? "+" : "-"}
                             {formatUsd(Math.abs(pnl))}
