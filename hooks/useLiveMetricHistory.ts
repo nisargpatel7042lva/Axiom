@@ -2,49 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type MetricPoint = { date: string; value: number; t: number };
+import {
+  fetchMetricHistory,
+  upsertMetricHistory,
+  type MetricPoint,
+} from "@/lib/portfolio/metric-history";
+import { isSupabaseEnabled } from "@/lib/supabase/client";
+export type { MetricPoint } from "@/lib/portfolio/metric-history";
 
 /** Rolling timeline window for chart display. */
 const LOOKBACK_DAYS = 15;
 const LOOKBACK_MS = LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
 
-function storageKey(wallet: string) {
-  return `spectra_metric_history_v1_${wallet}`;
-}
-
-function loadFromStorage(wallet: string): MetricPoint[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(storageKey(wallet));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as MetricPoint[];
-    if (!Array.isArray(parsed)) return [];
-    const cutoff = Date.now() - LOOKBACK_MS;
-    return parsed.filter(
-      (p) =>
-        p &&
-        typeof p === "object" &&
-        Number.isFinite(p.t) &&
-        Number.isFinite(p.value) &&
-        p.t >= cutoff,
-    );
-  } catch {
-    return [];
-  }
-}
-
-function saveToStorage(wallet: string, points: MetricPoint[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(storageKey(wallet), JSON.stringify(points));
-  } catch {
-    // quota exceeded — silently ignore
-  }
-}
-
 /**
  * Samples the latest metric on a fixed interval only (no burst appends on refetch).
- * Persists samples to localStorage keyed by wallet address so history survives
+ * Persists samples to Supabase keyed by wallet address so history survives
  * page refreshes and stays consistent across environments for the same wallet.
  */
 export function useLiveMetricHistory(
@@ -58,19 +30,37 @@ export function useLiveMetricHistory(
   const seededRef = useRef(false);
   const walletRef = useRef(walletKey ?? null);
   walletRef.current = walletKey ?? null;
+  const warnedRef = useRef(false);
 
   // Load persisted history when wallet becomes available
   useEffect(() => {
+    let active = true;
+
     if (!walletKey) {
       setPoints([]);
       seededRef.current = false;
-      return;
+      return undefined;
     }
-    const stored = loadFromStorage(walletKey);
-    setPoints(stored);
-    // If we already have points, consider it seeded (skip the initial append
-    // until the interval fires, to avoid a duplicate same-second sample).
-    seededRef.current = stored.length > 0;
+
+    const load = async () => {
+      if (!isSupabaseEnabled() && !warnedRef.current) {
+        warnedRef.current = true;
+        console.warn("Supabase is not configured; metric history will be empty.");
+      }
+      const cutoff = Date.now() - LOOKBACK_MS;
+      const remote = await fetchMetricHistory(walletKey, cutoff);
+
+      if (!active) return;
+
+      setPoints(remote);
+      seededRef.current = remote.length > 0;
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+    };
   }, [walletKey]);
 
   const append = useCallback((nextValue: number) => {
@@ -93,7 +83,7 @@ export function useLiveMetricHistory(
       const next = [...withoutToday, { date, value: nextValue, t }];
       // Persist to localStorage if we have a wallet key
       const wk = walletRef.current;
-      if (wk) saveToStorage(wk, next);
+      if (wk) void upsertMetricHistory(wk, { date, value: nextValue, t });
       return next;
     });
   }, []);

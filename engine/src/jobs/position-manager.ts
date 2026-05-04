@@ -258,7 +258,7 @@ async function openPosition(
       reasonCode: "market_entry",
       expectedPrice: opp.price,
       filledPrice: opp.price,
-      status: "pending",
+      status: "submitted",
     });
     log.info(`Paper mode: recorded simulated position for ${opp.title}`);
     return;
@@ -327,7 +327,7 @@ async function openPosition(
         reasonCode: "market_entry",
         expectedPrice: opp.price,
         filledPrice: opp.price,
-        status: "pending",
+        status: "submitted",
       });
       log.warn(
         `Order API simulation failed for ${opp.title}; recorded paper position fallback (${details.code ?? "unknown_code"})`,
