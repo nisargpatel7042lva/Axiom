@@ -14,6 +14,42 @@ export type { MetricPoint } from "@/lib/portfolio/metric-history";
 const LOOKBACK_DAYS = 15;
 const LOOKBACK_MS = LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
 
+function loadLocalMetricHistory(wallet: string, cutoffMs: number): MetricPoint[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(`portfolio-metric-history-${wallet}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as MetricPoint[];
+    return parsed
+      .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.value) && p.t >= cutoffMs)
+      .sort((a, b) => a.t - b.t);
+  } catch {
+    return [];
+  }
+}
+
+function persistLocalMetricHistory(wallet: string, points: MetricPoint[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(`portfolio-metric-history-${wallet}`, JSON.stringify(points));
+  } catch {
+    // Ignore localStorage failures.
+  }
+}
+
+function mergeMetricPoints(remote: MetricPoint[], local: MetricPoint[]): MetricPoint[] {
+  const merged = new Map<number, MetricPoint>();
+  for (const point of remote) {
+    merged.set(point.t, point);
+  }
+  for (const point of local) {
+    if (!merged.has(point.t)) {
+      merged.set(point.t, point);
+    }
+  }
+  return Array.from(merged.values()).sort((a, b) => a.t - b.t);
+}
+
 /**
  * Samples the latest metric on a fixed interval only (no burst appends on refetch).
  * Persists samples to Supabase keyed by wallet address so history survives
@@ -30,30 +66,45 @@ export function useLiveMetricHistory(
   const seededRef = useRef(false);
   const walletRef = useRef(walletKey ?? null);
   walletRef.current = walletKey ?? null;
-  const warnedRef = useRef(false);
 
   // Load persisted history when wallet becomes available
   useEffect(() => {
     let active = true;
+    seededRef.current = false;
+    setPoints([]);
 
     if (!walletKey) {
-      setPoints([]);
-      seededRef.current = false;
       return undefined;
     }
 
     const load = async () => {
-      if (!isSupabaseEnabled() && !warnedRef.current) {
-        warnedRef.current = true;
-        console.warn("Supabase is not configured; metric history will be empty.");
-      }
       const cutoff = Date.now() - LOOKBACK_MS;
-      const remote = await fetchMetricHistory(walletKey, cutoff);
+      const local = loadLocalMetricHistory(walletKey, cutoff);
 
+      if (!isSupabaseEnabled()) {
+        if (!active) return;
+        setPoints(local);
+        seededRef.current = local.length > 0;
+        return;
+      }
+
+      const remote = await fetchMetricHistory(walletKey, cutoff);
       if (!active) return;
 
-      setPoints(remote);
-      seededRef.current = remote.length > 0;
+      const merged = mergeMetricPoints(remote, local);
+      if (!active) return;
+      setPoints(merged);
+      seededRef.current = merged.length > 0;
+      persistLocalMetricHistory(walletKey, merged);
+
+      if (local.length > 0) {
+        const remoteTs = new Set(remote.map((point) => point.t));
+        for (const point of local) {
+          if (!remoteTs.has(point.t)) {
+            void upsertMetricHistory(walletKey, point);
+          }
+        }
+      }
     };
 
     void load();
@@ -81,9 +132,13 @@ export function useLiveMetricHistory(
         return k !== todayKey && p.t >= cutoff;
       });
       const next = [...withoutToday, { date, value: nextValue, t }];
-      // Persist to localStorage if we have a wallet key
       const wk = walletRef.current;
-      if (wk) void upsertMetricHistory(wk, { date, value: nextValue, t });
+      if (wk) {
+        persistLocalMetricHistory(wk, next);
+        if (isSupabaseEnabled()) {
+          void upsertMetricHistory(wk, { date, value: nextValue, t });
+        }
+      }
       return next;
     });
   }, []);

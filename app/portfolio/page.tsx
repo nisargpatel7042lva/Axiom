@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -80,16 +80,18 @@ function dedupeMetricPointsByDay(points: MetricPoint[]): MetricPoint[] {
 
 function PortfolioConnectedView() {
   const [chartMode, setChartMode] = useState<"total" | "flow">("total");
+  const [chartNow] = useState<number>(() => startOfDayMs(new Date().getTime()));
   const narrow = useMatchMedia("(max-width: 390px)");
   const { connected, publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() ?? null;
   const { usdcBalance } = useWalletBalances();
   const { positions, totalValue, loading, error, refetch } = useWalletVaultPositions();
-  const chartPoints = useLiveMetricHistory(connected ? totalValue : null, 24 * 60 * 60 * 1000, walletAddress);
+  const chartPoints = useLiveMetricHistory(connected && !loading ? totalValue : null, 24 * 60 * 60 * 1000, walletAddress);
   const sampledPortfolioPoints = useMemo(
     () => dedupeMetricPointsByDay(chartPoints),
     [chartPoints],
   );
+
   // Chart + P&L source: only the explicit localStorage activity log.
   // Chain-inferred transactions from Dune SIM / RPC are intentionally excluded here
   // because they are non-deterministic (RPC returns differ between environments),
@@ -136,8 +138,11 @@ function PortfolioConnectedView() {
   }, [historyActivities]);
 
   const chartSeries = useMemo(() => {
-    const now = Date.now();
-    const todayStart = startOfDayMs(now);
+    if (chartNow === null) {
+      return { total: [], flow: [] };
+    }
+
+    const todayStart = chartNow;
     const firstDay = todayStart - 14 * 24 * 60 * 60 * 1000;
 
     // 1. ALWAYS compute Flow independently from valid activities
@@ -147,7 +152,7 @@ function PortfolioConnectedView() {
 
     const dailyFlow = new Map<string, { invested: number; withdrawn: number }>();
     for (const a of validActivities) {
-      if (a.timestamp < firstDay || a.timestamp > now) continue;
+      if (a.timestamp < firstDay || a.timestamp > todayStart) continue;
       const k = dayKey(a.timestamp);
       const row = dailyFlow.get(k) ?? { invested: 0, withdrawn: 0 };
       if (a.kind === "deposit") row.invested += a.amountUsdc;
@@ -199,7 +204,7 @@ function PortfolioConnectedView() {
       total: totalSeries,
       flow: dailyFlowSeries,
     };
-  }, [activities, sampledPortfolioPoints, totalValue]);
+  }, [historyActivities, sampledPortfolioPoints, totalValue, chartNow]);
 
   useEffect(() => {
     if (!connected || !walletAddress) return;
@@ -410,7 +415,11 @@ function PortfolioConnectedView() {
                   dataKey="t"
                   type="number"
                   scale="time"
-                  domain={[startOfDayMs(Date.now()) - 14 * 24 * 60 * 60 * 1000, startOfDayMs(Date.now())]}
+                  domain={
+                    chartNow
+                      ? [chartNow - 14 * 24 * 60 * 60 * 1000, chartNow]
+                      : ["auto", "auto"]
+                  }
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#8b9cb3", fontSize: 10 }}

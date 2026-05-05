@@ -1,0 +1,2138 @@
+// Source: https://github.com/nisargpatel7042lva/Axiom (branch: master)
+// Merged on: 2026-05-04T10:40:43.379Z
+
+/*
+Axiom/
+      └─ spectra-vault
+         └─ src
+            ├─ instructions
+            │  ├─ approve_operation.rs
+            │  ├─ cancel_operation.rs
+            │  ├─ collect_fee.rs
+            │  ├─ deposit.rs
+            │  ├─ execute_operation.rs
+            │  ├─ execute_strategy_change.rs
+            │  ├─ initialize_multisig.rs
+            │  ├─ initialize_strategy.rs
+            │  ├─ initialize.rs
+            │  ├─ mod.rs
+            │  ├─ pause.rs
+            │  ├─ propose_operation.rs
+            │  ├─ propose_strategy_change.rs
+            │  ├─ sync_nav.rs
+            │  ├─ vote_on_strategy.rs
+            │  └─ withdraw.rs
+            ├─ ix_accounts
+            │  ├─ collect_fee.rs
+            │  ├─ deposit.rs
+            │  ├─ initialize_strategy.rs
+            │  ├─ initialize.rs
+            │  ├─ mod.rs
+            │  ├─ multisig.rs
+            │  ├─ pause.rs
+            │  ├─ sync_nav.rs
+            │  └─ withdraw.rs
+            ├─ constants.rs
+            ├─ errors.rs
+            ├─ events.rs
+            ├─ lib.rs
+            └─ state.rs
+*/
+
+
+// File: Axiom/programs/spectra-vault/src/constants.rs
+//! Values shared across account constraints and instruction logic.
+
+/// Share token mint decimals (Token-2022).
+pub const SHARE_DECIMALS: u8 = 9;
+
+/// Initial high-water mark: 1.000000 USDC per share (6-decimal fixed-point style PPS).
+pub const INITIAL_HWM: u64 = 1_000_000;
+
+/// 10^(share_decimals - asset_decimals) for typical USDC (6) vs shares (9).
+pub const DECIMAL_ADJUSTMENT: u64 = 1_000;
+
+/// Bridges share-decimals / asset-decimals gap in PPS calculations.
+pub const PPS_PRECISION: u128 = 1_000_000_000;
+
+pub const BPS_DENOMINATOR: u128 = 10_000;
+
+
+// File: Axiom/programs/spectra-vault/src/errors.rs
+use anchor_lang::prelude::*;
+
+#[error_code]
+pub enum SpectraError {
+    #[msg("Signer is not the vault authority")]
+    Unauthorized,
+
+    #[msg("Vault is currently paused")]
+    VaultPaused,
+
+    #[msg("Vault is not paused")]
+    VaultNotPaused,
+
+    #[msg("Deposit amount must be greater than zero")]
+    InvalidAmount,
+
+    #[msg("Insufficient shares balance for withdrawal")]
+    InsufficientShares,
+
+    #[msg("Arithmetic overflow")]
+    MathOverflow,
+
+    #[msg("Invalid strategy type (must be 0, 1, or 2)")]
+    InvalidStrategyType,
+
+    #[msg("No performance fee to collect — PPS is at or below high-water mark")]
+    NoFeeToCollect,
+
+    #[msg("min_probability must be less than or equal to max_probability")]
+    InvalidProbabilityRange,
+
+    #[msg("Vault reserves insufficient to cover withdrawal")]
+    InsufficientVaultBalance,
+
+    #[msg("Too many categories (max 8)")]
+    TooManyCategories,
+
+    #[msg("Category string too long (max 32 bytes)")]
+    CategoryTooLong,
+
+    #[msg("Performance fee basis points out of range (max 5000)")]
+    InvalidFeeBps,
+
+    // Multisig errors
+    #[msg("Signer is not authorized in multisig")]
+    UnauthorizedSigner,
+
+    #[msg("Threshold must be between 1 and MAX_MULTISIG_THRESHOLD")]
+    InvalidThreshold,
+
+    #[msg("Too many signers (max 5)")]
+    TooManySigners,
+
+    #[msg("Operation already approved by this signer")]
+    AlreadyApproved,
+
+    #[msg("Operation not found or already executed/cancelled")]
+    OperationNotFound,
+
+    #[msg("Timelock has not expired yet")]
+    TimelockActive,
+
+    #[msg("Threshold not met - more approvals required")]
+    ThresholdNotMet,
+
+    #[msg("Duplicate signer in list")]
+    DuplicateSigner,
+
+    // Governance errors
+    #[msg("Voting period has ended")]
+    VotingEnded,
+
+    #[msg("Voting period is still active")]
+    VotingActive,
+
+    #[msg("User already voted on this proposal")]
+    AlreadyVoted,
+
+    #[msg("Quorum not reached")]
+    QuorumNotReached,
+
+    #[msg("Proposal already executed")]
+    AlreadyExecuted,
+
+    #[msg("Proposal was rejected")]
+    ProposalRejected,
+
+    #[msg("Invalid strategy change type")]
+    InvalidChangeType,
+
+    #[msg("User has no shares to vote with")]
+    NoSharesToVote,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/events.rs
+use anchor_lang::prelude::*;
+
+#[event]
+pub struct DepositEvent {
+    pub vault: Pubkey,
+    pub user: Pubkey,
+    pub amount: u64,
+    pub shares_minted: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct WithdrawEvent {
+    pub vault: Pubkey,
+    pub user: Pubkey,
+    pub shares_burned: u64,
+    pub amount_returned: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct NavSyncEvent {
+    pub vault: Pubkey,
+    pub old_total_assets: u64,
+    pub new_total_assets: u64,
+    pub pps: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct StrategyUpdateEvent {
+    pub vault: Pubkey,
+    pub strategy_type: u8,
+    pub timestamp: i64,
+}
+
+// Multisig events
+#[event]
+pub struct MultisigInitializedEvent {
+    pub vault: Pubkey,
+    pub signers: Vec<Pubkey>,
+    pub threshold: u8,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct OperationProposedEvent {
+    pub vault: Pubkey,
+    pub operation_id: u64,
+    pub operation_type: u8,
+    pub proposed_at: i64,
+    pub executable_at: i64,
+    pub proposer: Pubkey,
+}
+
+#[event]
+pub struct OperationApprovedEvent {
+    pub vault: Pubkey,
+    pub operation_id: u64,
+    pub approver: Pubkey,
+    pub approvals_count: u8,
+    pub threshold: u8,
+}
+
+#[event]
+pub struct OperationExecutedEvent {
+    pub vault: Pubkey,
+    pub operation_id: u64,
+    pub operation_type: u8,
+    pub executed_at: i64,
+}
+
+#[event]
+pub struct OperationCancelledEvent {
+    pub vault: Pubkey,
+    pub operation_id: u64,
+    pub cancelled_by: Pubkey,
+    pub timestamp: i64,
+}
+
+// Governance events
+#[event]
+pub struct StrategyProposalCreatedEvent {
+    pub vault: Pubkey,
+    pub proposal_id: u64,
+    pub change_type: u8,
+    pub new_value: u64,
+    pub voting_ends_at: i64,
+}
+
+#[event]
+pub struct VoteCastEvent {
+    pub vault: Pubkey,
+    pub proposal_id: u64,
+    pub voter: Pubkey,
+    pub voted_for: bool,
+    pub vote_weight: u64,
+}
+
+#[event]
+pub struct StrategyProposalExecutedEvent {
+    pub vault: Pubkey,
+    pub proposal_id: u64,
+    pub change_type: u8,
+    pub new_value: u64,
+    pub votes_for: u64,
+    pub votes_against: u64,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/approve_operation.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::OperationApprovedEvent;
+use crate::state::{MultisigConfig, PendingOperation};
+use crate::ix_accounts::ApproveOperation;
+
+pub fn handler(ctx: Context<ApproveOperation>) -> Result<()> {
+    let multisig = &ctx.accounts.multisig_config;
+    let pending_op = &mut ctx.accounts.pending_operation;
+    let approver = &ctx.accounts.approver;
+
+    // Verify operation is still pending
+    require!(
+        !pending_op.is_executed && !pending_op.is_cancelled,
+        SpectraError::OperationNotFound
+    );
+
+    // Verify approver is an authorized signer
+    require!(
+        multisig.signers.contains(&approver.key()),
+        SpectraError::UnauthorizedSigner
+    );
+
+    // Check if already approved
+    require!(
+        !pending_op.approvals.contains(&approver.key()),
+        SpectraError::AlreadyApproved
+    );
+
+    // Add approval
+    pending_op.approvals.push(approver.key());
+
+    let approvals_count = pending_op.approvals.len() as u8;
+
+    emit!(OperationApprovedEvent {
+        vault: pending_op.vault,
+        operation_id: pending_op.operation_id,
+        approver: approver.key(),
+        approvals_count,
+        threshold: multisig.threshold,
+    });
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/cancel_operation.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::OperationCancelledEvent;
+use crate::state::{MultisigConfig, PendingOperation};
+use crate::ix_accounts::CancelOperation;
+
+pub fn handler(ctx: Context<CancelOperation>) -> Result<()> {
+    let multisig = &ctx.accounts.multisig_config;
+    let pending_op = &mut ctx.accounts.pending_operation;
+    let canceller = &ctx.accounts.canceller;
+
+    // Verify operation is still pending
+    require!(
+        !pending_op.is_executed && !pending_op.is_cancelled,
+        SpectraError::OperationNotFound
+    );
+
+    // Verify canceller is an authorized signer (any signer can cancel)
+    require!(
+        multisig.signers.contains(&canceller.key()),
+        SpectraError::UnauthorizedSigner
+    );
+
+    pending_op.is_cancelled = true;
+
+    emit!(OperationCancelledEvent {
+        vault: pending_op.vault,
+        operation_id: pending_op.operation_id,
+        cancelled_by: canceller.key(),
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+// File: Axiom/programs/spectra-vault/src/instructions/collect_fee.rs
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{self, MintTo};
+
+use crate::constants::{BPS_DENOMINATOR, PPS_PRECISION};
+use crate::errors::SpectraError;
+use crate::ix_accounts::CollectPerformanceFee;
+
+pub fn handler(ctx: Context<CollectPerformanceFee>) -> Result<()> {
+    let vault = &ctx.accounts.vault;
+
+    require!(vault.total_shares > 0, SpectraError::NoFeeToCollect);
+
+    let total_assets = vault.total_assets as u128;
+    let total_shares = vault.total_shares as u128;
+    let hwm = vault.high_water_mark as u128;
+    let fee_bps = vault.performance_fee_bps as u128;
+
+    // PPS = total_assets * 10^9 / total_shares  (6-decimal fixed-point)
+    let current_pps = total_assets
+        .checked_mul(PPS_PRECISION)
+        .ok_or(SpectraError::MathOverflow)?
+        .checked_div(total_shares)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    require!(current_pps > hwm, SpectraError::NoFeeToCollect);
+
+    // profit_per_share (in 6-decimal fixed-point)
+    let profit_per_share = current_pps
+        .checked_sub(hwm)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    // Total profit in asset base units
+    let total_profit = profit_per_share
+        .checked_mul(total_shares)
+        .ok_or(SpectraError::MathOverflow)?
+        .checked_div(PPS_PRECISION)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    // Fee amount in asset base units
+    let fee_amount = total_profit
+        .checked_mul(fee_bps)
+        .ok_or(SpectraError::MathOverflow)?
+        .checked_div(BPS_DENOMINATOR)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    require!(fee_amount > 0, SpectraError::NoFeeToCollect);
+
+    // fee_shares = fee_amount * total_shares / (total_assets - fee_amount)
+    // This formula ensures the minted shares are worth exactly fee_amount after dilution
+    let denominator = total_assets
+        .checked_sub(fee_amount)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    let fee_shares_u128 = fee_amount
+        .checked_mul(total_shares)
+        .ok_or(SpectraError::MathOverflow)?
+        .checked_div(denominator)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    let fee_shares = u64::try_from(fee_shares_u128).map_err(|_| SpectraError::MathOverflow)?;
+    require!(fee_shares > 0, SpectraError::NoFeeToCollect);
+
+    // Mint fee shares to authority (Token-2022)
+    let vault_id_bytes = ctx.accounts.vault.vault_id.to_le_bytes();
+    let seeds: &[&[u8]] = &[b"vault", vault_id_bytes.as_ref(), &[ctx.accounts.vault.bump]];
+    let signer_seeds: &[&[&[u8]]] = &[seeds];
+
+    let mint_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_2022_program.to_account_info(),
+        MintTo {
+            mint: ctx.accounts.shares_mint.to_account_info(),
+            to: ctx.accounts.authority_shares_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
+        },
+        signer_seeds,
+    );
+    token_interface::mint_to(mint_ctx, fee_shares)?;
+
+    // Update state
+    let vault = &mut ctx.accounts.vault;
+    vault.total_shares = vault
+        .total_shares
+        .checked_add(fee_shares)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    // Set HWM to current PPS (post-dilution PPS equals pre-dilution PPS by construction)
+    let new_pps = (vault.total_assets as u128)
+        .checked_mul(PPS_PRECISION)
+        .ok_or(SpectraError::MathOverflow)?
+        .checked_div(vault.total_shares as u128)
+        .ok_or(SpectraError::MathOverflow)?;
+    vault.high_water_mark = u64::try_from(new_pps).map_err(|_| SpectraError::MathOverflow)?;
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/deposit.rs
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{self, MintTo, TransferChecked};
+
+use crate::constants::DECIMAL_ADJUSTMENT;
+use crate::errors::SpectraError;
+use crate::events::DepositEvent;
+use crate::ix_accounts::Deposit;
+
+pub fn handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+    require!(amount > 0, SpectraError::InvalidAmount);
+
+    let vault = &ctx.accounts.vault;
+    let total_assets = vault.total_assets;
+    let total_shares = vault.total_shares;
+
+    let shares_to_mint: u64 = if total_shares == 0 {
+        amount
+            .checked_mul(DECIMAL_ADJUSTMENT)
+            .ok_or(SpectraError::MathOverflow)?
+    } else {
+        let numerator = (amount as u128)
+            .checked_mul(total_shares as u128)
+            .ok_or(SpectraError::MathOverflow)?;
+        let result = numerator
+            .checked_div(total_assets as u128)
+            .ok_or(SpectraError::MathOverflow)?;
+        u64::try_from(result).map_err(|_| SpectraError::MathOverflow)?
+    };
+
+    require!(shares_to_mint > 0, SpectraError::InvalidAmount);
+
+    // Transfer USDC from user → asset_vault
+    let transfer_ctx = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        TransferChecked {
+            from: ctx.accounts.user_asset_account.to_account_info(),
+            mint: ctx.accounts.asset_mint.to_account_info(),
+            to: ctx.accounts.asset_vault.to_account_info(),
+            authority: ctx.accounts.user.to_account_info(),
+        },
+    );
+    token_interface::transfer_checked(transfer_ctx, amount, ctx.accounts.asset_mint.decimals)?;
+
+    // Mint vault shares to user (Token-2022)
+    let vault_id_bytes = ctx.accounts.vault.vault_id.to_le_bytes();
+    let seeds: &[&[u8]] = &[b"vault", vault_id_bytes.as_ref(), &[ctx.accounts.vault.bump]];
+    let signer_seeds: &[&[&[u8]]] = &[seeds];
+
+    let mint_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_2022_program.to_account_info(),
+        MintTo {
+            mint: ctx.accounts.shares_mint.to_account_info(),
+            to: ctx.accounts.user_shares_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
+        },
+        signer_seeds,
+    );
+    token_interface::mint_to(mint_ctx, shares_to_mint)?;
+
+    // Update vault state
+    let vault = &mut ctx.accounts.vault;
+    vault.total_assets = vault
+        .total_assets
+        .checked_add(amount)
+        .ok_or(SpectraError::MathOverflow)?;
+    vault.total_shares = vault
+        .total_shares
+        .checked_add(shares_to_mint)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    emit!(DepositEvent {
+        vault: vault.key(),
+        user: ctx.accounts.user.key(),
+        amount,
+        shares_minted: shares_to_mint,
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/execute_operation.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::{OperationExecutedEvent, NavSyncEvent};
+use crate::state::{MultisigConfig, PendingOperation, VaultState, OperationType};
+use crate::constants::PPS_PRECISION;
+use crate::ix_accounts::ExecuteOperation;
+
+pub fn handler(ctx: Context<ExecuteOperation>) -> Result<()> {
+    let multisig = &ctx.accounts.multisig_config;
+    let pending_op = &mut ctx.accounts.pending_operation;
+    let vault = &mut ctx.accounts.vault;
+
+    // Verify operation is still pending
+    require!(
+        !pending_op.is_executed && !pending_op.is_cancelled,
+        SpectraError::OperationNotFound
+    );
+
+    // Check threshold met
+    require!(
+        pending_op.approvals.len() >= multisig.threshold as usize,
+        SpectraError::ThresholdNotMet
+    );
+
+    // Check timelock expired
+    let current_time = Clock::get()?.unix_timestamp;
+    require!(
+        current_time >= pending_op.executable_at,
+        SpectraError::TimelockActive
+    );
+
+    // Execute based on operation type
+    match pending_op.operation_type {
+        OperationType::SyncNav => {
+            // For SyncNav, new_total_assets is stored in operation_id
+            let new_total_assets = pending_op.operation_id; // Using operation_id as a workaround for data
+            execute_sync_nav(vault, new_total_assets)?;
+        },
+        OperationType::Pause => {
+            vault.is_paused = true;
+        },
+        OperationType::Unpause => {
+            vault.is_paused = false;
+        },
+        OperationType::CollectFee => {
+            // Collect fee logic would go here
+            // For now, we just mark as executed
+        },
+        OperationType::EmergencyWithdraw => {
+            // Emergency withdrawal logic
+            // Would require additional accounts
+        },
+    }
+
+    pending_op.is_executed = true;
+
+    emit!(OperationExecutedEvent {
+        vault: vault.key(),
+        operation_id: pending_op.operation_id,
+        operation_type: pending_op.operation_type as u8,
+        executed_at: current_time,
+    });
+
+    Ok(())
+}
+
+fn execute_sync_nav(vault: &mut Account<VaultState>, new_total_assets: u64) -> Result<()> {
+    let old_total_assets = vault.total_assets;
+    vault.total_assets = new_total_assets;
+
+    let pps: u64 = if vault.total_shares > 0 {
+        let num = (new_total_assets as u128)
+            .checked_mul(PPS_PRECISION)
+            .ok_or(SpectraError::MathOverflow)?;
+        let result = num
+            .checked_div(vault.total_shares as u128)
+            .ok_or(SpectraError::MathOverflow)?;
+        u64::try_from(result).map_err(|_| SpectraError::MathOverflow)?
+    } else {
+        0
+    };
+
+    emit!(NavSyncEvent {
+        vault: vault.key(),
+        old_total_assets,
+        new_total_assets,
+        pps,
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+// File: Axiom/programs/spectra-vault/src/instructions/execute_strategy_change.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::StrategyProposalExecutedEvent;
+use crate::state::{StrategyProposal, StrategyConfig, VaultState, StrategyChangeType, GOVERNANCE_QUORUM_BPS};
+use crate::ix_accounts::ExecuteStrategyChange;
+
+pub fn handler(ctx: Context<ExecuteStrategyChange>) -> Result<()> {
+    let proposal = &mut ctx.accounts.strategy_proposal;
+    let strategy_config = &mut ctx.accounts.strategy_config;
+    let vault = &ctx.accounts.vault;
+
+    // Check voting period has ended
+    let current_time = Clock::get()?.unix_timestamp;
+    require!(
+        current_time >= proposal.voting_ends_at,
+        SpectraError::VotingActive
+    );
+
+    // Check proposal not already decided
+    require!(!proposal.is_executed, SpectraError::AlreadyExecuted);
+    require!(!proposal.is_rejected, SpectraError::ProposalRejected);
+
+    // Check quorum (minimum 20% of total supply must vote)
+    let total_votes = proposal.votes_for.saturating_add(proposal.votes_against);
+    // In a real implementation, check against total shares outstanding
+    // For now, we require more votes for than against
+    require!(
+        proposal.votes_for > proposal.votes_against,
+        SpectraError::QuorumNotReached
+    );
+
+    // Apply the strategy change
+    match proposal.change_type {
+        StrategyChangeType::MaxPositionSize => {
+            strategy_config.max_position_pct = proposal.new_value as u16;
+        },
+        StrategyChangeType::LendingAllocation => {
+            strategy_config.lend_allocation_pct = proposal.new_value as u16;
+        },
+        StrategyChangeType::ProbabilityRange => {
+            // Would need two values for min/max
+            // For now, just update max
+            strategy_config.max_probability = proposal.new_value as u16;
+        },
+        StrategyChangeType::Categories => {
+            // Would require more complex handling
+            // Not implemented in this simplified version
+        },
+    }
+
+    proposal.is_executed = true;
+
+    emit!(StrategyProposalExecutedEvent {
+        vault: vault.key(),
+        proposal_id: proposal.proposal_id,
+        change_type: proposal.change_type as u8,
+        new_value: proposal.new_value,
+        votes_for: proposal.votes_for,
+        votes_against: proposal.votes_against,
+    });
+
+    Ok(())
+}
+
+// File: Axiom/programs/spectra-vault/src/instructions/initialize.rs
+use anchor_lang::prelude::*;
+
+use crate::constants::INITIAL_HWM;
+use crate::errors::SpectraError;
+use crate::ix_accounts::{BootstrapVault, CreateAssetVault};
+
+/// Step 1/2: vault state + Token-2022 shares mint. Does not include legacy
+/// `token_program` on the account struct to keep BPF stack under 4KiB.
+pub fn bootstrap_vault_handler(
+    ctx: Context<BootstrapVault>,
+    vault_id: u64,
+    strategy_type: u8,
+    performance_fee_bps: u16,
+) -> Result<()> {
+    require!(strategy_type <= 2, SpectraError::InvalidStrategyType);
+    require!(performance_fee_bps <= 5000, SpectraError::InvalidFeeBps);
+
+    let vault = &mut ctx.accounts.vault;
+    let (asset_vault_pda, _) = Pubkey::find_program_address(
+        &[b"asset_vault", vault.key().as_ref()],
+        ctx.program_id,
+    );
+
+    vault.authority = ctx.accounts.admin.key();
+    vault.asset_mint = ctx.accounts.asset_mint.key();
+    vault.shares_mint = ctx.accounts.shares_mint.key();
+    vault.asset_vault = asset_vault_pda;
+    vault.total_assets = 0;
+    vault.total_shares = 0;
+    vault.vault_id = vault_id;
+    vault.strategy_type = strategy_type;
+    vault.high_water_mark = INITIAL_HWM;
+    vault.performance_fee_bps = performance_fee_bps;
+    vault.is_paused = false;
+    vault.bump = ctx.bumps.vault;
+
+    Ok(())
+}
+
+/// Step 2/2: SPL token account holding USDC reserves (legacy Token program).
+pub fn create_asset_vault_handler(ctx: Context<CreateAssetVault>) -> Result<()> {
+    let _vault = &ctx.accounts.vault;
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/initialize_multisig.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::MultisigInitializedEvent;
+use crate::state::{MultisigConfig, VaultState, MAX_MULTISIG_SIGNERS, MAX_MULTISIG_THRESHOLD};
+use crate::ix_accounts::InitializeMultisig;
+
+pub fn handler(
+    ctx: Context<InitializeMultisig>,
+    signers: Vec<Pubkey>,
+    threshold: u8,
+) -> Result<()> {
+    // Validate inputs
+    require!(
+        signers.len() <= MAX_MULTISIG_SIGNERS,
+        SpectraError::TooManySigners
+    );
+    require!(
+        threshold > 0 && threshold <= MAX_MULTISIG_THRESHOLD,
+        SpectraError::InvalidThreshold
+    );
+    require!(
+        threshold as usize <= signers.len(),
+        SpectraError::InvalidThreshold
+    );
+
+    // Check for duplicates
+    let mut unique_signers = signers.clone();
+    unique_signers.sort();
+    unique_signers.dedup();
+    require!(
+        unique_signers.len() == signers.len(),
+        SpectraError::DuplicateSigner
+    );
+
+    let vault = &ctx.accounts.vault;
+    let multisig = &mut ctx.accounts.multisig_config;
+
+    multisig.vault = vault.key();
+    multisig.signers = signers.clone();
+    multisig.threshold = threshold;
+    multisig.bump = ctx.bumps.multisig_config;
+
+    emit!(MultisigInitializedEvent {
+        vault: vault.key(),
+        signers,
+        threshold,
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/initialize_strategy.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::StrategyUpdateEvent;
+use crate::ix_accounts::InitializeStrategyConfig;
+use crate::state::StrategyConfig;
+
+pub fn handler(
+    ctx: Context<InitializeStrategyConfig>,
+    min_probability: u16,
+    max_probability: u16,
+    max_position_pct: u16,
+    lend_allocation_pct: u16,
+    categories: Vec<String>,
+) -> Result<()> {
+    require!(
+        min_probability <= max_probability,
+        SpectraError::InvalidProbabilityRange
+    );
+    require!(
+        categories.len() <= StrategyConfig::MAX_CATEGORIES,
+        SpectraError::TooManyCategories
+    );
+    for cat in &categories {
+        require!(
+            cat.len() <= StrategyConfig::MAX_CATEGORY_LEN,
+            SpectraError::CategoryTooLong
+        );
+    }
+
+    let vault = &ctx.accounts.vault;
+    let strategy = &mut ctx.accounts.strategy_config;
+    strategy.vault = vault.key();
+    strategy.min_probability = min_probability;
+    strategy.max_probability = max_probability;
+    strategy.max_position_pct = max_position_pct;
+    strategy.lend_allocation_pct = lend_allocation_pct;
+    strategy.categories = categories;
+    strategy.is_active = true;
+    strategy.bump = ctx.bumps.strategy_config;
+
+    emit!(StrategyUpdateEvent {
+        vault: vault.key(),
+        strategy_type: vault.strategy_type,
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/mod.rs
+pub mod approve_operation;
+pub mod cancel_operation;
+pub mod collect_fee;
+pub mod deposit;
+pub mod execute_operation;
+pub mod execute_strategy_change;
+pub mod initialize;
+pub mod initialize_multisig;
+pub mod initialize_strategy;
+pub mod pause;
+pub mod propose_operation;
+pub mod propose_strategy_change;
+pub mod sync_nav;
+pub mod vote_on_strategy;
+pub mod withdraw;
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/pause.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::ix_accounts::{Pause, Unpause};
+
+pub fn handler(ctx: Context<Pause>) -> Result<()> {
+    let vault = &mut ctx.accounts.vault;
+    require!(!vault.is_paused, SpectraError::VaultPaused);
+    vault.is_paused = true;
+    Ok(())
+}
+
+pub fn unpause_handler(ctx: Context<Unpause>) -> Result<()> {
+    let vault = &mut ctx.accounts.vault;
+    require!(vault.is_paused, SpectraError::VaultNotPaused);
+    vault.is_paused = false;
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/propose_operation.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::OperationProposedEvent;
+use crate::state::{MultisigConfig, OperationType, PendingOperation, VaultState, TIMELOCK_DURATION};
+use crate::ix_accounts::ProposeOperation;
+
+pub fn handler(
+    ctx: Context<ProposeOperation>,
+    operation_id: u64,
+    operation_type: OperationType,
+) -> Result<()> {
+    let vault = &ctx.accounts.vault;
+    let multisig = &ctx.accounts.multisig_config;
+    let proposer = &ctx.accounts.proposer;
+    let pending_op = &mut ctx.accounts.pending_operation;
+
+    // Verify proposer is an authorized signer
+    require!(
+        multisig.signers.contains(&proposer.key()),
+        SpectraError::UnauthorizedSigner
+    );
+
+    let current_time = Clock::get()?.unix_timestamp;
+
+    // Initialize the pending operation
+    pending_op.vault = vault.key();
+    pending_op.operation_id = operation_id;
+    pending_op.operation_type = operation_type;
+    pending_op.proposed_at = current_time;
+    pending_op.executable_at = current_time + TIMELOCK_DURATION;
+    pending_op.is_executed = false;
+    pending_op.is_cancelled = false;
+    pending_op.approvals = vec![proposer.key()]; // Proposer automatically approves
+    pending_op.bump = ctx.bumps.pending_operation;
+
+    let operation_type_u8 = operation_type as u8;
+
+    emit!(OperationProposedEvent {
+        vault: vault.key(),
+        operation_id,
+        operation_type: operation_type_u8,
+        proposed_at: current_time,
+        executable_at: pending_op.executable_at,
+        proposer: proposer.key(),
+    });
+
+    Ok(())
+}
+
+// File: Axiom/programs/spectra-vault/src/instructions/propose_strategy_change.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::StrategyProposalCreatedEvent;
+use crate::state::{StrategyProposal, VaultState, StrategyChangeType, GOVERNANCE_QUORUM_BPS};
+use crate::ix_accounts::ProposeStrategyChange;
+
+pub fn handler(
+    ctx: Context<ProposeStrategyChange>,
+    proposal_id: u64,
+    change_type: StrategyChangeType,
+    new_value: u64,
+    voting_duration_seconds: i64,
+) -> Result<()> {
+    require!(
+        voting_duration_seconds >= 24 * 60 * 60, // Minimum 24 hour voting period
+        SpectraError::InvalidChangeType
+    );
+
+    let vault = &ctx.accounts.vault;
+    let proposal = &mut ctx.accounts.strategy_proposal;
+    let current_time = Clock::get()?.unix_timestamp;
+
+    proposal.vault = vault.key();
+    proposal.proposal_id = proposal_id;
+    proposal.change_type = change_type;
+    proposal.new_value = new_value;
+    proposal.voting_ends_at = current_time + voting_duration_seconds;
+    proposal.votes_for = 0;
+    proposal.votes_against = 0;
+    proposal.is_executed = false;
+    proposal.is_rejected = false;
+    proposal.bump = ctx.bumps.strategy_proposal;
+
+    emit!(StrategyProposalCreatedEvent {
+        vault: vault.key(),
+        proposal_id,
+        change_type: change_type as u8,
+        new_value,
+        voting_ends_at: proposal.voting_ends_at,
+    });
+
+    Ok(())
+}
+
+// File: Axiom/programs/spectra-vault/src/instructions/sync_nav.rs
+use anchor_lang::prelude::*;
+
+use crate::constants::PPS_PRECISION;
+use crate::errors::SpectraError;
+use crate::events::NavSyncEvent;
+use crate::ix_accounts::SyncNav;
+
+pub fn handler(ctx: Context<SyncNav>, new_total_assets: u64) -> Result<()> {
+    let vault = &mut ctx.accounts.vault;
+    let old_total_assets = vault.total_assets;
+
+    vault.total_assets = new_total_assets;
+
+    let pps: u64 = if vault.total_shares > 0 {
+        let num = (new_total_assets as u128)
+            .checked_mul(PPS_PRECISION)
+            .ok_or(SpectraError::MathOverflow)?;
+        let result = num
+            .checked_div(vault.total_shares as u128)
+            .ok_or(SpectraError::MathOverflow)?;
+        u64::try_from(result).map_err(|_| SpectraError::MathOverflow)?
+    } else {
+        0
+    };
+
+    emit!(NavSyncEvent {
+        vault: vault.key(),
+        old_total_assets,
+        new_total_assets,
+        pps,
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/instructions/vote_on_strategy.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::events::VoteCastEvent;
+use crate::state::{StrategyProposal, UserVote, VaultState};
+use crate::ix_accounts::VoteOnStrategy;
+
+pub fn handler(
+    ctx: Context<VoteOnStrategy>,
+    voted_for: bool,
+) -> Result<()> {
+    let proposal = &mut ctx.accounts.strategy_proposal;
+    let user_vote = &mut ctx.accounts.user_vote;
+    let voter = &ctx.accounts.voter;
+
+    // Check voting period is still active
+    let current_time = Clock::get()?.unix_timestamp;
+    require!(
+        current_time < proposal.voting_ends_at,
+        SpectraError::VotingEnded
+    );
+
+    // Check proposal not already decided
+    require!(!proposal.is_executed, SpectraError::AlreadyExecuted);
+    require!(!proposal.is_rejected, SpectraError::ProposalRejected);
+
+    // In a real implementation, we'd check the voter's share balance
+    // For now, we'll use a placeholder weight
+    // TODO: Integrate with token account to get actual share balance
+    let vote_weight: u64 = 1; // Placeholder - should fetch from shares_mint
+
+    require!(vote_weight > 0, SpectraError::NoSharesToVote);
+
+    // Record the vote
+    user_vote.proposal = proposal.key();
+    user_vote.voter = voter.key();
+    user_vote.voted_for = voted_for;
+    user_vote.vote_weight = vote_weight;
+    user_vote.bump = ctx.bumps.user_vote;
+
+    // Update proposal vote counts
+    if voted_for {
+        proposal.votes_for = proposal.votes_for
+            .checked_add(vote_weight)
+            .ok_or(SpectraError::MathOverflow)?;
+    } else {
+        proposal.votes_against = proposal.votes_against
+            .checked_add(vote_weight)
+            .ok_or(SpectraError::MathOverflow)?;
+    }
+
+    emit!(VoteCastEvent {
+        vault: proposal.vault,
+        proposal_id: proposal.proposal_id,
+        voter: voter.key(),
+        voted_for,
+        vote_weight,
+    });
+
+    Ok(())
+}
+
+// File: Axiom/programs/spectra-vault/src/instructions/withdraw.rs
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{self, Burn, TransferChecked};
+
+use crate::errors::SpectraError;
+use crate::events::WithdrawEvent;
+use crate::ix_accounts::Withdraw;
+
+pub fn handler(ctx: Context<Withdraw>, shares: u64) -> Result<()> {
+    require!(shares > 0, SpectraError::InvalidAmount);
+
+    let vault = &ctx.accounts.vault;
+    require!(
+        shares <= ctx.accounts.user_shares_account.amount,
+        SpectraError::InsufficientShares
+    );
+
+    // usdc_to_return = (shares_burned * total_assets) / total_shares  (rounds down)
+    let usdc_to_return: u64 = {
+        let numerator = (shares as u128)
+            .checked_mul(vault.total_assets as u128)
+            .ok_or(SpectraError::MathOverflow)?;
+        let result = numerator
+            .checked_div(vault.total_shares as u128)
+            .ok_or(SpectraError::MathOverflow)?;
+        u64::try_from(result).map_err(|_| SpectraError::MathOverflow)?
+    };
+
+    require!(usdc_to_return > 0, SpectraError::InvalidAmount);
+    require!(
+        usdc_to_return <= ctx.accounts.asset_vault.amount,
+        SpectraError::InsufficientVaultBalance
+    );
+
+    // Burn user's share tokens (Token-2022, user is authority on own account)
+    let burn_ctx = CpiContext::new(
+        ctx.accounts.token_2022_program.to_account_info(),
+        Burn {
+            mint: ctx.accounts.shares_mint.to_account_info(),
+            from: ctx.accounts.user_shares_account.to_account_info(),
+            authority: ctx.accounts.user.to_account_info(),
+        },
+    );
+    token_interface::burn(burn_ctx, shares)?;
+
+    // Transfer USDC from asset_vault → user (vault PDA signs)
+    let vault_id_bytes = ctx.accounts.vault.vault_id.to_le_bytes();
+    let seeds: &[&[u8]] = &[b"vault", vault_id_bytes.as_ref(), &[ctx.accounts.vault.bump]];
+    let signer_seeds: &[&[&[u8]]] = &[seeds];
+
+    let transfer_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        TransferChecked {
+            from: ctx.accounts.asset_vault.to_account_info(),
+            mint: ctx.accounts.asset_mint.to_account_info(),
+            to: ctx.accounts.user_asset_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
+        },
+        signer_seeds,
+    );
+    token_interface::transfer_checked(transfer_ctx, usdc_to_return, ctx.accounts.asset_mint.decimals)?;
+
+    // Update vault state
+    let vault = &mut ctx.accounts.vault;
+    vault.total_assets = vault
+        .total_assets
+        .checked_sub(usdc_to_return)
+        .ok_or(SpectraError::MathOverflow)?;
+    vault.total_shares = vault
+        .total_shares
+        .checked_sub(shares)
+        .ok_or(SpectraError::MathOverflow)?;
+
+    emit!(WithdrawEvent {
+        vault: vault.key(),
+        user: ctx.accounts.user.key(),
+        shares_burned: shares,
+        amount_returned: usdc_to_return,
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/collect_fee.rs
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_2022::Token2022,
+    token_interface::{Mint, TokenAccount},
+};
+
+use crate::errors::SpectraError;
+use crate::state::VaultState;
+
+#[derive(Accounts)]
+pub struct CollectPerformanceFee<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        has_one = authority @ SpectraError::Unauthorized,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        mut,
+        address = vault.shares_mint,
+    )]
+    pub shares_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        init_if_needed,
+        payer = authority,
+        associated_token::mint = shares_mint,
+        associated_token::authority = authority,
+        associated_token::token_program = token_2022_program,
+    )]
+    pub authority_shares_account: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_2022_program: Program<'info, Token2022>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/deposit.rs
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::Token,
+    token_2022::Token2022,
+    token_interface::{Mint, TokenAccount},
+};
+
+use crate::errors::SpectraError;
+use crate::state::VaultState;
+
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        constraint = !vault.is_paused @ SpectraError::VaultPaused,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    /// CHECK: validated by address constraint against vault state
+    #[account(address = vault.asset_mint)]
+    pub asset_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        address = vault.shares_mint,
+    )]
+    pub shares_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        address = vault.asset_vault,
+    )]
+    pub asset_vault: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        token::mint = asset_mint,
+        token::authority = user,
+    )]
+    pub user_asset_account: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        associated_token::mint = shares_mint,
+        associated_token::authority = user,
+        associated_token::token_program = token_2022_program,
+    )]
+    pub user_shares_account: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+    pub token_2022_program: Program<'info, Token2022>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/initialize.rs
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    token::{Mint as LegacyMint, Token, TokenAccount},
+    token_2022::Token2022,
+    token_interface::Mint as IfaceMint,
+};
+
+use crate::constants::SHARE_DECIMALS;
+use crate::errors::SpectraError;
+use crate::state::VaultState;
+
+#[derive(Accounts)]
+#[instruction(vault_id: u64)]
+pub struct BootstrapVault<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        init,
+        payer = admin,
+        space = VaultState::LEN,
+        seeds = [b"vault", vault_id.to_le_bytes().as_ref()],
+        bump,
+    )]
+    pub vault: Box<Account<'info, VaultState>>,
+
+    pub asset_mint: Box<Account<'info, LegacyMint>>,
+
+    #[account(
+        init,
+        payer = admin,
+        seeds = [b"shares_mint", vault.key().as_ref()],
+        bump,
+        mint::decimals = SHARE_DECIMALS,
+        mint::authority = vault,
+        mint::token_program = token_2022_program,
+    )]
+    pub shares_mint: Box<InterfaceAccount<'info, IfaceMint>>,
+
+    pub token_2022_program: Program<'info, Token2022>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CreateAssetVault<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        constraint = vault.authority == admin.key() @ SpectraError::Unauthorized,
+    )]
+    pub vault: Box<Account<'info, VaultState>>,
+
+    #[account(address = vault.asset_mint)]
+    pub asset_mint: Box<Account<'info, LegacyMint>>,
+
+    #[account(
+        init,
+        payer = admin,
+        seeds = [b"asset_vault", vault.key().as_ref()],
+        bump,
+        token::mint = asset_mint,
+        token::authority = vault,
+        token::token_program = token_program,
+    )]
+    pub asset_vault: Box<Account<'info, TokenAccount>>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/initialize_strategy.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::state::{StrategyConfig, VaultState};
+
+#[derive(Accounts)]
+pub struct InitializeStrategyConfig<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        constraint = vault.authority == admin.key() @ SpectraError::Unauthorized,
+    )]
+    pub vault: Box<Account<'info, VaultState>>,
+
+    #[account(
+        init,
+        payer = admin,
+        space = StrategyConfig::LEN,
+        seeds = [b"strategy", vault.key().as_ref()],
+        bump,
+    )]
+    pub strategy_config: Box<Account<'info, StrategyConfig>>,
+
+    pub system_program: Program<'info, System>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/mod.rs
+pub mod collect_fee;
+pub mod deposit;
+pub mod initialize;
+pub mod initialize_strategy;
+pub mod multisig;
+pub mod pause;
+pub mod sync_nav;
+pub mod withdraw;
+
+pub use collect_fee::*;
+pub use deposit::*;
+pub use initialize::*;
+pub use initialize_strategy::*;
+pub use multisig::*;
+pub use pause::*;
+pub use sync_nav::*;
+pub use withdraw::*;
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/multisig.rs
+use anchor_lang::prelude::*;
+
+use crate::state::{VaultState, MultisigConfig, PendingOperation, StrategyProposal, UserVote, StrategyConfig};
+
+/// Accounts for initializing multisig config
+#[derive(Accounts)]
+pub struct InitializeMultisig<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// The admin/authority initializing the multisig
+    pub admin: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + MultisigConfig::LEN,
+        seeds = [b"multisig", vault.key().as_ref()],
+        bump,
+    )]
+    pub multisig_config: Account<'info, MultisigConfig>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Accounts for proposing an operation
+#[derive(Accounts)]
+#[instruction(operation_id: u64, operation_type: crate::state::OperationType)]
+pub struct ProposeOperation<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// Must be one of the authorized signers
+    pub proposer: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        seeds = [b"multisig", vault.key().as_ref()],
+        bump = multisig_config.bump,
+    )]
+    pub multisig_config: Account<'info, MultisigConfig>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + PendingOperation::LEN,
+        seeds = [b"operation", vault.key().as_ref(), operation_id.to_le_bytes().as_ref()],
+        bump,
+    )]
+    pub pending_operation: Account<'info, PendingOperation>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Accounts for approving an operation
+#[derive(Accounts)]
+pub struct ApproveOperation<'info> {
+    /// Must be one of the authorized signers
+    pub approver: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        seeds = [b"multisig", vault.key().as_ref()],
+        bump = multisig_config.bump,
+    )]
+    pub multisig_config: Account<'info, MultisigConfig>,
+
+    #[account(
+        mut,
+        seeds = [b"operation", vault.key().as_ref(), pending_operation.operation_id.to_le_bytes().as_ref()],
+        bump = pending_operation.bump,
+    )]
+    pub pending_operation: Account<'info, PendingOperation>,
+}
+
+/// Accounts for executing an operation
+#[derive(Accounts)]
+pub struct ExecuteOperation<'info> {
+    #[account(mut)]
+    pub executor: Signer<'info>,
+
+    #[account(
+        seeds = [b"multisig", vault.key().as_ref()],
+        bump = multisig_config.bump,
+    )]
+    pub multisig_config: Account<'info, MultisigConfig>,
+
+    #[account(
+        mut,
+        seeds = [b"operation", vault.key().as_ref(), pending_operation.operation_id.to_le_bytes().as_ref()],
+        bump = pending_operation.bump,
+    )]
+    pub pending_operation: Account<'info, PendingOperation>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+}
+
+/// Accounts for cancelling an operation
+#[derive(Accounts)]
+pub struct CancelOperation<'info> {
+    /// Must be one of the authorized signers
+    pub canceller: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        seeds = [b"multisig", vault.key().as_ref()],
+        bump = multisig_config.bump,
+    )]
+    pub multisig_config: Account<'info, MultisigConfig>,
+
+    #[account(
+        mut,
+        seeds = [b"operation", vault.key().as_ref(), pending_operation.operation_id.to_le_bytes().as_ref()],
+        bump = pending_operation.bump,
+    )]
+    pub pending_operation: Account<'info, PendingOperation>,
+}
+
+/// Accounts for proposing a strategy change
+#[derive(Accounts)]
+#[instruction(proposal_id: u64, change_type: crate::state::StrategyChangeType, new_value: u64, voting_duration_seconds: i64)]
+pub struct ProposeStrategyChange<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// Must be an authorized multisig signer
+    pub proposer: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        seeds = [b"multisig", vault.key().as_ref()],
+        bump = multisig_config.bump,
+    )]
+    pub multisig_config: Account<'info, MultisigConfig>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + StrategyProposal::LEN,
+        seeds = [b"proposal", vault.key().as_ref(), proposal_id.to_le_bytes().as_ref()],
+        bump,
+    )]
+    pub strategy_proposal: Account<'info, StrategyProposal>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Accounts for voting on a strategy change
+#[derive(Accounts)]
+#[instruction(voted_for: bool)]
+pub struct VoteOnStrategy<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// The voter (must hold vault shares)
+    pub voter: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        mut,
+        seeds = [b"proposal", vault.key().as_ref(), strategy_proposal.proposal_id.to_le_bytes().as_ref()],
+        bump = strategy_proposal.bump,
+    )]
+    pub strategy_proposal: Account<'info, StrategyProposal>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + UserVote::LEN,
+        seeds = [b"user_vote", strategy_proposal.key().as_ref(), voter.key().as_ref()],
+        bump,
+    )]
+    pub user_vote: Account<'info, UserVote>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Accounts for executing a strategy change after voting
+#[derive(Accounts)]
+pub struct ExecuteStrategyChange<'info> {
+    #[account(mut)]
+    pub executor: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(
+        mut,
+        seeds = [b"proposal", vault.key().as_ref(), strategy_proposal.proposal_id.to_le_bytes().as_ref()],
+        bump = strategy_proposal.bump,
+    )]
+    pub strategy_proposal: Account<'info, StrategyProposal>,
+
+    #[account(
+        mut,
+        seeds = [b"strategy", vault.key().as_ref()],
+        bump = strategy_config.bump,
+    )]
+    pub strategy_config: Account<'info, StrategyConfig>,
+}
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/pause.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::state::VaultState;
+
+#[derive(Accounts)]
+pub struct Pause<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        has_one = authority @ SpectraError::Unauthorized,
+    )]
+    pub vault: Account<'info, VaultState>,
+}
+
+#[derive(Accounts)]
+pub struct Unpause<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        has_one = authority @ SpectraError::Unauthorized,
+    )]
+    pub vault: Account<'info, VaultState>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/sync_nav.rs
+use anchor_lang::prelude::*;
+
+use crate::errors::SpectraError;
+use crate::state::VaultState;
+
+#[derive(Accounts)]
+pub struct SyncNav<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        has_one = authority @ SpectraError::Unauthorized,
+    )]
+    pub vault: Account<'info, VaultState>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/ix_accounts/withdraw.rs
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    token::Token,
+    token_2022::Token2022,
+    token_interface::{Mint, TokenAccount},
+};
+
+use crate::errors::SpectraError;
+use crate::state::VaultState;
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", vault.vault_id.to_le_bytes().as_ref()],
+        bump = vault.bump,
+        constraint = !vault.is_paused @ SpectraError::VaultPaused,
+    )]
+    pub vault: Account<'info, VaultState>,
+
+    #[account(address = vault.asset_mint)]
+    pub asset_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        address = vault.shares_mint,
+    )]
+    pub shares_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        address = vault.asset_vault,
+    )]
+    pub asset_vault: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        token::mint = asset_mint,
+        token::authority = user,
+    )]
+    pub user_asset_account: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        token::mint = shares_mint,
+        token::authority = user,
+    )]
+    pub user_shares_account: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+    pub token_2022_program: Program<'info, Token2022>,
+}
+
+
+// File: Axiom/programs/spectra-vault/src/lib.rs
+use anchor_lang::prelude::*;
+
+pub mod constants;
+pub mod errors;
+pub mod events;
+pub mod ix_accounts;
+pub mod instructions;
+pub mod state;
+
+use ix_accounts::*;
+use state::*;
+
+declare_id!("JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH");
+
+#[program]
+pub mod spectra_vault {
+    use super::*;
+
+    pub fn bootstrap_vault(
+        ctx: Context<BootstrapVault>,
+        vault_id: u64,
+        strategy_type: u8,
+        performance_fee_bps: u16,
+    ) -> Result<()> {
+        instructions::initialize::bootstrap_vault_handler(
+            ctx,
+            vault_id,
+            strategy_type,
+            performance_fee_bps,
+        )
+    }
+
+    pub fn create_asset_vault(ctx: Context<CreateAssetVault>) -> Result<()> {
+        instructions::initialize::create_asset_vault_handler(ctx)
+    }
+
+    pub fn initialize_strategy_config(
+        ctx: Context<InitializeStrategyConfig>,
+        min_probability: u16,
+        max_probability: u16,
+        max_position_pct: u16,
+        lend_allocation_pct: u16,
+        categories: Vec<String>,
+    ) -> Result<()> {
+        instructions::initialize_strategy::handler(
+            ctx,
+            min_probability,
+            max_probability,
+            max_position_pct,
+            lend_allocation_pct,
+            categories,
+        )
+    }
+
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        instructions::deposit::handler(ctx, amount)
+    }
+
+    pub fn withdraw(ctx: Context<Withdraw>, shares: u64) -> Result<()> {
+        instructions::withdraw::handler(ctx, shares)
+    }
+
+    pub fn sync_nav(ctx: Context<SyncNav>, new_total_assets: u64) -> Result<()> {
+        instructions::sync_nav::handler(ctx, new_total_assets)
+    }
+
+    pub fn pause(ctx: Context<Pause>) -> Result<()> {
+        instructions::pause::handler(ctx)
+    }
+
+    pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
+        instructions::pause::unpause_handler(ctx)
+    }
+
+    pub fn collect_performance_fee(ctx: Context<CollectPerformanceFee>) -> Result<()> {
+        instructions::collect_fee::handler(ctx)
+    }
+
+    // Multisig instructions
+    pub fn initialize_multisig(
+        ctx: Context<InitializeMultisig>,
+        signers: Vec<Pubkey>,
+        threshold: u8,
+    ) -> Result<()> {
+        instructions::initialize_multisig::handler(ctx, signers, threshold)
+    }
+
+    pub fn propose_operation(
+        ctx: Context<ProposeOperation>,
+        operation_id: u64,
+        operation_type: OperationType,
+    ) -> Result<()> {
+        instructions::propose_operation::handler(ctx, operation_id, operation_type)
+    }
+
+    pub fn approve_operation(ctx: Context<ApproveOperation>) -> Result<()> {
+        instructions::approve_operation::handler(ctx)
+    }
+
+    pub fn execute_operation(ctx: Context<ExecuteOperation>) -> Result<()> {
+        instructions::execute_operation::handler(ctx)
+    }
+
+    pub fn cancel_operation(ctx: Context<CancelOperation>) -> Result<()> {
+        instructions::cancel_operation::handler(ctx)
+    }
+
+    // Governance instructions
+    pub fn propose_strategy_change(
+        ctx: Context<ProposeStrategyChange>,
+        proposal_id: u64,
+        change_type: StrategyChangeType,
+        new_value: u64,
+        voting_duration_seconds: i64,
+    ) -> Result<()> {
+        instructions::propose_strategy_change::handler(
+            ctx,
+            proposal_id,
+            change_type,
+            new_value,
+            voting_duration_seconds,
+        )
+    }
+
+    pub fn vote_on_strategy(
+        ctx: Context<VoteOnStrategy>,
+        voted_for: bool,
+    ) -> Result<()> {
+        instructions::vote_on_strategy::handler(ctx, voted_for)
+    }
+
+    pub fn execute_strategy_change(ctx: Context<ExecuteStrategyChange>) -> Result<()> {
+        instructions::execute_strategy_change::handler(ctx)
+    }
+}
+
+
+// File: Axiom/programs/spectra-vault/src/state.rs
+use anchor_lang::prelude::*;
+
+/// Maximum number of multisig signers
+pub const MAX_MULTISIG_SIGNERS: usize = 5;
+
+/// Maximum number of approvals needed (threshold)
+pub const MAX_MULTISIG_THRESHOLD: u8 = 3;
+
+/// 24-hour timelock in seconds
+pub const TIMELOCK_DURATION: i64 = 24 * 60 * 60;
+
+/// Minimum votes required for governance quorum (20% of total shares)
+pub const GOVERNANCE_QUORUM_BPS: u16 = 2000;
+
+#[account]
+pub struct VaultState {
+    /// Wallet authorized to execute trades and manage the vault (strategy engine)
+    pub authority: Pubkey,
+    /// SPL mint of the deposit asset (USDC)
+    pub asset_mint: Pubkey,
+    /// Token-2022 mint for vault share tokens
+    pub shares_mint: Pubkey,
+    /// PDA token account holding the vault's USDC reserves
+    pub asset_vault: Pubkey,
+    /// Total assets under management (synced from off-chain NAV, in asset base units)
+    pub total_assets: u64,
+    /// Total outstanding share tokens (in share base units)
+    pub total_shares: u64,
+    /// Unique identifier for this vault
+    pub vault_id: u64,
+    /// 0 = Safe Consensus, 1 = Macro Contrarian, 2 = Yield Maximizer
+    pub strategy_type: u8,
+    /// Highest recorded PPS (6 decimal fixed-point, 1_000_000 = 1.0 USDC/share)
+    pub high_water_mark: u64,
+    /// Performance fee in basis points (e.g. 1000 = 10%)
+    pub performance_fee_bps: u16,
+    /// When true, deposits and withdrawals are blocked
+    pub is_paused: bool,
+    /// PDA bump seed
+    pub bump: u8,
+}
+
+impl VaultState {
+    pub const LEN: usize = 8  // discriminator
+        + 32   // authority
+        + 32   // asset_mint
+        + 32   // shares_mint
+        + 32   // asset_vault
+        + 8    // total_assets
+        + 8    // total_shares
+        + 8    // vault_id
+        + 1    // strategy_type
+        + 8    // high_water_mark
+        + 2    // performance_fee_bps
+        + 1    // is_paused
+        + 1;   // bump
+}
+
+/// Multisig configuration for a vault
+/// Replaces single authority with 2-of-3 signer model
+#[account]
+pub struct MultisigConfig {
+    /// The vault this multisig belongs to
+    pub vault: Pubkey,
+    /// List of authorized signers (up to MAX_MULTISIG_SIGNERS)
+    pub signers: Vec<Pubkey>,
+    /// Number of approvals required to execute (e.g., 2 for 2-of-3)
+    pub threshold: u8,
+    /// Bump seed for PDA
+    pub bump: u8,
+}
+
+impl MultisigConfig {
+    pub const LEN: usize = 8   // discriminator
+        + 32    // vault
+        + 4 + (MAX_MULTISIG_SIGNERS * 32) // signers vec (max 5 signers)
+        + 1     // threshold
+        + 1;    // bump
+}
+
+/// Represents an operation waiting for multisig approval and timelock
+#[account]
+pub struct PendingOperation {
+    /// The vault this operation belongs to
+    pub vault: Pubkey,
+    /// Unique operation ID within the vault
+    pub operation_id: u64,
+    /// Type of operation being performed
+    pub operation_type: OperationType,
+    /// When this operation was proposed
+    pub proposed_at: i64,
+    /// When this operation can be executed (after timelock)
+    pub executable_at: i64,
+    /// Whether operation has been executed
+    pub is_executed: bool,
+    /// Whether operation has been cancelled
+    pub is_cancelled: bool,
+    /// List of signers who have approved
+    pub approvals: Vec<Pubkey>,
+    /// Bump seed for PDA
+    pub bump: u8,
+}
+
+impl PendingOperation {
+    pub const LEN: usize = 8   // discriminator
+        + 32    // vault
+        + 8     // operation_id
+        + 1     // operation_type
+        + 8     // proposed_at
+        + 8     // executable_at
+        + 1     // is_executed
+        + 1     // is_cancelled
+        + 4 + (MAX_MULTISIG_SIGNERS * 32) // approvals vec
+        + 1;    // bump
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum OperationType {
+    /// Sync NAV with new total assets
+    SyncNav,
+    /// Pause the vault
+    Pause,
+    /// Unpause the vault
+    Unpause,
+    /// Collect performance fees
+    CollectFee,
+    /// Emergency withdrawal
+    EmergencyWithdraw,
+}
+
+/// Strategy change proposal with on-chain governance voting
+#[account]
+pub struct StrategyProposal {
+    /// The vault this proposal is for
+    pub vault: Pubkey,
+    /// Unique proposal ID
+    pub proposal_id: u64,
+    /// What parameter is being changed
+    pub change_type: StrategyChangeType,
+    /// New value (interpreted based on change_type)
+    pub new_value: u64,
+    /// When voting ends
+    pub voting_ends_at: i64,
+    /// Total votes in favor (in share units)
+    pub votes_for: u64,
+    /// Total votes against (in share units)
+    pub votes_against: u64,
+    /// Whether proposal passed and was executed
+    pub is_executed: bool,
+    /// Whether proposal was rejected
+    pub is_rejected: bool,
+    /// Bump seed for PDA
+    pub bump: u8,
+}
+
+impl StrategyProposal {
+    pub const LEN: usize = 8   // discriminator
+        + 32    // vault
+        + 8     // proposal_id
+        + 1     // change_type
+        + 8     // new_value
+        + 8     // voting_ends_at
+        + 8     // votes_for
+        + 8     // votes_against
+        + 1     // is_executed
+        + 1     // is_rejected
+        + 1;    // bump
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum StrategyChangeType {
+    /// Change probability bands (min/max)
+    ProbabilityRange,
+    /// Change max position percentage
+    MaxPositionSize,
+    /// Change lending allocation percentage
+    LendingAllocation,
+    /// Change allowed categories
+    Categories,
+}
+
+/// Tracks a user's vote on a specific proposal
+#[account]
+pub struct UserVote {
+    /// The proposal this vote is for
+    pub proposal: Pubkey,
+    /// The voter
+    pub voter: Pubkey,
+    /// Whether they voted for (true) or against (false)
+    pub voted_for: bool,
+    /// How many shares they voted with
+    pub vote_weight: u64,
+    /// Bump seed
+    pub bump: u8,
+}
+
+impl UserVote {
+    pub const LEN: usize = 8   // discriminator
+        + 32    // proposal
+        + 32    // voter
+        + 1     // voted_for
+        + 8     // vote_weight
+        + 1;    // bump
+}
+
+#[account]
+pub struct StrategyConfig {
+    /// The vault this strategy belongs to
+    pub vault: Pubkey,
+    /// Minimum event probability to consider (basis points, 8500 = 85%)
+    pub min_probability: u16,
+    /// Maximum event probability to consider (basis points, 10000 = 100%)
+    pub max_probability: u16,
+    /// Max percentage of vault in a single position (basis points, 1000 = 10%)
+    pub max_position_pct: u16,
+    /// Percentage of idle USDC routed to Jupiter Lend (basis points, 7000 = 70%)
+    pub lend_allocation_pct: u16,
+    /// Allowed market categories (e.g. "crypto", "politics", "sports")
+    pub categories: Vec<String>,
+    /// Whether this strategy is actively trading
+    pub is_active: bool,
+    /// PDA bump seed
+    pub bump: u8,
+}
+
+impl StrategyConfig {
+    pub const MAX_CATEGORIES: usize = 8;
+    pub const MAX_CATEGORY_LEN: usize = 32;
+
+    pub const LEN: usize = 8   // discriminator
+        + 32    // vault
+        + 2     // min_probability
+        + 2     // max_probability
+        + 2     // max_position_pct
+        + 2     // lend_allocation_pct
+        + 4 + (Self::MAX_CATEGORIES * (4 + Self::MAX_CATEGORY_LEN)) // categories vec
+        + 1     // is_active
+        + 1;    // bump
+}
+
