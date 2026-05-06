@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/transparency", label: "Metrics" },
 ] as const;
 
 function navActive(pathname: string, href: string): boolean {
