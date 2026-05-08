@@ -1,6 +1,6 @@
 import "../env-bootstrap.js";
 
-import { CONFIG } from "../config.js";
+import { CONFIG, inferClusterFromRpc } from "../config.js";
 import { jupiterPrediction } from "../services/jupiter-prediction.js";
 import { jupiterPrice } from "../services/jupiter-price.js";
 import { jupiterTokens } from "../services/jupiter-tokens.js";
@@ -70,7 +70,7 @@ async function main() {
     }),
   );
 
-  const isMainnet = CONFIG.RPC_URL.toLowerCase().includes("mainnet");
+  const isMainnet = inferClusterFromRpc(CONFIG.RPC_URL) === "mainnet-beta";
   results.push(
     await runCheck(
       "Lend API",

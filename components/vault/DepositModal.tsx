@@ -52,9 +52,10 @@ function toUserFacingDepositError(err: unknown): string {
     (lower.includes("custom program error: 0x1") &&
       lower.includes("tokenkeg"))
   ) {
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK ?? "devnet";
     return (
-      "Not enough USDC in your wallet for this deposit (SPL Token: insufficient funds). " +
-      "Fund your devnet USDC token account, lower the amount, or click Max to use your on-chain balance."
+      `Not enough USDC in your wallet for this deposit (SPL Token: insufficient funds). ` +
+      `Fund your ${network} USDC token account, lower the amount, or click Max to use your on-chain balance.`
     );
   }
 

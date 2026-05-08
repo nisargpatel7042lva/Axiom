@@ -37,7 +37,12 @@ function envNum(name: string, fallback: number): number {
 }
 
 export const CONFIG = {
-  RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
+  // RPC Fast HTTP endpoint takes priority; falls back to SOLANA_RPC_URL then public devnet
+  RPC_URL:
+    process.env.RPC_FAST_HTTP_URL?.trim() ||
+    process.env.SOLANA_RPC_URL?.trim() ||
+    "https://api.devnet.solana.com",
+  RPC_FAST_GRPC_URL: process.env.RPC_FAST_GRPC_URL?.trim() || "",
   KEYPAIR_PATH: resolveKeypairPath(),
 
   JUPITER_API_KEY:
@@ -91,6 +96,14 @@ export const CONFIG = {
 } as const;
 
 export function inferClusterFromRpc(rpcUrl: string): "devnet" | "mainnet-beta" | "unknown" {
+  // Explicit env var wins — needed when using RPC providers (e.g. RPC Fast) whose
+  // URLs don't embed the cluster name.
+  const explicit = (process.env.NEXT_PUBLIC_SOLANA_NETWORK || process.env.SOLANA_CLUSTER || "").trim().toLowerCase();
+  if (explicit === "mainnet-beta" || explicit === "mainnet") return "mainnet-beta";
+  if (explicit === "devnet") return "devnet";
+  if (explicit === "testnet") return "unknown";
+
+  // Fallback: derive from URL substring.
   const url = rpcUrl.toLowerCase();
   if (url.includes("devnet")) return "devnet";
   if (url.includes("mainnet")) return "mainnet-beta";

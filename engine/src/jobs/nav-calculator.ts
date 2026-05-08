@@ -17,6 +17,31 @@ import type { NavBreakdown } from "../types/index.js";
 
 const log = createLogger("nav-calculator");
 
+// Track previous PPS per vault to compute reputation score from performance
+const prevPps = new Map<string, number>();
+
+async function updateAgentReputation(vaultId: string, pps: number): Promise<void> {
+  const apiBase = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const prev = prevPps.get(vaultId);
+  prevPps.set(vaultId, pps);
+  if (prev === undefined) return; // skip first cycle — no delta yet
+
+  // Convert PPS delta → 0-100 performance score
+  // +0.5% → 80, flat → 50, -0.5% → 20
+  const pctChange = ((pps - prev) / prev) * 100;
+  const score = Math.max(0, Math.min(100, 50 + pctChange * 60));
+
+  try {
+    await fetch(`${apiBase}/api/agents/${vaultId}/reputation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ performanceScore: score }),
+    });
+  } catch {
+    // Non-critical — reputation update is best-effort
+  }
+}
+
 const latestNav = new Map<string, NavBreakdown>();
 
 export async function runNavCalculator(): Promise<void> {
@@ -65,6 +90,9 @@ export async function runNavCalculator(): Promise<void> {
       } catch (snapErr) {
         log.error(`[${vaultConfig.name}] NAV snapshot append failed`, snapErr);
       }
+
+      // Update agent reputation based on PPS performance (best-effort)
+      void updateAgentReputation(vaultId, nav.pricePerShare);
     } catch (err) {
       const detail =
         err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);

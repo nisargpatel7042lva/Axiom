@@ -5,6 +5,8 @@ export type EngineTransparencyResponse = {
     lastNavSync: string | null;
     lastPositionCheck: string | null;
     lastYieldRoute: string | null;
+    rpcProvider?: "rpcfast" | "public";
+    rpcFastStreamActive?: boolean;
   };
   vaults: Array<{
     id: number;

@@ -10,7 +10,7 @@ import BN from "bn.js";
 import { createLogger } from "../utils/logger.js";
 import { withRetry } from "../utils/retry.js";
 import { getConnection, getAuthority, getTokenBalance } from "./solana.js";
-import { CONFIG } from "../config.js";
+import { CONFIG, inferClusterFromRpc } from "../config.js";
 
 const log = createLogger("jupiter-lend");
 
@@ -21,13 +21,8 @@ let getWithdrawIxsFn: ((args: unknown) => Promise<LendIxsResponse>) | null = nul
 let sdkLoaded = false;
 let sdkLoadAttempted = false;
 
-function rpcLooksMainnet(url: string): boolean {
-  const u = url.toLowerCase();
-  return u.includes("mainnet") || u.includes("mainnet-beta");
-}
-
 function lendEnabledOnCurrentCluster(): boolean {
-  return rpcLooksMainnet(CONFIG.RPC_URL);
+  return inferClusterFromRpc(CONFIG.RPC_URL) === "mainnet-beta";
 }
 
 function normalizeIxs(result: LendIxsResponse): TransactionInstruction[] {

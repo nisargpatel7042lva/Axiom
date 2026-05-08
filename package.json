@@ -19,6 +19,7 @@
     "check:secrets": "bash scripts/check-tracked-secrets.sh"
   },
   "dependencies": {
+    "@bonfida/spl-name-service": "^3.0.21",
     "@coral-xyz/anchor": "^0.31.1",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-progress": "^1.1.2",

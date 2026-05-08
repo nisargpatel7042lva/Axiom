@@ -6,9 +6,9 @@ import { Connection } from "@solana/web3.js";
 type Status = "good" | "degraded" | "down";
 
 const ENDPOINT =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com"
-    : "https://api.devnet.solana.com";
+  process.env.NEXT_PUBLIC_RPC_FAST_HTTP_URL?.trim() ||
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() ||
+  "https://api.devnet.solana.com";
 
 export function useRpcLatency(intervalMs = 30_000) {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
