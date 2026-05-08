@@ -4,7 +4,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ExternalLink, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, RefreshCw, Zap, Database, Activity } from "lucide-react";
+import type { SimWebhookEvent } from "@/app/api/webhooks/dune-sim/route";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { formatUsd } from "@/components/format";
@@ -52,6 +53,13 @@ export default function TransparencyPage() {
     queryFn: getEngineTransparency,
     refetchInterval: 20_000,
     staleTime: 10_000,
+  });
+
+  const webhookQ = useQuery<{ events: SimWebhookEvent[]; total: number; description: string }>({
+    queryKey: ["dune-sim-webhooks"],
+    queryFn: () => fetch("/api/webhooks/dune-sim").then((r) => r.json()),
+    refetchInterval: 8_000,
+    staleTime: 5_000,
   });
 
   const data = q.data;
@@ -105,9 +113,40 @@ export default function TransparencyPage() {
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-3 pb-8 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem] md:px-6 md:pb-10">
         <div className="flex flex-col gap-2 min-[391px]:gap-3">
-          <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">
-            Transparency Dashboard
-          </h1>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h1 className="text-xl font-bold text-[#e8edf5] min-[391px]:text-2xl md:text-3xl">
+              Transparency Dashboard
+            </h1>
+            {/* RPC Fast attribution badge */}
+            <div className="flex flex-wrap items-center gap-2">
+            {data?.health.rpcProvider === "rpcfast" ? (
+              <div className="flex items-center gap-2 rounded-full border border-[#00e5c3]/30 bg-[#00e5c3]/10 px-3 py-1.5">
+                <span className="relative flex size-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-60" />
+                  <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
+                </span>
+                <span className="text-[11px] font-semibold text-[#00e5c3]">Powered by RPC Fast</span>
+                {data.health.rpcFastStreamActive && (
+                  <span className="rounded-full bg-[#00e5c3]/20 px-1.5 py-0.5 text-[10px] font-medium text-[#00e5c3]">
+                    WS Stream Active
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                <span className="size-1.5 rounded-full bg-[#8b9cb3]" />
+                <span className="text-[11px] text-[#8b9cb3]">Public RPC</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
+              </span>
+              <span className="text-[11px] font-semibold text-[#f59e0b]">Dune SIM Live</span>
+            </div>
+          </div>
+          </div>
           <p className="max-w-3xl text-sm text-[#8b9cb3]">
             Live engine decisions, trade execution quality, and NAV reconciliation. If any data path degrades,
             it is shown here instead of hidden.
@@ -343,6 +382,122 @@ export default function TransparencyPage() {
             </div>
           </section>
         </div>
+
+        {/* Dune SIM Data Intelligence */}
+        <section className="mt-6 rounded-2xl border border-[#f59e0b]/20 bg-[#0d1420] p-4 min-[391px]:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Database className="size-4 text-[#f59e0b]" />
+                <h2 className="text-sm font-semibold text-[#e8edf5]">Dune SIM Data Intelligence</h2>
+              </div>
+              <p className="mt-1 text-xs text-[#8b9cb3]">
+                Real-time on-chain data via Dune SIM — wallet balances, transaction history, and live webhook events power the Axiom Vaults UX.
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-2.5 py-1 shrink-0">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
+              </span>
+              <span className="text-[10px] font-semibold text-[#f59e0b]">Live</span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[#f59e0b]/10 bg-[#080c14]/60 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Activity className="size-3.5 text-[#f59e0b]" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#f59e0b]">
+                  Balances
+                </span>
+              </div>
+              <div className="font-mono text-[11px] text-[#8b9cb3]">GET /beta/svm/balances/</div>
+              <p className="mt-1.5 text-[11px] text-[#c9d4e5]">
+                Full SPL token portfolio for connected wallets. Powers the Token Holdings table and the Deposit Modal USDC balance display.
+              </p>
+            </div>
+            <div className="rounded-xl border border-[#f59e0b]/10 bg-[#080c14]/60 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Activity className="size-3.5 text-[#f59e0b]" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#f59e0b]">
+                  Transactions
+                </span>
+              </div>
+              <div className="font-mono text-[11px] text-[#8b9cb3]">GET /beta/svm/transactions/</div>
+              <p className="mt-1.5 text-[11px] text-[#c9d4e5]">
+                Recent wallet transactions parsed with log inspection. Feeds the Vault Activity Feed and the 15-day portfolio USDC flow chart.
+              </p>
+            </div>
+            <div className="rounded-xl border border-[#f59e0b]/10 bg-[#080c14]/60 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="size-3.5 text-[#f59e0b]" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#f59e0b]">
+                  Webhooks
+                </span>
+              </div>
+              <div className="font-mono text-[11px] text-[#8b9cb3]">POST /api/webhooks/dune-sim</div>
+              <p className="mt-1.5 text-[11px] text-[#c9d4e5]">
+                Real-time push receiver. Register this endpoint in Dune SIM Subscriptions to stream transaction events directly into Axiom Vaults without polling.
+              </p>
+            </div>
+          </div>
+
+          {/* Webhook live event log */}
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-[#e8edf5]">Webhook Event Log</h3>
+              <div className="flex items-center gap-1.5 text-[10px] text-[#8b9cb3]">
+                <RefreshCw className={`size-3 ${webhookQ.isFetching ? "animate-spin text-[#f59e0b]" : ""}`} />
+                {webhookQ.data ? `${webhookQ.data.total} events total` : "Polling…"}
+              </div>
+            </div>
+            {webhookQ.data && webhookQ.data.events.length > 0 ? (
+              <div className="space-y-1.5">
+                {webhookQ.data.events.slice(0, 8).map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-white/5 bg-[#080c14]/60 px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-[#f59e0b]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#f59e0b]">
+                          {ev.eventType}
+                        </span>
+                        <span className="text-[10px] text-[#8b9cb3]">{ev.chain}</span>
+                        {ev.walletAddress && (
+                          <span className="font-mono text-[10px] text-[#8b9cb3]">
+                            {ev.walletAddress.slice(0, 6)}…{ev.walletAddress.slice(-4)}
+                          </span>
+                        )}
+                      </div>
+                      {ev.txHash && (
+                        <div className="mt-0.5 font-mono text-[10px] text-[#8b9cb3]">
+                          tx: {ev.txHash.slice(0, 16)}…
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-[10px] text-[#8b9cb3]">
+                      {new Date(ev.receivedAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-[#f59e0b]/20 bg-[#080c14]/40 px-4 py-5 text-center">
+                <Zap className="mx-auto mb-2 size-5 text-[#f59e0b]/40" />
+                <p className="text-xs text-[#8b9cb3]">
+                  No webhook events received yet.
+                </p>
+                <p className="mt-1 text-[11px] text-[#8b9cb3]/70">
+                  Register{" "}
+                  <span className="font-mono text-[#f59e0b]/70">{"<your-domain>"}/api/webhooks/dune-sim</span>{" "}
+                  in the Dune SIM dashboard under Subscriptions → Webhooks to push real-time transaction events here.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
     </div>
   );

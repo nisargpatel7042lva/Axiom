@@ -84,7 +84,7 @@ function PortfolioConnectedView() {
   const narrow = useMatchMedia("(max-width: 390px)");
   const { connected, publicKey } = useWallet();
   const walletAddress = publicKey?.toBase58() ?? null;
-  const { usdcBalance } = useWalletBalances();
+  const { usdcBalance, balances, isLoading: balancesLoading } = useWalletBalances();
   const { positions, totalValue, loading, error, refetch } = useWalletVaultPositions();
   const chartPoints = useLiveMetricHistory(connected && !loading ? totalValue : null, 24 * 60 * 60 * 1000, walletAddress);
   const sampledPortfolioPoints = useMemo(
@@ -136,6 +136,17 @@ function PortfolioConnectedView() {
     }
     return totals;
   }, [historyActivities]);
+
+  const tokenHoldings = useMemo(() => {
+    return balances
+      .map((b) => ({
+        ...b,
+        uiAmount: Number(b.amount) / Math.pow(10, b.decimals),
+      }))
+      .filter((b) => b.uiAmount > 1e-6)
+      .sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))
+      .slice(0, 10);
+  }, [balances]);
 
   const chartSeries = useMemo(() => {
     if (chartNow === null) {
@@ -332,7 +343,13 @@ function PortfolioConnectedView() {
                 prefix="$"
               />
             </div>
-            <div className="text-[10px] text-[#8b9cb3]">via Dune SIM</div>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
+              </span>
+              <span className="text-[10px] font-medium text-[#f59e0b]">Dune SIM</span>
+            </div>
           </motion.div>
         )}
       </motion.div>
@@ -488,6 +505,99 @@ function PortfolioConnectedView() {
           )}
         </div>
       </motion.div>
+
+      {(balancesLoading || tokenHoldings.length > 0) && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, type: "spring", stiffness: 320, damping: 30 }}
+          className="mt-6 rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-[#e8edf5]">Token Holdings</h3>
+              <p className="mt-0.5 text-[10px] text-[#8b9cb3]">
+                SPL token balances fetched from Dune SIM · /beta/svm/balances
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-2.5 py-1">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
+              </span>
+              <span className="text-[10px] font-semibold text-[#f59e0b]">Dune SIM</span>
+            </div>
+          </div>
+
+          {balancesLoading ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full bg-white/5" />
+              ))}
+            </div>
+          ) : tokenHoldings.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider text-[#8b9cb3]">
+                    <th className="pb-2 font-medium">Token</th>
+                    <th className="pb-2 text-right font-medium">Balance</th>
+                    <th className="pb-2 text-right font-medium">Price</th>
+                    <th className="pb-2 text-right font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokenHoldings.map((token) => (
+                    <tr key={token.address} className="border-t border-white/5">
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          {token.logo_url ? (
+                            <img
+                              src={token.logo_url}
+                              alt={token.symbol}
+                              className="size-6 rounded-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[8px] font-bold text-[#8b9cb3]">
+                              {token.symbol.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-[#e8edf5]">
+                              {token.symbol || "—"}
+                            </div>
+                            <div className="max-w-[120px] truncate text-[10px] text-[#8b9cb3]">
+                              {token.name || `${token.address.slice(0, 8)}…`}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-right font-[family-name:var(--font-space-mono)] text-xs text-[#e8edf5]">
+                        {token.uiAmount < 0.0001
+                          ? token.uiAmount.toExponential(2)
+                          : token.uiAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                      </td>
+                      <td className="py-2.5 text-right font-[family-name:var(--font-space-mono)] text-xs text-[#8b9cb3]">
+                        {token.price_usd != null ? `$${token.price_usd.toFixed(4)}` : "—"}
+                      </td>
+                      <td className="py-2.5 text-right font-[family-name:var(--font-space-mono)] text-xs text-[#e8edf5]">
+                        {token.value_usd != null ? formatUsd(token.value_usd) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-[#8b9cb3]">
+              No token balances found via Dune SIM for this wallet. Dune SIM covers mainnet Solana — connect a mainnet wallet to populate this table.
+            </p>
+          )}
+        </motion.div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

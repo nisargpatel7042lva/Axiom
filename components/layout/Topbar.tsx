@@ -99,7 +99,9 @@ export function Topbar() {
           contentOverflow="visible"
           className="shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
         >
-          <div className="relative flex min-h-[3.5rem] w-full items-center justify-between gap-2 px-3 py-2.5 sm:min-h-[4rem] sm:px-5 sm:py-3.5">
+          <div className="relative flex min-h-[3.5rem] w-full items-center gap-2 px-3 py-2.5 sm:min-h-[4rem] sm:px-5 sm:py-3.5">
+
+            {/* Left: logo */}
             <Link
               href="/"
               className="flex shrink-0 items-center"
@@ -117,9 +119,9 @@ export function Topbar() {
               </div>
             </Link>
 
-            {/* Desktop / tablet: centered nav */}
+            {/* Centre: nav — takes remaining space, items centred inside */}
             <nav
-              className="absolute left-1/2 hidden w-auto -translate-x-1/2 items-center justify-center gap-0.5 md:flex md:gap-1"
+              className="hidden flex-1 items-center justify-center gap-0.5 md:flex"
               aria-label="Main"
             >
               {NAV_ITEMS.map(({ href, label }) => {
@@ -128,7 +130,7 @@ export function Topbar() {
                   <Link
                     key={href}
                     href={href}
-                    className={`rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-200 sm:px-4 sm:py-2 sm:text-[14px] ${
+                    className={`rounded-xl px-2.5 py-1.5 text-[12.5px] font-medium transition-all duration-200 ${
                       active
                         ? "bg-white/[0.14] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                         : "text-white/55 hover:bg-white/[0.08] hover:text-white/90"
@@ -140,23 +142,25 @@ export function Topbar() {
               })}
             </nav>
 
-            <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2.5 md:ml-auto">
+            {/* Right: network indicator + wallet + hamburger */}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               {connected && (
-                <div className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 backdrop-blur-sm sm:flex">
+                <div className="hidden items-center gap-1 sm:flex">
                   <span className="relative flex size-1.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-50" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
                   </span>
-                  <span className="text-[11px] font-medium text-white/60">
+                  <span className="text-[11px] font-medium text-white/50">
                     {cluster}
                   </span>
                 </div>
               )}
-              <div className="min-w-0 max-w-[min(52vw,11rem)] sm:max-w-none [&_.wallet-adapter-button]:!max-w-full [&_.wallet-adapter-button]:!truncate">
+
+              <div className="min-w-0 max-w-[min(52vw,10rem)] sm:max-w-none [&_.wallet-adapter-button]:!max-w-full [&_.wallet-adapter-button]:!truncate">
                 <WalletMultiButton
                   className="wallet-adapter-button-trigger"
                   style={{
-                    height: "40px",
+                    height: "36px",
                     maxWidth: "100%",
                     padding: "0 12px",
                     borderRadius: "12px",
@@ -178,16 +182,16 @@ export function Topbar() {
 
               <button
                 type="button"
-                className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] text-white/90 transition-colors hover:bg-white/[0.12] md:hidden"
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] text-white/90 transition-colors hover:bg-white/[0.12] md:hidden"
                 aria-expanded={mobileOpen}
                 aria-controls={menuId}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
                 onClick={() => setMobileOpen((o) => !o)}
               >
                 {mobileOpen ? (
-                  <X className="size-5" strokeWidth={2} />
+                  <X className="size-4" strokeWidth={2} />
                 ) : (
-                  <Menu className="size-5" strokeWidth={2} />
+                  <Menu className="size-4" strokeWidth={2} />
                 )}
               </button>
             </div>
