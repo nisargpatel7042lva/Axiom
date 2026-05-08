@@ -55,50 +55,50 @@ All vaults: **0% management fee** · Performance fee (100–150 bps) only above 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         AXIOM FRONTEND                               │
+│                         AXIOM FRONTEND                              │
 │             Next.js 16 · React 19 · TanStack Query v5               │
-│                                                                       │
+│                                                                     │
 │  ┌──────────────┐  ┌───────────────────┐  ┌───────────────────────┐ │
 │  │  Vault Pages │  │   Portfolio Page  │  │  Transparency Page    │ │
 │  │  Deposit /   │  │  Token Holdings   │  │  NAV reconciliation   │ │
 │  │  Withdraw    │  │  P&L Chart        │  │  Decisions · Trades   │ │
 │  │  PPS Chart   │  │  Activity Feed    │  │  Dune SIM event log   │ │
 │  └──────────────┘  └───────────────────┘  └───────────────────────┘ │
-│                                                                       │
-│  ── Data Layer ────────────────────────────────────────────────────  │
+│                                                                     │
+│  ── Data Layer ──────────────────────────────────────────────────── │
 │  Dune SIM /beta/svm/balances  ·  Dune SIM /beta/svm/transactions    │
 │  RPC Fast (on-chain state)    ·  Jupiter Price API                  │
 │  Engine transparency API      ·  Dune SIM webhook receiver          │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │ Solana wallet adapter
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                     SPECTRA PROGRAM (Anchor / Rust)                   │
-│         Program ID: JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH   │
-│                                                                       │
-│  deposit()  withdraw()  sync_nav()  collect_performance_fee()        │
-│  bootstrap_vault()  initialize_strategy_config()  pause()            │
-│                                                                       │
+│                     SPECTRA PROGRAM (Anchor / Rust)                 │
+│         Program ID: JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH    │
+│                                                                     │
+│  deposit()  withdraw()  sync_nav()  collect_performance_fee()       │
+│  bootstrap_vault()  initialize_strategy_config()  pause()           │
+│                                                                     │
 │  PDAs: vault · shares_mint (Token-2022) · asset_vault · strategy    │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │ authority keypair
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                    STRATEGY ENGINE (Node.js / TypeScript)             │
-│                                                                       │
-│  Every 30 min ──▶  Market Scanner → AI Scoring → NAV Calculator     │
-│  Every 15 min ──▶  Position Manager (harvest wins, place orders)     │
-│  Every  1 hour ──▶  Yield Router (rebalance Jupiter Lend vs idle)    │
-│                                                                       │
+│                    STRATEGY ENGINE (Node.js / TypeScript)           │
+│                                                                     │
+│  Every 30 min ──▶  Market Scanner → AI Scoring → NAV Calculator    │
+│  Every 15 min ──▶  Position Manager (harvest wins, place orders)    │
+│  Every  1 hour ──▶  Yield Router (rebalance Jupiter Lend vs idle)   │
+│                                                                     │
 │  ┌────────────────────────────┐  ┌────────────────────────────────┐ │
 │  │     Jupiter APIs           │  │  Claude 3.5 Haiku (AI Scoring) │ │
 │  │  Prediction · Trigger      │  │  Evaluates each market against │ │
 │  │  Lend/Earn · Price · Tokens│  │  vault strategy rules before   │ │
 │  └────────────────────────────┘  │  execution                     │ │
 │                                  └────────────────────────────────┘ │
-│  ┌────────────────────────────┐                                      │
+│  ┌────────────────────────────┐                                     │
 │  │  RPC Fast Yellowstone gRPC │  Real-time vault PDA monitoring.    │
 │  │  (when configured)         │  Triggers immediate NAV recalc on   │
 │  │                            │  account change — no cron wait.     │
-│  └────────────────────────────┘                                      │
+│  └────────────────────────────┘                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
