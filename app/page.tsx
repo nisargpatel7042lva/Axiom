@@ -14,6 +14,7 @@ import {
   Target,
   Gem,
   Mail,
+  User,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -56,6 +57,12 @@ const FEATURES = [
     title: "Zero Management Fee",
     description:
       "No entry fee, no management fee. Performance fee only above high-water mark.",
+  },
+  {
+    icon: <User className="size-5" />,
+    title: "Solana Identity",
+    description:
+      "Anchor vault access to .sol identity and agent reputation. Build trust through on-chain reputation and autonomous agent identities.",
   },
 ];
 

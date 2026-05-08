@@ -189,6 +189,8 @@ export interface EngineHealth {
   lastYieldRoute: string | null;
   vaultCount: number;
   totalPositions: number;
+  rpcProvider: "rpcfast" | "public";
+  rpcFastStreamActive: boolean;
 }
 
 export interface TradeLog {

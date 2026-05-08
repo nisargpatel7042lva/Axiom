@@ -8,6 +8,8 @@ import { runNavCalculator, getAllNavs } from "./jobs/nav-calculator.js";
 import { getActivePositions, getDecisionHistory, getTradeHistory } from "./jobs/position-manager.js";
 import { getVaultNavYieldMetrics } from "./data/vault-nav-snapshots.js";
 import { getAllVaultConfigs, CONFIG, inferClusterFromRpc } from "./config.js";
+import { startRpcFastStream, stopRpcFastStream, isRpcFastStreamActive } from "./services/rpc-fast-stream.js";
+import { deriveVaultPda } from "./services/vault-contract.js";
 import { createLogger } from "./utils/logger.js";
 import type { EngineHealth } from "./types/index.js";
 
@@ -92,6 +94,8 @@ app.get("/health", (_req, res) => {
     lastYieldRoute,
     vaultCount: vaults.length,
     totalPositions,
+    rpcProvider: (process.env.RPC_FAST_HTTP_URL?.trim() || CONFIG.RPC_URL.includes("rpcfast")) ? "rpcfast" : "public",
+    rpcFastStreamActive: isRpcFastStreamActive(),
   };
 
   res.json(health);
@@ -145,6 +149,8 @@ app.get("/api/transparency", (_req, res) => {
       lastNavSync,
       lastPositionCheck,
       lastYieldRoute,
+      rpcProvider: (process.env.RPC_FAST_HTTP_URL?.trim() || CONFIG.RPC_URL.includes("rpcfast")) ? "rpcfast" : "public",
+      rpcFastStreamActive: isRpcFastStreamActive(),
     },
     vaults,
     navs,
@@ -185,7 +191,31 @@ async function bootstrap(): Promise<void> {
     log.error("Initial position check failed (non-fatal)", err);
   }
 
-  log.info("Spectra Engine running. Cron jobs active.");
+  // Start RPC Fast WebSocket stream for real-time vault account change notifications.
+  // Falls back gracefully to cron-only if RPC Fast is not configured.
+  const vaultPdas = getAllVaultConfigs().map((v) => {
+    const [pda] = deriveVaultPda(v.id);
+    return { vaultId: v.id, pda };
+  });
+  startRpcFastStream(vaultPdas, async (vaultId) => {
+    log.info(`[RPC Fast stream] Vault ${vaultId} changed — triggering NAV recalc`);
+    try {
+      await runNavCalculator();
+      lastNavSync = new Date().toISOString();
+    } catch (err) {
+      log.error("On-change NAV recalc failed", err);
+    }
+  });
+
+  log.info(
+    `Spectra Engine running. RPC: ${CONFIG.RPC_URL} | ` +
+    `Stream: ${isRpcFastStreamActive() ? "RPC Fast WebSocket active" : "cron-only"}`
+  );
 }
+
+process.on("SIGTERM", async () => {
+  await stopRpcFastStream();
+  process.exit(0);
+});
 
 void bootstrap();

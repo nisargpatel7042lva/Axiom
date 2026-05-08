@@ -16,6 +16,7 @@ import BorderGlow from "@/components/ui/BorderGlow";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ExposureVenues } from "@/components/vault/ExposureVenues";
 import { VAULT_BORDER_GLOW } from "@/constants";
+import { VaultAgentBadge } from "@/components/identity/VaultAgentBadge";
 
 const RISK_BADGE: Record<string, { label: string; className: string }> = {
   low: { label: "Low Risk", className: "bg-[#00e5c3]/15 text-[#00e5c3]" },
@@ -245,6 +246,8 @@ export function VaultCard({
           </div>
 
           <ExposureVenues venues={config.exposureVenues} accentColor={config.accentColor} />
+
+          <VaultAgentBadge vaultId={config.id} />
         </div>
       </BorderGlow>
     </Link>
