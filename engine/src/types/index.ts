@@ -72,7 +72,7 @@ export interface VaultConfig {
   categories: string[];
 }
 
-export type AiScoreSource = "llm" | "rules_fallback";
+export type AiScoreSource = "algo";
 
 /** AI / rules layer output attached after PROMPT 5 scoring. */
 export interface ScoredOpportunityAiMeta {

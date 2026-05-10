@@ -163,6 +163,8 @@ app.listen(CONFIG.HEALTH_PORT, () => {
   log.info(`Health endpoint listening on http://localhost:${CONFIG.HEALTH_PORT}/health`);
 });
 
+let navDebounceTimer: NodeJS.Timeout | null = null;
+
 async function bootstrap(): Promise<void> {
   log.info("Spectra Engine starting...");
   validateStartupEnvironment();
@@ -197,14 +199,19 @@ async function bootstrap(): Promise<void> {
     const [pda] = deriveVaultPda(v.id);
     return { vaultId: v.id, pda };
   });
-  startRpcFastStream(vaultPdas, async (vaultId) => {
-    log.info(`[RPC Fast stream] Vault ${vaultId} changed — triggering NAV recalc`);
-    try {
-      await runNavCalculator();
-      lastNavSync = new Date().toISOString();
-    } catch (err) {
-      log.error("On-change NAV recalc failed", err);
-    }
+  startRpcFastStream(vaultPdas, (vaultId) => {
+    log.info(`[RPC Fast stream] Vault ${vaultId} changed — debouncing NAV recalc`);
+    if (navDebounceTimer) clearTimeout(navDebounceTimer);
+    navDebounceTimer = setTimeout(async () => {
+      navDebounceTimer = null;
+      log.info("[RPC Fast stream] Debounce settled — running NAV recalc");
+      try {
+        await runNavCalculator();
+        lastNavSync = new Date().toISOString();
+      } catch (err) {
+        log.error("On-change NAV recalc failed", err);
+      }
+    }, 3_000);
   });
 
   log.info(
