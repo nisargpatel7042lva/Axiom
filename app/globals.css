@@ -47,13 +47,18 @@ body {
   font-family: var(--font-space-mono), ui-monospace, monospace;
 }
 
-.wallet-adapter-modal-wrapper {
-  z-index: 100 !important;
+/* Force wallet modal onto its own compositing layer — fixes Safari/mobile backdrop-filter stacking bug
+   where the glass topbar (backdrop-filter) can render above the modal despite lower z-index. */
+.wallet-adapter-modal {
+  z-index: 9999 !important;
+  transform: translateZ(0);
+  isolation: isolate;
 }
 
 /* Dropdown must sit above the fixed topbar (z-50) and not be clipped by stacking */
 .wallet-adapter-dropdown-list {
-  z-index: 200 !important;
+  z-index: 9998 !important;
+  transform: translateZ(0);
 }
 
 @keyframes shimmer {

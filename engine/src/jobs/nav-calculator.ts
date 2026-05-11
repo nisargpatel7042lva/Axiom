@@ -11,7 +11,7 @@ import {
 import { getActivePositions } from "./position-manager.js";
 import { getLendingState } from "./yield-router.js";
 import { appendVaultNavSnapshot } from "../data/vault-nav-snapshots.js";
-import { getAllVaultConfigs } from "../config.js";
+import { getAllVaultConfigs, CONFIG, inferClusterFromRpc } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 import type { NavBreakdown } from "../types/index.js";
 
@@ -62,7 +62,9 @@ export async function runNavCalculator(): Promise<void> {
 
       // Keep on-chain total_assets redeemable to avoid withdraw failures when
       // off-chain positions/lend value is temporarily illiquid on devnet demos.
-      const redeemableNav = Math.max(0, nav.idleUsdc);
+      // On mainnet, sync full NAV assuming positions are liquid.
+      const cluster = inferClusterFromRpc(CONFIG.RPC_URL);
+      const redeemableNav = cluster === "mainnet-beta" ? nav.totalNav : Math.max(0, nav.idleUsdc);
       await syncNavOnChain(vaultConfig.id, redeemableNav);
       nav.syncedNav = redeemableNav;
       nav.navDelta = nav.totalNav - redeemableNav;

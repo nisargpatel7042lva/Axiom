@@ -33,13 +33,13 @@ export function SafePlayAgreementGate({
       {children}
       <Dialog.Root open={open} modal>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" />
+          <Dialog.Overlay className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-md" />
           <Dialog.Content
             aria-describedby={undefined}
             onEscapeKeyDown={(e) => e.preventDefault()}
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
-            className="fixed left-1/2 top-1/2 z-[101] max-h-[min(90vh,720px)] w-[min(100vw-1.5rem,520px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-[10001] max-h-[min(85dvh,720px)] w-[min(100vw-1.5rem,520px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] shadow-2xl"
           >
             {isChecking ? (
               <div className="flex flex-col items-center gap-4 px-8 py-16">

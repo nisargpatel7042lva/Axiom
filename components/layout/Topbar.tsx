@@ -97,7 +97,7 @@ export function Topbar() {
           mixBlendMode="screen"
           forceDark
           contentOverflow="visible"
-          className="shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+          className="z-[60] shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
         >
           <div className="relative flex min-h-[3.5rem] w-full items-center gap-2 px-3 py-2.5 sm:min-h-[4rem] sm:px-5 sm:py-3.5">
 
@@ -156,15 +156,19 @@ export function Topbar() {
                 </div>
               )}
 
-              <div className="min-w-0 max-w-[min(52vw,10rem)] sm:max-w-none [&_.wallet-adapter-button]:!max-w-full [&_.wallet-adapter-button]:!truncate">
+              {/* Wallet button — closes mobile menu so the wallet modal renders unobstructed */}
+              <div
+                className="min-w-0 max-w-[min(44vw,9rem)] sm:max-w-none [&_.wallet-adapter-button]:!max-w-full [&_.wallet-adapter-button]:!truncate"
+                onClick={closeMobile}
+              >
                 <WalletMultiButton
                   className="wallet-adapter-button-trigger"
                   style={{
                     height: "36px",
                     maxWidth: "100%",
-                    padding: "0 12px",
+                    padding: "0 10px",
                     borderRadius: "12px",
-                    fontSize: "13px",
+                    fontSize: "12px",
                     fontWeight: 500,
                     lineHeight: 1,
                     background: "rgba(255, 255, 255, 0.1)",
@@ -176,6 +180,7 @@ export function Topbar() {
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
+                    whiteSpace: "nowrap",
                   }}
                 />
               </div>

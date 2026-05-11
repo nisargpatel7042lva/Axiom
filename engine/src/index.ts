@@ -42,6 +42,7 @@ let lastScan: string | null = null;
 let lastNavSync: string | null = null;
 let lastPositionCheck: string | null = null;
 let lastYieldRoute: string | null = null;
+let lastNavCalcTime = 0;
 
 cron.schedule("*/30 * * * *", async () => {
   log.info("[cron] Market scanner + NAV (sequential)");
@@ -50,6 +51,7 @@ cron.schedule("*/30 * * * *", async () => {
     lastScan = new Date().toISOString();
     await runNavCalculator();
     lastNavSync = new Date().toISOString();
+    lastNavCalcTime = Date.now();
   } catch (err) {
     log.error("Market scanner / NAV cycle failed", err);
   }
@@ -200,6 +202,11 @@ async function bootstrap(): Promise<void> {
     return { vaultId: v.id, pda };
   });
   startRpcFastStream(vaultPdas, (vaultId) => {
+    const now = Date.now();
+    if (now - lastNavCalcTime < 10_000) {
+      log.debug(`[RPC Fast stream] Vault ${vaultId} changed — ignoring due to recent NAV calc (${(now - lastNavCalcTime) / 1000}s ago)`);
+      return;
+    }
     log.info(`[RPC Fast stream] Vault ${vaultId} changed — debouncing NAV recalc`);
     if (navDebounceTimer) clearTimeout(navDebounceTimer);
     navDebounceTimer = setTimeout(async () => {
@@ -208,6 +215,7 @@ async function bootstrap(): Promise<void> {
       try {
         await runNavCalculator();
         lastNavSync = new Date().toISOString();
+        lastNavCalcTime = Date.now();
       } catch (err) {
         log.error("On-change NAV recalc failed", err);
       }
