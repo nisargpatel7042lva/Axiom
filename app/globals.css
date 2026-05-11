@@ -48,35 +48,39 @@ body {
 }
 
 /*
-  Wallet-modal portal root — a zero-size fixed anchor outside every component-tree
-  stacking context. The wallet adapter renders its modal here (via WalletModalProvider
-  container="#wallet-modal-portal") so backdrop-filter / transform on parent elements
-  can never trap the modal behind page content on mobile.
-  z-1001 sits above the topbar (z-50) and below the SafePlay gate (z-10000).
+  Wallet-modal portal root.
+  The wallet adapter's WalletModal renders here (container="#wallet-modal-portal")
+  instead of directly into <body>, so no ancestor backdrop-filter / transform in the
+  React component tree can trap the modal in a lower stacking context.
+
+  IMPORTANT — full-screen + transform: translateZ(0):
+    • Full-screen (inset:0) is required because transform on this element creates a NEW
+      containing block for its position:fixed children. A 0×0 portal with transform
+      would size the modal relative to 0×0 instead of the viewport.
+    • transform: translateZ(0) / will-change: transform promotes this div to its own GPU
+      compositing layer, which on iOS Safari / Android Chrome overrides the default layer
+      ordering that lets WebGL canvases (Three.js ColorBends) paint above CSS z-index.
+    • pointer-events: none keeps the empty portal transparent to taps when no modal
+      is open; the direct child (wallet-adapter-modal) restores pointer-events.
+
+  z-9999 sits above the topbar (z-50) and WebGL content but below the SafePlay gate
+  (z-10000) so the gate correctly covers the brief wallet-modal close animation.
 */
 #wallet-modal-portal {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  z-index: 1001;
-  overflow: visible;
+  inset: 0;
+  z-index: 9999;
   pointer-events: none;
+  isolation: isolate;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
-/* Restore pointer-events inside the portal so the modal overlay/buttons work */
 #wallet-modal-portal > * {
   pointer-events: auto;
 }
 
-/* Ensure the modal renders on its own GPU layer (fixes Safari compositing quirks) */
-.wallet-adapter-modal {
-  transform: translateZ(0);
-  isolation: isolate;
-}
-
-/* Connected-wallet dropdown must sit above the topbar glass surface */
+/* Connected-wallet dropdown must sit above the topbar glass surface (z-[60] within z-50) */
 .wallet-adapter-dropdown-list {
   z-index: 200 !important;
   transform: translateZ(0);

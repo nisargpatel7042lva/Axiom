@@ -88,7 +88,9 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative overflow-hidden">
+        {/* isolation:isolate confines the WebGL canvas (ColorBends) to its own stacking
+            context so it can't escape to the root compositor and paint over modals */}
+        <section className="relative overflow-hidden isolate">
           {/* ColorBends background — fills the hero with an animated shader */}
           <div className="absolute inset-0" style={{ zIndex: 0 }}>
             <div className="w-full h-full" style={{ minHeight: "85vh" }}>
