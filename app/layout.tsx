@@ -106,6 +106,13 @@ export default function RootLayout({
             <WalletProvider>{children}</WalletProvider>
           </QueryProvider>
         </PostHogProvider>
+        {/*
+          Dedicated wallet-modal portal root. The wallet adapter renders its modal here
+          via createPortal so it is never trapped inside any component-tree stacking context
+          (backdrop-filter, transform, isolation) that would let page content paint over it.
+          z-index sits above the topbar (z-50) but below the SafePlay gate (z-10000).
+        */}
+        <div id="wallet-modal-portal" aria-hidden />
         <Analytics />
       </body>
     </html>

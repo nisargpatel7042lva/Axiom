@@ -47,17 +47,38 @@ body {
   font-family: var(--font-space-mono), ui-monospace, monospace;
 }
 
-/* Force wallet modal onto its own compositing layer — fixes Safari/mobile backdrop-filter stacking bug
-   where the glass topbar (backdrop-filter) can render above the modal despite lower z-index. */
+/*
+  Wallet-modal portal root — a zero-size fixed anchor outside every component-tree
+  stacking context. The wallet adapter renders its modal here (via WalletModalProvider
+  container="#wallet-modal-portal") so backdrop-filter / transform on parent elements
+  can never trap the modal behind page content on mobile.
+  z-1001 sits above the topbar (z-50) and below the SafePlay gate (z-10000).
+*/
+#wallet-modal-portal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 1001;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Restore pointer-events inside the portal so the modal overlay/buttons work */
+#wallet-modal-portal > * {
+  pointer-events: auto;
+}
+
+/* Ensure the modal renders on its own GPU layer (fixes Safari compositing quirks) */
 .wallet-adapter-modal {
-  z-index: 9999 !important;
   transform: translateZ(0);
   isolation: isolate;
 }
 
-/* Dropdown must sit above the fixed topbar (z-50) and not be clipped by stacking */
+/* Connected-wallet dropdown must sit above the topbar glass surface */
 .wallet-adapter-dropdown-list {
-  z-index: 9998 !important;
+  z-index: 200 !important;
   transform: translateZ(0);
 }
 

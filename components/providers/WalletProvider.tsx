@@ -48,7 +48,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
+        <WalletModalProvider container="#wallet-modal-portal">
           <WalletTelemetryBridge />
           <SafePlayAgreementGate>{children}</SafePlayAgreementGate>
         </WalletModalProvider>
