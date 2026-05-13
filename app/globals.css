@@ -86,6 +86,27 @@ body {
   transform: translateZ(0);
 }
 
+/*
+  Mobile Wallet Adapter (MWA) shadow-DOM host.
+  @solana-mobile/wallet-standard-mobile appends a host <div> directly to <body>
+  whose shadow root contains the "open in wallet app" / QR-code modal. The modal
+  inside has z-index: 1 — burying it under the topbar (z-50) and everything else.
+  We identify the host by the Google-Fonts <link> preloads it places in its light
+  DOM, then create a new stacking context at z-9999 so the shadow-DOM modal paints
+  above all page content (but still below the SafePlay gate at z-10000).
+
+  position: relative (not fixed) keeps the host as a 0×0 in-flow box so it never
+  intercepts pointer-events. The fixed-positioned shadow-DOM children size to the
+  viewport regardless, because the host has no transform/filter/perspective.
+
+  :has() is supported in Chrome 105+, Safari 15.4+, Firefox 121+ — all modern
+  mobile browsers. The JS MutationObserver in WalletProvider covers any gaps.
+*/
+body > div:has(> link[href*="googleapis"]) {
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }

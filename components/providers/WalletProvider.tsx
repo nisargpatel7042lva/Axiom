@@ -39,6 +39,36 @@ function WalletTelemetryBridge() {
   return null;
 }
 
+function MwaHostElevator() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // @solana-mobile/wallet-standard-mobile appends a shadow-DOM host <div>
+    // to <body> when the user initiates a mobile wallet connection. The modal
+    // inside has z-index: 1 which buries it under all page overlays. We detect
+    // the host by the Google-Fonts <link> preloads it puts in its light DOM and
+    // give it position:relative + z-index:9999 so its stacking context sits
+    // above the topbar (z-50) but below the SafePlay gate (z-10000).
+    const elevate = (node: Node) => {
+      if (!(node instanceof HTMLElement) || node.tagName !== "DIV") return;
+      if (!node.id && !node.className && node.querySelector('link[href*="googleapis"]')) {
+        node.style.position = "relative";
+        node.style.zIndex = "9999";
+      }
+    };
+
+    document.body.querySelectorAll("div:not([id]):not([class])").forEach(elevate);
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((m) => m.addedNodes.forEach(elevate));
+    });
+    observer.observe(document.body, { childList: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return null;
+}
+
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const endpoint = useMemo(() => getSolanaRpcEndpoint(), []);
 
@@ -50,6 +80,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       <SolanaWalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider container="#wallet-modal-portal">
           <WalletTelemetryBridge />
+          <MwaHostElevator />
           <SafePlayAgreementGate>{children}</SafePlayAgreementGate>
         </WalletModalProvider>
       </SolanaWalletProvider>
