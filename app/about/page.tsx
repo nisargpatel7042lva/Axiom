@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -16,11 +17,11 @@ import { Topbar } from "@/components/layout/Topbar";
 import { SiteAuroraBackdrop } from "@/components/layout/SiteAuroraBackdrop";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
+  hidden: { opacity: 0, y: 18 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: 0.05 * i, duration: 0.45, ease: "easeOut" as const },
+    transition: { delay: 0.06 * i, duration: 0.55, ease: "easeOut" as const },
   }),
 };
 
@@ -79,9 +80,9 @@ export default function AboutPage() {
                 animate="visible"
                 variants={fadeUp}
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00e5c3]">
-                  About
-                </p>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-3 py-1">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-[#00e5c3]">About</span>
+                </div>
                 <h1 className="mt-3 text-3xl font-bold tracking-tight text-[#e8edf5] md:text-4xl lg:text-[2.5rem] lg:leading-tight">
                   Vaults without the homework
                 </h1>
@@ -152,8 +153,16 @@ export default function AboutPage() {
                     initial="hidden"
                     animate="visible"
                     variants={fadeUp}
-                    className="group relative overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420]/95 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-colors hover:border-[#1f2a42] md:p-7"
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                    className="group relative overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420]/95 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm cursor-default md:p-7"
+                    style={{ willChange: "transform" }}
                   >
+                    {/* hover glow */}
+                    <div
+                      className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                      style={{ background: `radial-gradient(circle at 0% 50%, ${item.accent}10 0%, transparent 60%)` }}
+                    />
                     <div
                       className="absolute left-0 top-0 h-full w-1 rounded-l-2xl opacity-90"
                       style={{ backgroundColor: item.accent }}
@@ -291,17 +300,16 @@ export default function AboutPage() {
 
         <footer className="border-t border-white/5 bg-[#080c14]">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-xs text-[#8b9cb3] md:flex-row md:items-center md:justify-between md:px-6">
-            <Link href="/" className="hover:text-[#00e5c3]">
-              ← Home
-            </Link>
-            <div className="flex gap-4">
-              <Link href="/vaults" className="hover:text-[#00e5c3]">
-                Vaults
-              </Link>
-              <Link href="/portfolio" className="hover:text-[#00e5c3]">
-                Portfolio
-              </Link>
+            <div className="flex items-center gap-2.5">
+              <Image src="/axiom-logo.png" alt="Axiom" width={20} height={20} className="object-contain opacity-60" />
+              <span className="font-[family-name:var(--font-space-mono)]">Axiom Vaults — devnet</span>
             </div>
+            <nav className="flex flex-wrap gap-x-4 gap-y-2">
+              <Link href="/" className="hover:text-[#00e5c3] transition-colors">Home</Link>
+              <Link href="/vaults" className="hover:text-[#00e5c3] transition-colors">Vaults</Link>
+              <Link href="/faq" className="hover:text-[#00e5c3] transition-colors">FAQ</Link>
+              <Link href="/portfolio" className="hover:text-[#00e5c3] transition-colors">Portfolio</Link>
+            </nav>
           </div>
         </footer>
       </div>

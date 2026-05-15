@@ -93,18 +93,22 @@ body {
   inside has z-index: 1 — burying it under the topbar (z-50) and everything else.
   We identify the host by the Google-Fonts <link> preloads it places in its light
   DOM, then create a new stacking context at z-9999 so the shadow-DOM modal paints
-  above all page content (but still below the SafePlay gate at z-10000).
+  above all page content — including the topbar — but below the SafePlay gate
+  (z-10000).
 
-  position: relative (not fixed) keeps the host as a 0×0 in-flow box so it never
-  intercepts pointer-events. The fixed-positioned shadow-DOM children size to the
-  viewport regardless, because the host has no transform/filter/perspective.
+  position: fixed + inset: 0 makes the host a full-viewport layer so the MWA
+  backdrop and modal fully cover the topbar (z-50) on mobile. pointer-events: none
+  on the host prevents phantom tap interception when no modal is active; the
+  shadow-DOM children restore their own pointer-events internally.
 
   :has() is supported in Chrome 105+, Safari 15.4+, Firefox 121+ — all modern
   mobile browsers. The JS MutationObserver in WalletProvider covers any gaps.
 */
 body > div:has(> link[href*="googleapis"]) {
-  position: relative !important;
+  position: fixed !important;
+  inset: 0 !important;
   z-index: 9999 !important;
+  pointer-events: none !important;
 }
 
 @keyframes shimmer {

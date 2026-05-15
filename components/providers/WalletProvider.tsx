@@ -52,8 +52,10 @@ function MwaHostElevator() {
     const elevate = (node: Node) => {
       if (!(node instanceof HTMLElement) || node.tagName !== "DIV") return;
       if (!node.id && !node.className && node.querySelector('link[href*="googleapis"]')) {
-        node.style.position = "relative";
+        node.style.position = "fixed";
+        node.style.inset = "0";
         node.style.zIndex = "9999";
+        node.style.pointerEvents = "none";
       }
     };
 

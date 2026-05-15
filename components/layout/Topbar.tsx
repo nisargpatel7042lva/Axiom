@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Menu, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 import GlassSurface from "@/components/ui/GlassSurface";
 import { getNetwork } from "@/lib/spectra/constants";
@@ -48,7 +49,14 @@ export function Topbar() {
   const { connected } = useWallet();
   const cluster = clusterLabel();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const menuId = useId();
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
@@ -77,7 +85,12 @@ export function Topbar() {
   }, [mobileOpen]);
 
   return (
-    <div className="fixed left-0 right-0 top-0 z-50 flex justify-center px-3 pt-3 md:px-8">
+    <motion.div
+      initial={{ opacity: 0, y: -12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="fixed left-0 right-0 top-0 z-50 flex justify-center px-3 pt-3 md:px-8"
+    >
       <div className="relative w-full max-w-5xl">
         <GlassSurface
           width="100%"
@@ -97,7 +110,7 @@ export function Topbar() {
           mixBlendMode="screen"
           forceDark
           contentOverflow="visible"
-          className="z-[60] shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+          className={`z-[60] transition-shadow duration-300 ${scrolled ? "shadow-[0_12px_48px_rgba(0,0,0,0.6)]" : "shadow-[0_12px_40px_rgba(0,0,0,0.45)]"}`}
         >
           <div className="relative flex min-h-[3.5rem] w-full items-center gap-2 px-3 py-2.5 sm:min-h-[4rem] sm:px-5 sm:py-3.5">
 
@@ -253,6 +266,6 @@ export function Topbar() {
           </>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

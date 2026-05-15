@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { motion, useInView } from "framer-motion";
+import { useRef } from "react";
 import {
   ArrowUpRight,
   TrendingUp,
@@ -54,8 +56,17 @@ export function VaultCard({
     state != null ? Math.min(100, Math.round((state.nav / cap) * 1000) / 10) : 0;
 
   const glow = VAULT_BORDER_GLOW[config.id];
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
 
   return (
+    <motion.div
+      ref={ref}
+      whileHover={{ y: -6, scale: 1.015 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 260, damping: 22 }}
+      className="h-full"
+    >
     <Link href={`/vaults/${config.id}`} className="group block h-full">
       <BorderGlow
         className="h-full"
@@ -69,7 +80,7 @@ export function VaultCard({
         edgeSensitivity={26}
         animated
       >
-        <div className="p-6">
+        <div className="p-6 bg-gradient-to-b from-[#0d1420] to-[#0a1018] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <div
@@ -150,10 +161,12 @@ export function VaultCard({
               {loading || state == null ? (
                 <Skeleton className="h-2 w-full rounded-full bg-white/5" />
               ) : (
-                <div
-                  className="rounded-full transition-all"
+                <motion.div
+                  className="rounded-full"
+                  initial={{ width: 0 }}
+                  animate={inView ? { width: `${fillPct}%` } : { width: 0 }}
+                  transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
                   style={{
-                    width: `${fillPct}%`,
                     backgroundColor: config.accentColor,
                   }}
                 />
@@ -251,5 +264,6 @@ export function VaultCard({
         </div>
       </BorderGlow>
     </Link>
+    </motion.div>
   );
 }

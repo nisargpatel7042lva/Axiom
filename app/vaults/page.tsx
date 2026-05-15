@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, Layers } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -12,11 +13,11 @@ import { VAULT_CONFIGS } from "@/constants";
 import { useDevnetVaults } from "@/hooks/useDevnetVaults";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 24 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: "easeOut" as const },
+    transition: { delay: i * 0.1, duration: 0.55, ease: "easeOut" as const },
   }),
 };
 
@@ -34,9 +35,9 @@ export default function VaultsPage() {
         <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
           <Link
             href="/"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-[#8b9cb3] hover:text-[#e8edf5] transition-colors"
+            className="mb-8 inline-flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.04] px-3.5 py-2 text-sm text-[#8b9cb3] transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-[#e8edf5]"
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeft className="size-3.5" />
             Back to home
           </Link>
 
@@ -46,7 +47,7 @@ export default function VaultsPage() {
             className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
           >
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-3 py-1 text-xs font-medium text-[#00e5c3]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-3 py-1 text-xs font-semibold text-[#00e5c3]">
                 <Layers className="size-3.5" />
                 Live devnet data
               </div>
@@ -95,8 +96,8 @@ export default function VaultsPage() {
           </motion.div>
 
           <div className="mt-12 border-t border-white/5 pt-12">
-            <h2 className="text-lg font-semibold text-[#e8edf5]">All vaults</h2>
-            <p className="mt-1 text-sm text-[#8b9cb3]">
+            <h2 className="text-xl font-bold text-[#e8edf5]">All vaults</h2>
+            <p className="mt-1.5 text-sm text-[#8b9cb3]">
               Select a card to open metrics, charts, and deposit / withdraw.
             </p>
             <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3 md:items-stretch">
@@ -109,7 +110,6 @@ export default function VaultsPage() {
                     initial="hidden"
                     animate="visible"
                     variants={fadeUp}
-                    className="h-full"
                   >
                     <VaultCard
                       config={config}
@@ -127,20 +127,16 @@ export default function VaultsPage() {
 
       <footer className="border-t border-white/5 bg-[#080c14]">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-[#8b9cb3] md:flex-row md:items-center md:justify-between md:px-6">
-          <span className="font-[family-name:var(--font-space-mono)]">
-            Axiom Vaults — devnet
-          </span>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            <Link href="/" className="hover:text-[#00e5c3]">
-              Home
-            </Link>
-            <Link href="/about" className="hover:text-[#00e5c3]">
-              About
-            </Link>
-            <Link href="/portfolio" className="hover:text-[#00e5c3]">
-              Portfolio
-            </Link>
+          <div className="flex items-center gap-2.5">
+            <Image src="/axiom-logo.png" alt="Axiom" width={20} height={20} className="object-contain opacity-60" />
+            <span className="font-[family-name:var(--font-space-mono)]">Axiom Vaults — devnet</span>
           </div>
+          <nav className="flex flex-wrap gap-x-4 gap-y-2">
+            <Link href="/" className="hover:text-[#00e5c3] transition-colors">Home</Link>
+            <Link href="/about" className="hover:text-[#00e5c3] transition-colors">About</Link>
+            <Link href="/faq" className="hover:text-[#00e5c3] transition-colors">FAQ</Link>
+            <Link href="/portfolio" className="hover:text-[#00e5c3] transition-colors">Portfolio</Link>
+          </nav>
         </div>
       </footer>
       </div>
