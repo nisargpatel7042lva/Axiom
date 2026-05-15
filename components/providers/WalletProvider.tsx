@@ -7,6 +7,7 @@ import {
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { useEffect, useMemo, useRef } from "react";
+import { MotionConfig } from "framer-motion";
 
 import { SafePlayAgreementGate } from "@/components/legal/SafePlayAgreementGate";
 import { identifyWallet, resetIdentity, trackEvent } from "@/lib/analytics/client";
@@ -81,9 +82,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     <ConnectionProvider endpoint={endpoint}>
       <SolanaWalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider container="#wallet-modal-portal">
-          <WalletTelemetryBridge />
-          <MwaHostElevator />
-          <SafePlayAgreementGate>{children}</SafePlayAgreementGate>
+          {/* Global: respect prefers-reduced-motion for all framer-motion components */}
+          <MotionConfig reducedMotion="user">
+            <WalletTelemetryBridge />
+            <MwaHostElevator />
+            <SafePlayAgreementGate>{children}</SafePlayAgreementGate>
+          </MotionConfig>
         </WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>

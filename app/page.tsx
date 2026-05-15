@@ -101,10 +101,40 @@ const VAULT_TEASER_ICONS: Record<string, React.ReactNode> = {
   "yield-maximizer": <Gem className="size-5" />,
 };
 
+/* ─────────────────────────────────────────────────────────
+ * HOME PAGE STORYBOARD
+ *
+ * Topbar is a static shell — never re-animates.
+ *
+ * Hero (mount, absolute from page load):
+ *   100ms  logo                                                ─┐
+ *   180ms  live badge                                           │ stagger
+ *   260ms  headline                                             │ 0.08s
+ *   340ms  sub-copy                                             │ children
+ *   420ms  CTA buttons                                         ─┘
+ *
+ * Scroll sections: whileInView spring reveals (once each)
+ * ───────────────────────────────────────────────────────── */
+
+const TIMING = {
+  heroDelay:   0.10,   // s initial delay before first hero child
+  heroStagger: 0.08,   // s between hero children
+  cardStagger: 0.10,   // s between repeated section cards
+};
+
+const SPRING = {
+  stiff:  { type: "spring" as const, stiffness: 350, damping: 28 },
+  smooth: { type: "spring" as const, stiffness: 300, damping: 30 },
+  bouncy: { type: "spring" as const, stiffness: 280, damping: 26 },
+};
+
 const containerVariants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
+    transition: {
+      staggerChildren: TIMING.heroStagger,
+      delayChildren: TIMING.heroDelay,
+    },
   },
 };
 
@@ -113,7 +143,7 @@ const fadeUp = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, ease: "easeOut" as const },
+    transition: SPRING.stiff,
   },
 };
 
@@ -122,7 +152,7 @@ const fadeUpFast = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.5, ease: "easeOut" as const },
+    transition: { ...SPRING.bouncy, delay: i * TIMING.cardStagger },
   }),
 };
 
@@ -332,7 +362,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            transition={SPRING.smooth}
             className="rounded-2xl border border-[#1a2235] bg-[#0d1420]/90 p-6 shadow-xl backdrop-blur-md md:p-8"
             style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 24px 64px rgba(0,0,0,0.4)" }}
           >
@@ -418,7 +448,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              transition={SPRING.stiff}
             >
               <div className="inline-flex items-center gap-1.5 rounded-full border border-[#6366f1]/25 bg-[#6366f1]/10 px-3 py-1">
                 <span className="text-xs font-semibold uppercase tracking-widest text-[#6366f1]">Process</span>
@@ -462,7 +492,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            transition={SPRING.stiff}
           >
             <div className="inline-flex items-center gap-1.5 rounded-full border border-[#a855f7]/25 bg-[#a855f7]/10 px-3 py-1">
               <span className="text-xs font-semibold uppercase tracking-widest text-[#a855f7]">Advantages</span>
@@ -522,7 +552,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              transition={SPRING.smooth}
               className="mx-auto max-w-2xl"
             >
               <div className="relative overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 text-center md:p-10"

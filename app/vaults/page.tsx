@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Layers } from "lucide-react";
@@ -12,18 +13,32 @@ import { ProtocolStats } from "@/components/vault/ProtocolStats";
 import { VAULT_CONFIGS } from "@/constants";
 import { useDevnetVaults } from "@/hooks/useDevnetVaults";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.55, ease: "easeOut" as const },
-  }),
+/* ─────────────────────────────────────────────────────────
+ * VAULTS PAGE STORYBOARD
+ *   0ms   blank
+ *  80ms   badge + h1 + description                           stage 1
+ * 220ms   protocol stats panel slides up                     stage 2
+ * 420ms   "All vaults" header + cards stagger (0.12s each)   stage 3
+ * ───────────────────────────────────────────────────────── */
+const TIMING = { header: 80, stats: 220, cards: 420 };
+const SPRING = {
+  stiff:  { type: "spring" as const, stiffness: 350, damping: 28 },
+  smooth: { type: "spring" as const, stiffness: 300, damping: 30 },
+  bouncy: { type: "spring" as const, stiffness: 280, damping: 26 },
 };
 
 export default function VaultsPage() {
   const { entries, totalTvl, onlineCount, avgPps, loading, error, refetch, isFetching } =
     useDevnetVaults();
+
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const t: ReturnType<typeof setTimeout>[] = [];
+    t.push(setTimeout(() => setStage(1), TIMING.header));
+    t.push(setTimeout(() => setStage(2), TIMING.stats));
+    t.push(setTimeout(() => setStage(3), TIMING.cards));
+    return () => t.forEach(clearTimeout);
+  }, []);
 
   return (
     <div className="relative min-h-screen bg-[#080c14]">
@@ -42,8 +57,9 @@ export default function VaultsPage() {
           </Link>
 
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={false}
+            animate={{ opacity: stage >= 1 ? 1 : 0, y: stage >= 1 ? 0 : -12 }}
+            transition={SPRING.stiff}
             className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
           >
             <div>
@@ -62,9 +78,9 @@ export default function VaultsPage() {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
+            initial={false}
+            animate={{ opacity: stage >= 2 ? 1 : 0, y: stage >= 2 ? 0 : 16 }}
+            transition={SPRING.smooth}
             className="mt-8 space-y-3"
           >
             {error && (
@@ -95,7 +111,12 @@ export default function VaultsPage() {
             />
           </motion.div>
 
-          <div className="mt-12 border-t border-white/5 pt-12">
+          <motion.div
+            initial={false}
+            animate={{ opacity: stage >= 3 ? 1 : 0, y: stage >= 3 ? 0 : 12 }}
+            transition={SPRING.stiff}
+            className="mt-12 border-t border-white/5 pt-12"
+          >
             <h2 className="text-xl font-bold text-[#e8edf5]">All vaults</h2>
             <p className="mt-1.5 text-sm text-[#8b9cb3]">
               Select a card to open metrics, charts, and deposit / withdraw.
@@ -106,10 +127,12 @@ export default function VaultsPage() {
                 return (
                   <motion.div
                     key={config.id}
-                    custom={i}
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeUp}
+                    initial={false}
+                    animate={{
+                      opacity: stage >= 3 ? 1 : 0,
+                      y:       stage >= 3 ? 0 : 24,
+                    }}
+                    transition={{ ...SPRING.bouncy, delay: i * 0.12 }}
                   >
                     <VaultCard
                       config={config}
@@ -121,7 +144,7 @@ export default function VaultsPage() {
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         </div>
       </main>
 

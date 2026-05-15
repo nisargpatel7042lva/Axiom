@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, Mail, MessageCircle, ChevronDown } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -42,18 +42,33 @@ const FAQS = [
   },
 ];
 
-function FaqItem({ item, index, open, onToggle }: {
+/* ─────────────────────────────────────────────────────────
+ * FAQ PAGE STORYBOARD
+ *   0ms   blank
+ *  70ms   label + h1 + subtitle                               stage 1
+ * 200ms   FAQ items stagger (0.07s each)                      stage 2
+ * 700ms   contact card slides up                              stage 3
+ * ───────────────────────────────────────────────────────── */
+const TIMING = { header: 70, items: 200, contact: 700 };
+const SPRING = {
+  stiff:  { type: "spring" as const, stiffness: 350, damping: 28 },
+  smooth: { type: "spring" as const, stiffness: 300, damping: 30 },
+  chevron: { type: "spring" as const, stiffness: 400, damping: 25 },
+};
+
+function FaqItem({ item, index, open, onToggle, visible }: {
   item: typeof FAQS[0];
   index: number;
   open: boolean;
   onToggle: () => void;
+  visible: boolean;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className={`group rounded-2xl border bg-[#0d1420] transition-all duration-300 ${
+      initial={false}
+      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 12 }}
+      transition={{ ...SPRING.smooth, delay: index * 0.07 }}
+      className={`group rounded-2xl border bg-[#0d1420] transition-colors transition-shadow duration-300 ${
         open ? "border-[#00e5c3]/30 shadow-[0_0_0_1px_rgba(0,229,195,0.08),0_8px_32px_rgba(0,0,0,0.3)]" : "border-[#1a2235] hover:border-[#243050]"
       }`}
     >
@@ -65,9 +80,10 @@ function FaqItem({ item, index, open, onToggle }: {
         <span className={`text-sm font-semibold transition-colors duration-200 ${open ? "text-[#00e5c3]" : "text-[#e8edf5] group-hover:text-white"}`}>
           {item.question}
         </span>
+        {/* Spring chevron: slight overshoot = physical, satisfying */}
         <motion.div
           animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          transition={SPRING.chevron}
           className="shrink-0"
         >
           <ChevronDown className={`size-4 transition-colors duration-200 ${open ? "text-[#00e5c3]" : "text-[#8b9cb3]"}`} />
@@ -81,7 +97,7 @@ function FaqItem({ item, index, open, onToggle }: {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
             <div className="px-5 pb-5">
@@ -97,6 +113,14 @@ function FaqItem({ item, index, open, onToggle }: {
 
 export default function FaqPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const t: ReturnType<typeof setTimeout>[] = [];
+    t.push(setTimeout(() => setStage(1), TIMING.header));
+    t.push(setTimeout(() => setStage(2), TIMING.items));
+    t.push(setTimeout(() => setStage(3), TIMING.contact));
+    return () => t.forEach(clearTimeout);
+  }, []);
 
   return (
     <div className="relative min-h-screen bg-[#080c14]">
@@ -106,9 +130,9 @@ export default function FaqPage() {
         <main className="flex-1 pt-[6rem]">
           <div className="mx-auto max-w-3xl px-4 py-10 md:px-6 md:py-14">
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              initial={false}
+              animate={{ opacity: stage >= 1 ? 1 : 0, y: stage >= 1 ? 0 : -12 }}
+              transition={SPRING.stiff}
             >
               <div className="inline-flex items-center gap-1.5 rounded-full border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-3 py-1">
                 <span className="text-xs font-semibold uppercase tracking-widest text-[#00e5c3]">FAQ</span>
@@ -129,14 +153,15 @@ export default function FaqPage() {
                   index={idx}
                   open={openIndex === idx}
                   onToggle={() => setOpenIndex(openIndex === idx ? null : idx)}
+                  visible={stage >= 2}
                 />
               ))}
             </div>
 
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              initial={false}
+              animate={{ opacity: stage >= 3 ? 1 : 0, y: stage >= 3 ? 0 : 12 }}
+              transition={SPRING.smooth}
               className="mt-10 overflow-hidden rounded-2xl border border-[#00e5c3]/20 bg-[#0d1420]"
               style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
             >
@@ -147,7 +172,7 @@ export default function FaqPage() {
                 <div className="mt-4 flex flex-wrap gap-3">
                   <a
                     href="mailto:axiomvaults1@gmail.com"
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-[#e8edf5] transition-all hover:border-[#00e5c3]/30 hover:bg-white/10 hover:scale-[1.02]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-[#e8edf5] transition-colors duration-150 hover:border-[#00e5c3]/30 hover:bg-white/10 hover:scale-[1.02]"
                   >
                     <Mail className="size-4 text-[#00e5c3]" />
                     axiomvaults1@gmail.com
@@ -156,7 +181,7 @@ export default function FaqPage() {
                     href="https://x.com/axiom_vaults"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-[#e8edf5] transition-all hover:border-[#00e5c3]/30 hover:bg-white/10 hover:scale-[1.02]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-[#e8edf5] transition-colors duration-150 hover:border-[#00e5c3]/30 hover:bg-white/10 hover:scale-[1.02]"
                   >
                     <MessageCircle className="size-4 text-[#00e5c3]" />
                     @axiom_vaults

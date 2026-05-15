@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -16,13 +17,19 @@ import {
 import { Topbar } from "@/components/layout/Topbar";
 import { SiteAuroraBackdrop } from "@/components/layout/SiteAuroraBackdrop";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: 0.06 * i, duration: 0.55, ease: "easeOut" as const },
-  }),
+/* ─────────────────────────────────────────────────────────
+ * ABOUT PAGE STORYBOARD
+ *   0ms   blank
+ *  70ms   label + h1 + sub-copy                              stage 1
+ * 200ms   "Start here" aside card slides in from right       stage 2
+ * 380ms   bento highlight cards stagger (0.1s each)          stage 3
+ * 600ms   steps strip + risk note + CTA row                  stage 4
+ * ───────────────────────────────────────────────────────── */
+const TIMING = { hero: 70, aside: 200, cards: 380, bottom: 600 };
+const SPRING = {
+  stiff:  { type: "spring" as const, stiffness: 350, damping: 28 },
+  smooth: { type: "spring" as const, stiffness: 300, damping: 30 },
+  bouncy: { type: "spring" as const, stiffness: 280, damping: 26 },
 };
 
 const HIGHLIGHTS = [
@@ -64,6 +71,16 @@ const STEPS = [
 ];
 
 export default function AboutPage() {
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const t: ReturnType<typeof setTimeout>[] = [];
+    t.push(setTimeout(() => setStage(1), TIMING.hero));
+    t.push(setTimeout(() => setStage(2), TIMING.aside));
+    t.push(setTimeout(() => setStage(3), TIMING.cards));
+    t.push(setTimeout(() => setStage(4), TIMING.bottom));
+    return () => t.forEach(clearTimeout);
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-[#080c14]">
       <SiteAuroraBackdrop />
@@ -75,10 +92,9 @@ export default function AboutPage() {
             {/* Hero */}
             <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end lg:gap-12">
               <motion.div
-                custom={0}
-                initial="hidden"
-                animate="visible"
-                variants={fadeUp}
+                initial={false}
+                animate={{ opacity: stage >= 1 ? 1 : 0, y: stage >= 1 ? 0 : -12 }}
+                transition={SPRING.stiff}
               >
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-3 py-1">
                   <span className="text-xs font-semibold uppercase tracking-widest text-[#00e5c3]">About</span>
@@ -95,10 +111,9 @@ export default function AboutPage() {
               </motion.div>
 
               <motion.aside
-                custom={1}
-                initial="hidden"
-                animate="visible"
-                variants={fadeUp}
+                initial={false}
+                animate={{ opacity: stage >= 2 ? 1 : 0, x: stage >= 2 ? 0 : 16 }}
+                transition={SPRING.smooth}
                 className="rounded-2xl border border-[#1a2235] bg-[#0d1420]/90 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-sm md:p-6"
               >
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#8b9cb3]">
@@ -149,12 +164,13 @@ export default function AboutPage() {
                 return (
                   <motion.article
                     key={item.title}
-                    custom={i + 2}
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeUp}
+                    initial={false}
+                    animate={{
+                      opacity: stage >= 3 ? 1 : 0,
+                      y:       stage >= 3 ? 0 : 20,
+                    }}
+                    transition={{ ...SPRING.bouncy, delay: i * 0.10 }}
                     whileHover={{ y: -4, scale: 1.01 }}
-                    transition={{ type: "spring", stiffness: 260, damping: 22 }}
                     className="group relative overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420]/95 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm cursor-default md:p-7"
                     style={{ willChange: "transform" }}
                   >
@@ -185,10 +201,9 @@ export default function AboutPage() {
 
             {/* Steps strip */}
             <motion.div
-              custom={6}
-              initial="hidden"
-              animate="visible"
-              variants={fadeUp}
+              initial={false}
+              animate={{ opacity: stage >= 4 ? 1 : 0, y: stage >= 4 ? 0 : 12 }}
+              transition={SPRING.stiff}
               className="mt-10 rounded-2xl border border-[#1a2235] bg-gradient-to-b from-[#0d1420] to-[#0a1018] p-6 md:mt-12 md:p-8"
             >
               <h2 className="text-base font-semibold text-[#e8edf5] md:text-lg">
@@ -214,10 +229,9 @@ export default function AboutPage() {
 
             {/* Grades - plain language */}
             <motion.div
-              custom={7}
-              initial="hidden"
-              animate="visible"
-              variants={fadeUp}
+              initial={false}
+              animate={{ opacity: stage >= 4 ? 1 : 0, y: stage >= 4 ? 0 : 12 }}
+              transition={{ ...SPRING.stiff, delay: 0.06 }}
               className="mt-10 md:mt-12"
             >
               <div className="rounded-2xl border border-[#f472b6]/25 bg-[#f472b6]/[0.06] p-6 md:flex md:items-start md:gap-8 md:p-8">
@@ -245,10 +259,9 @@ export default function AboutPage() {
 
             {/* CTA */}
             <motion.div
-              custom={8}
-              initial="hidden"
-              animate="visible"
-              variants={fadeUp}
+              initial={false}
+              animate={{ opacity: stage >= 4 ? 1 : 0, y: stage >= 4 ? 0 : 12 }}
+              transition={{ ...SPRING.stiff, delay: 0.12 }}
               className="mt-10 flex flex-col gap-5 rounded-2xl border border-[#00e5c3]/30 bg-[#00e5c3]/[0.07] p-6 sm:flex-row sm:items-center sm:justify-between md:mt-12 md:p-8"
             >
               <div className="flex items-start gap-4">
