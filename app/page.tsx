@@ -8,9 +8,6 @@ import {
   useScroll,
   useTransform,
   useInView,
-  useMotionValue,
-  useSpring,
-  AnimatePresence,
 } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 import {
@@ -228,6 +225,15 @@ export default function Home() {
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 60]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
 
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-[#080c14]">
       <Topbar />
@@ -235,22 +241,32 @@ export default function Home() {
       <main className="flex-1">
         {/* ── Hero ─────────────────────────────────────── */}
         <section ref={heroRef} className="relative overflow-hidden isolate" style={{ minHeight: "92vh" }}>
-          {/* WebGL backdrop */}
+          {/* WebGL backdrop — CSS gradient on mobile, WebGL on desktop */}
           <div className="absolute inset-0" style={{ zIndex: 0 }}>
             <div className="w-full h-full" style={{ minHeight: "92vh" }}>
-              <ColorBends
-                colors={[...SITE_PRIMARY_GRADIENT_COLORS]}
-                rotation={35}
-                speed={0.2}
-                scale={1}
-                frequency={1}
-                warpStrength={1}
-                mouseInfluence={0.5}
-                parallax={0.3}
-                noise={0.08}
-                transparent={false}
-                autoRotate={3}
-              />
+              {isDesktop ? (
+                <ColorBends
+                  colors={[...SITE_PRIMARY_GRADIENT_COLORS]}
+                  rotation={35}
+                  speed={0.2}
+                  scale={1}
+                  frequency={1}
+                  warpStrength={1}
+                  mouseInfluence={0.5}
+                  parallax={0.3}
+                  noise={0.08}
+                  transparent={false}
+                  autoRotate={3}
+                />
+              ) : (
+                <div
+                  className="w-full h-full"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse 120% 90% at 70% 20%, rgba(0,229,195,0.28) 0%, rgba(99,102,241,0.22) 40%, rgba(168,85,247,0.16) 70%, transparent 100%)",
+                  }}
+                />
+              )}
             </div>
           </div>
 
@@ -258,17 +274,19 @@ export default function Home() {
           <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, background: "linear-gradient(to bottom, rgba(8,12,20,0.55) 0%, rgba(8,12,20,0.45) 40%, rgba(8,12,20,0.6) 70%, rgba(8,12,20,0.95) 92%, #080c14 100%)" }} />
           <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, background: "linear-gradient(to right, rgba(8,12,20,0.5) 0%, rgba(8,12,20,0.2) 50%, transparent 70%)" }} />
 
-          {/* Floating orbs for depth */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
-            <FloatingOrb color="rgba(0,229,195,0.6)" size={400} top="10%" left="60%" delay={0} />
-            <FloatingOrb color="rgba(99,102,241,0.5)" size={300} top="40%" left="75%" delay={2} />
-            <FloatingOrb color="rgba(168,85,247,0.4)" size={250} top="60%" left="5%" delay={4} />
-          </div>
+          {/* Floating orbs for depth — desktop only */}
+          {isDesktop && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
+              <FloatingOrb color="rgba(0,229,195,0.6)" size={400} top="10%" left="60%" delay={0} />
+              <FloatingOrb color="rgba(99,102,241,0.5)" size={300} top="40%" left="75%" delay={2} />
+              <FloatingOrb color="rgba(168,85,247,0.4)" size={250} top="60%" left="5%" delay={4} />
+            </div>
+          )}
 
           {/* Hero content */}
           <motion.div
             className="relative mx-auto max-w-7xl px-4 pb-24 pt-28 md:px-6 md:pt-40"
-            style={{ zIndex: 2, minHeight: "92vh", display: "flex", alignItems: "center", y: heroY, opacity: heroOpacity }}
+            style={{ zIndex: 2, minHeight: "92vh", display: "flex", alignItems: "center", y: isDesktop ? heroY : 0, opacity: isDesktop ? heroOpacity : 1 }}
           >
             <motion.div
               variants={containerVariants}
@@ -324,10 +342,11 @@ export default function Home() {
               </motion.p>
 
               <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-3">
-                <Link href="/vaults" className="group relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00e5c3] to-[#00c9ab] px-6 py-3.5 text-sm font-bold text-[#080c14] transition-all hover:shadow-[0_0_40px_rgba(0,229,195,0.35)] hover:scale-[1.03] active:scale-[0.98]">
+                <Link href="/vaults" className="group relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00e5c3] to-[#00c9ab] px-6 py-3.5 text-sm font-bold text-[#080c14] hover:scale-[1.03] active:scale-[0.98] transition-transform">
                   <motion.span
-                    className="absolute inset-0 rounded-xl"
-                    animate={{ boxShadow: ["0 0 0px rgba(0,229,195,0)", "0 0 24px rgba(0,229,195,0.3)", "0 0 0px rgba(0,229,195,0)"] }}
+                    className="pointer-events-none absolute inset-0 rounded-xl"
+                    style={{ background: "rgba(0,229,195,0.35)", willChange: "opacity" }}
+                    animate={{ opacity: [0, 0.7, 0] }}
                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   />
                   Explore Vaults
