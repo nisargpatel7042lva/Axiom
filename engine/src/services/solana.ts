@@ -19,12 +19,22 @@ export function getConnection(): Connection {
 
 export function getAuthority(): Keypair {
   if (!_authority) {
-    const resolved = path.resolve(CONFIG.KEYPAIR_PATH);
-    if (!fs.existsSync(resolved)) {
-      throw new Error(`Keypair file not found at ${resolved}`);
+    const inlineKey = process.env.VAULT_AUTHORITY_KEYPAIR?.trim();
+    if (inlineKey) {
+      // JSON byte-array format: the same content as ~/.config/solana/id.json
+      const secretKey = Uint8Array.from(JSON.parse(inlineKey) as number[]);
+      _authority = Keypair.fromSecretKey(secretKey);
+    } else {
+      const resolved = path.resolve(CONFIG.KEYPAIR_PATH);
+      if (!fs.existsSync(resolved)) {
+        throw new Error(
+          `Keypair file not found at ${resolved}. ` +
+          `Set VAULT_AUTHORITY_KEYPAIR env var to the JSON byte array from your id.json file.`,
+        );
+      }
+      const raw = JSON.parse(fs.readFileSync(resolved, "utf-8"));
+      _authority = Keypair.fromSecretKey(Uint8Array.from(raw));
     }
-    const raw = JSON.parse(fs.readFileSync(resolved, "utf-8"));
-    _authority = Keypair.fromSecretKey(Uint8Array.from(raw));
     log.info(`Authority loaded: ${_authority.publicKey.toBase58()}`);
   }
   return _authority;
