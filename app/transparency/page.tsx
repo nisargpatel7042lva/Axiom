@@ -151,9 +151,6 @@ export default function TransparencyPage() {
             Live engine decisions, trade execution quality, and NAV reconciliation. If any data path degrades,
             it is shown here instead of hidden.
           </p>
-          <div className="pt-1 text-xs text-[#8b9cb3]">
-            Open directly at <span className="font-mono text-[#c9d4e5]">/transparency</span>.
-          </div>
         </div>
 
         {q.error && (
