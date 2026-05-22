@@ -157,8 +157,32 @@ export async function runPositionManager(): Promise<void> {
 
     // 5. Open positions for top opportunities (up to 3 per cycle)
     const maxNewPositions = 3;
+    const estimatedNav = getEstimatedNav(vaultId);
+    if (estimatedNav <= 0) {
+      log.warn(`[${vaultConfig.name}] NAV unavailable — skipping position opens this cycle`);
+      continue;
+    }
+
     for (const opp of newOpps.slice(0, maxNewPositions)) {
-      const positionSizeUsdc = strategy.calculatePositionSize(getEstimatedNav(vaultId));
+      // Reject any opportunity whose composite score is non-positive. A zero or
+      // negative score means the opportunity has no edge after volume/probability
+      // weighting and should never enter a real or paper position.
+      if (opp.score <= 0) {
+        log.info(
+          `[${vaultConfig.name}] Skipping "${opp.title}" — non-positive score (${opp.score.toFixed(4)})`,
+        );
+        logDecision(vaultId, {
+          action: "open_skipped",
+          marketId: opp.marketId,
+          title: opp.title,
+          reasonCode: "negative_score",
+          score: opp.score,
+          details: `Score ${opp.score.toFixed(4)} ≤ 0; opportunity rejected before sizing.`,
+        });
+        continue;
+      }
+
+      const positionSizeUsdc = strategy.calculatePositionSize(estimatedNav);
 
       if (positionSizeUsdc < 10) {
         log.info(`[${vaultConfig.name}] Position size too small ($${positionSizeUsdc.toFixed(2)}), skipping`);
@@ -433,9 +457,10 @@ function logDecision(
 }
 
 function getEstimatedNav(vaultId: string): number {
-  const nav = getNav(vaultId);
-  if (nav && nav.totalNav > 0) return nav.totalNav;
-  return 100_000;
+  // Return 0 when NAV is unknown so the caller can skip position opens safely.
+  // The previous fallback of 100,000 caused grossly oversized paper positions
+  // (e.g. $10,000 on a $170 vault) whenever the NAV calculator had not yet run.
+  return getNav(vaultId)?.totalNav ?? 0;
 }
 
 /** PROMPT: withdraw USDC from Jupiter Lend if vault idle balance is insufficient to open. */

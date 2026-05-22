@@ -84,11 +84,12 @@ export abstract class BaseStrategy {
   }
 
   /**
-   * Volume weight 0–1 (log scale). PROMPT uses "volume_weight" in the score product.
+   * Volume weight 0–1 (log scale). Clamped to [0, 1] so sub-10k markets produce
+   * zero weight instead of a negative number that flips the sign of the score.
    */
   protected normalizeVolume(volume: number): number {
     if (volume <= 0) return 0;
-    return Math.min(1, Math.log10(volume / 10_000) / Math.log10(100));
+    return Math.max(0, Math.min(1, Math.log10(volume / 10_000) / Math.log10(100)));
   }
 
   /**

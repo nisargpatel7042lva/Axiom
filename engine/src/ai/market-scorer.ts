@@ -31,7 +31,10 @@ function algoScore(
       ? Math.round(55 + volScore * 0.35)
       : Math.round(40 + volScore * 0.2);
 
-  if (market.volumeTotal < 5_000) risk_flags.push("low_volume");
+  // Threshold aligned with normalizeVolume's zero-crossing (10k). Markets below
+  // this produce volumeWeight ≤ 0, so they must be rejected here before reaching
+  // the position manager.
+  if (market.volumeTotal < 10_000) risk_flags.push("low_volume");
   if (daysToResolution < 0.5 && distFromCenter < 0.15) risk_flags.push("imminent_uncertain");
 
   let conviction: number;

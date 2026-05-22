@@ -79,8 +79,11 @@ function normalizeMarket(raw: Record<string, unknown>, eventId: string): Predict
     title: String(meta.title ?? ""),
     buyYesPriceUsd: yes,
     buyNoPriceUsd: no,
+    // `pricing.volume` is the field the Jupiter API currently populates for 24 h
+    // trading volume.  `volumeTotal` falls back to the same field when no
+    // dedicated cumulative-volume key is present in the response.
     volume24h: Number(pricing.volume ?? 0) || 0,
-    volumeTotal: Number(pricing.volume ?? 0) || 0,
+    volumeTotal: Number(pricing.volumeTotal ?? pricing.cumulativeVolume ?? pricing.totalVolume ?? pricing.volume ?? 0) || 0,
     liquidity: 0,
     status: mapMarketStatus(status),
     resolution: mapResolution(raw.result as string | null | undefined),
