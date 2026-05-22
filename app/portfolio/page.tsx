@@ -297,7 +297,7 @@ function PortfolioConnectedView() {
               />
             )}
           </div>
-          <p className="mt-1 text-[10px] text-[#8b9cb3]">From on-chain withdraw preview</p>
+          <p className="mt-1 text-xs text-[#8b9cb3]">From on-chain withdraw preview</p>
         </motion.div>
         <motion.div
           variants={{
@@ -348,7 +348,7 @@ function PortfolioConnectedView() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
                 <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
               </span>
-              <span className="text-[10px] font-medium text-[#f59e0b]">Dune SIM</span>
+              <span className="text-xs font-medium text-[#f59e0b]">Dune SIM</span>
             </div>
           </motion.div>
         )}
@@ -363,7 +363,7 @@ function PortfolioConnectedView() {
         <div className="mb-3 flex flex-col gap-2 min-[391px]:flex-row min-[391px]:items-center min-[391px]:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-[#e8edf5]">Portfolio chart</h3>
-            <p className="mt-1 text-[10px] text-[#8b9cb3]">
+            <p className="mt-1 text-xs text-[#8b9cb3]">
               15-day view · switch between value trend and daily net movement.
             </p>
           </div>
@@ -371,7 +371,7 @@ function PortfolioConnectedView() {
             <button
               type="button"
               onClick={() => setChartMode("total")}
-              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "total"
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "total"
                 ? "bg-[#00e5c3] text-[#080c14] shadow-[0_0_0_1px_rgba(0,229,195,0.25)]"
                 : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
                 }`}
@@ -381,7 +381,7 @@ function PortfolioConnectedView() {
             <button
               type="button"
               onClick={() => setChartMode("flow")}
-              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "flow"
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold tracking-wide transition-all min-[391px]:px-3 ${chartMode === "flow"
                 ? "bg-[#6366f1] text-white shadow-[0_0_0_1px_rgba(99,102,241,0.25)]"
                 : "text-[#8b9cb3] hover:bg-white/[0.04] hover:text-[#e8edf5]"
                 }`}
@@ -390,12 +390,12 @@ function PortfolioConnectedView() {
             </button>
           </div>
         </div>
-        <p className="mb-2 text-[10px] text-[#8b9cb3] min-[391px]:mb-3 max-[390px]:leading-snug">
+        <p className="mb-2 text-xs text-[#8b9cb3] min-[391px]:mb-3 max-[390px]:leading-snug">
           {chartMode === "total"
             ? "15-day trend: vault deposit/withdraw history (Spectra program only) plus local app log, scaled to current redeemable value; otherwise one sample per day from live NAV."
             : "15-day net daily USDC flow for Spectra vault deposits and withdrawals only (chain + local log)."}
         </p>
-        <div className="mb-3 flex items-center gap-3 text-[10px] text-[#8b9cb3]">
+        <div className="mb-3 flex items-center gap-3 text-xs text-[#8b9cb3]">
           <span className="inline-flex items-center gap-1.5">
             <span
               className="inline-block h-2 w-2 rounded-full"
@@ -516,7 +516,7 @@ function PortfolioConnectedView() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-[#e8edf5]">Token Holdings</h3>
-              <p className="mt-0.5 text-[10px] text-[#8b9cb3]">
+              <p className="mt-0.5 text-xs text-[#8b9cb3]">
                 SPL token balances fetched from Dune SIM · /beta/svm/balances
               </p>
             </div>
@@ -525,7 +525,7 @@ function PortfolioConnectedView() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
                 <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
               </span>
-              <span className="text-[10px] font-semibold text-[#f59e0b]">Dune SIM</span>
+              <span className="text-xs font-semibold text-[#f59e0b]">Dune SIM</span>
             </div>
           </div>
 
@@ -539,7 +539,7 @@ function PortfolioConnectedView() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] text-left">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wider text-[#8b9cb3]">
+                  <tr className="text-xs uppercase tracking-wider text-[#8b9cb3]">
                     <th className="pb-2 font-medium">Token</th>
                     <th className="pb-2 text-right font-medium">Balance</th>
                     <th className="pb-2 text-right font-medium">Price</th>
@@ -569,7 +569,7 @@ function PortfolioConnectedView() {
                             <div className="text-xs font-semibold text-[#e8edf5]">
                               {token.symbol || "—"}
                             </div>
-                            <div className="max-w-[120px] truncate text-[10px] text-[#8b9cb3]">
+                            <div className="max-w-[120px] truncate text-xs text-[#8b9cb3]">
                               {token.name || `${token.address.slice(0, 8)}…`}
                             </div>
                           </div>
@@ -639,7 +639,7 @@ function PortfolioConnectedView() {
                           <h4 className="truncate font-semibold text-[#e8edf5]">{cfg.name}</h4>
                           <ArrowUpRight className="size-4 shrink-0 text-[#8b9cb3] opacity-0 transition-opacity group-hover:opacity-100" />
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b9cb3] min-[391px]:text-xs">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#8b9cb3] min-[391px]:text-xs">
                           <span className="font-[family-name:var(--font-space-mono)]">
                             {formatShares(pos.sharesHuman)} {cfg.ticker}
                           </span>
@@ -667,7 +667,7 @@ function PortfolioConnectedView() {
                           {pnlPositive ? "+" : "-"}
                           {formatUsd(Math.abs(pnl))}
                         </div>
-                        <div className="text-[10px] text-[#8b9cb3] min-[391px]:text-xs">
+                        <div className="text-xs text-[#8b9cb3] min-[391px]:text-xs">
                           vs{" "}
                           <span className="font-[family-name:var(--font-space-mono)] text-[#8b9cb3]">
                             {formatUsd(netInvested)}
@@ -715,14 +715,40 @@ export default function PortfolioPage() {
       <div className="relative z-10 flex min-h-screen flex-col">
         <Topbar />
         {!connected ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pt-[5.75rem] min-[391px]:px-4 min-[391px]:pt-[6rem]">
-            <Wallet className="size-12 text-[#8b9cb3]" />
-            <h2 className="text-xl font-semibold text-[#e8edf5]">Connect Wallet</h2>
-            <p className="max-w-sm text-center text-sm text-[#8b9cb3]">
-              Connect your Solana wallet to view vault share balances and redeemable USDC from
-              devnet.
-            </p>
-            <WalletMultiButton className="!mt-2 !rounded-xl !bg-[#00e5c3] !px-8 !py-3 !text-sm !font-bold !text-[#080c14]" />
+          <div className="flex flex-1 flex-col px-4 pt-[6rem] pb-12 md:px-6">
+            <div className="mx-auto w-full max-w-7xl">
+              {/* Connect prompt */}
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <div className="flex size-14 items-center justify-center rounded-2xl border border-[#1a2235] bg-[#0d1420]">
+                  <Wallet className="size-7 text-[#8b9cb3]" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-[#e8edf5]">Connect to see your portfolio</h2>
+                  <p className="mt-1.5 max-w-sm text-sm text-[#8b9cb3]">
+                    Deposit into any vault to track your positions, PPS history, and activity here.
+                  </p>
+                </div>
+                <WalletMultiButton className="!rounded-xl !bg-[#00e5c3] !px-8 !py-3 !text-sm !font-bold !text-[#080c14]" />
+              </div>
+
+              {/* Preview of what a connected portfolio looks like */}
+              <div className="mt-4 rounded-2xl border border-[#1a2235]/60 bg-[#0d1420]/60 p-5 backdrop-blur-sm">
+                <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#8b9cb3]">Preview — what your portfolio looks like after depositing</p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {[
+                    { label: "Total Value", value: "$1,240.00", color: "#00e5c3" },
+                    { label: "Unrealised P&L", value: "+$18.40", color: "#00e5c3" },
+                    { label: "Active Vaults", value: "2", color: "#8b9cb3" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="rounded-xl border border-[#1a2235] bg-[#080c14]/80 p-4">
+                      <div className="text-xs uppercase tracking-wider text-[#8b9cb3]">{label}</div>
+                      <div className="mt-1.5 font-[family-name:var(--font-space-mono)] text-xl font-bold" style={{ color }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-center text-xs text-[#8b9cb3]/60">Sample data — deposit to see your real positions</p>
+              </div>
+            </div>
           </div>
         ) : (
           <PortfolioConnectedView />

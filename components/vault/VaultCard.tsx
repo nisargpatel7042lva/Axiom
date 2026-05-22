@@ -80,7 +80,7 @@ export function VaultCard({
         edgeSensitivity={26}
         animated
       >
-        <div className="p-6 bg-gradient-to-b from-[#0d1420] to-[#0a1018] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <div className="flex h-full flex-col p-6 bg-gradient-to-b from-[#0d1420] to-[#0a1018] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <div
@@ -110,7 +110,7 @@ export function VaultCard({
               {risk.label}
             </span>
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-bold font-[family-name:var(--font-space-mono)] ${GRADE_BADGE[config.riskSheet.grade] ?? "bg-white/10 text-[#8b9cb3]"}`}
+              className={`rounded-full px-2 py-0.5 text-xs font-bold font-[family-name:var(--font-space-mono)] ${GRADE_BADGE[config.riskSheet.grade] ?? "bg-white/10 text-[#8b9cb3]"}`}
               title={config.riskSheet.headline}
             >
               Axiom {config.riskSheet.grade}
@@ -119,20 +119,20 @@ export function VaultCard({
               {config.targetApy.min}–{config.targetApy.max}% Target APY
             </span>
             {online === true && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#00e5c3]/10 px-2 py-0.5 text-[10px] font-medium text-[#00e5c3]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#00e5c3]/10 px-2 py-0.5 text-xs font-medium text-[#00e5c3]">
                 <Radio className="size-3" />
                 Devnet
               </span>
             )}
             {online === false && !loading && (
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
                 Not initialized
               </span>
             )}
           </div>
 
           <div className="mt-5 border-t border-white/5 pt-5">
-            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-[#8b9cb3] mb-2">
               <span>NAV vs target capacity</span>
               <span
                 className="inline-flex text-[#8b9cb3]"
@@ -154,7 +154,7 @@ export function VaultCard({
                 )}
               </div>
               {state != null && !loading && (
-                <span className="text-[11px] font-medium text-[#8b9cb3]">{fillPct}%</span>
+                <span className="text-xs font-medium text-[#8b9cb3]">{fillPct}%</span>
               )}
             </div>
             <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-[#1a2235]">
@@ -176,7 +176,7 @@ export function VaultCard({
 
           <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-5">
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
+              <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
                 TVL (NAV)
               </div>
               <div className="mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
@@ -188,7 +188,7 @@ export function VaultCard({
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
+              <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
                 PPS
               </div>
               <div
@@ -203,7 +203,7 @@ export function VaultCard({
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
+              <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
                 Share supply
               </div>
               <div className="mt-1 font-[family-name:var(--font-space-mono)] text-sm font-semibold text-[#e8edf5]">
@@ -217,7 +217,7 @@ export function VaultCard({
           </div>
 
           <div className="mt-4">
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-[#8b9cb3] mb-2">
+            <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-[#8b9cb3] mb-2">
               Target allocation (strategy)
             </div>
             <div className="flex h-1.5 overflow-hidden rounded-full bg-[#1a2235]">
@@ -240,7 +240,7 @@ export function VaultCard({
                 style={{ width: `${config.allocation.idle}%` }}
               />
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-[#8b9cb3]">
+            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#8b9cb3]">
               <span className="flex items-center gap-1">
                 <span className="inline-block size-1.5 rounded-full" style={{ backgroundColor: config.accentColor }} />
                 Predictions {config.allocation.predictions}%

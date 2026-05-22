@@ -125,9 +125,9 @@ export default function TransparencyPage() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-60" />
                   <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
                 </span>
-                <span className="text-[11px] font-semibold text-[#00e5c3]">Powered by RPC Fast</span>
+                <span className="text-xs font-semibold text-[#00e5c3]">Powered by RPC Fast</span>
                 {data.health.rpcFastStreamActive && (
-                  <span className="rounded-full bg-[#00e5c3]/20 px-1.5 py-0.5 text-[10px] font-medium text-[#00e5c3]">
+                  <span className="rounded-full bg-[#00e5c3]/20 px-1.5 py-0.5 text-xs font-medium text-[#00e5c3]">
                     WS Stream Active
                   </span>
                 )}
@@ -135,7 +135,7 @@ export default function TransparencyPage() {
             ) : (
               <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
                 <span className="size-1.5 rounded-full bg-[#8b9cb3]" />
-                <span className="text-[11px] text-[#8b9cb3]">Public RPC</span>
+                <span className="text-xs text-[#8b9cb3]">Public RPC</span>
               </div>
             )}
             <div className="flex items-center gap-2 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5">
@@ -143,7 +143,7 @@ export default function TransparencyPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
                 <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
               </span>
-              <span className="text-[11px] font-semibold text-[#f59e0b]">Dune SIM Live</span>
+              <span className="text-xs font-semibold text-[#f59e0b]">Dune SIM Live</span>
             </div>
           </div>
           </div>
@@ -277,7 +277,7 @@ export default function TransparencyPage() {
                         {row.dataQuality}
                       </span>
                     </td>
-                    <td className="py-2 text-[11px] text-[#8b9cb3]">
+                    <td className="py-2 text-xs text-[#8b9cb3]">
                       {row.degradedCauses.length > 0 ? row.degradedCauses.join(", ") : "—"}
                     </td>
                   </tr>
@@ -324,15 +324,15 @@ export default function TransparencyPage() {
                 <div key={`${d.timestamp}-${d.marketId ?? "scan"}`} className="rounded-lg border border-white/5 bg-[#080c14]/60 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-xs font-medium text-[#e8edf5]">{d.action}</div>
-                    <div className="text-[10px] text-[#8b9cb3]">{new Date(d.timestamp).toLocaleString()}</div>
+                    <div className="text-xs text-[#8b9cb3]">{new Date(d.timestamp).toLocaleString()}</div>
                   </div>
                   <div className="mt-1 text-xs text-[#8b9cb3]">{d.title}</div>
-                  <div className="mt-1 text-[11px] text-[#c9d4e5]">
+                  <div className="mt-1 text-xs text-[#c9d4e5]">
                     Reason: <span className="text-[#e8edf5]">{d.reasonCode}</span>
                     {d.score != null ? ` · Score ${d.score.toFixed(2)}` : ""}
                     {d.confidence != null ? ` · Confidence ${d.confidence}` : ""}
                   </div>
-                  {d.details ? <div className="mt-1 text-[10px] text-[#8b9cb3]">{d.details}</div> : null}
+                  {d.details ? <div className="mt-1 text-xs text-[#8b9cb3]">{d.details}</div> : null}
                 </div>
               ))}
               {decisions.length === 0 && (
@@ -351,16 +351,16 @@ export default function TransparencyPage() {
                     <div className="text-xs font-medium text-[#e8edf5]">
                       {t.action} · {t.vaultId}
                     </div>
-                    <div className="text-[10px] text-[#8b9cb3]">{new Date(t.timestamp).toLocaleString()}</div>
+                    <div className="text-xs text-[#8b9cb3]">{new Date(t.timestamp).toLocaleString()}</div>
                   </div>
-                  <div className="mt-1 text-[11px] text-[#c9d4e5]">
+                  <div className="mt-1 text-xs text-[#c9d4e5]">
                     Market: {t.marketId} · Side: {t.side.toUpperCase()} · Amount: {formatUsd(t.amount)}
                   </div>
-                  <div className="mt-1 text-[11px] text-[#c9d4e5]">
+                  <div className="mt-1 text-xs text-[#c9d4e5]">
                     Expected {t.expectedPrice?.toFixed(4) ?? "—"} · Filled {t.filledPrice?.toFixed(4) ?? "—"} ·
                     Slippage {fmtBps(t.slippageBps)}
                   </div>
-                  <div className="mt-1 text-[10px] text-[#8b9cb3]">
+                  <div className="mt-1 text-xs text-[#8b9cb3]">
                     {t.reasonCode ?? "no-reason"} {t.txSignature ? `· ${t.txSignature.slice(0, 12)}...` : "· no tx"}
                     {t.txSignature && (
                       <Link
@@ -400,7 +400,7 @@ export default function TransparencyPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#f59e0b] opacity-60" />
                 <span className="relative inline-flex size-1.5 rounded-full bg-[#f59e0b]" />
               </span>
-              <span className="text-[10px] font-semibold text-[#f59e0b]">Live</span>
+              <span className="text-xs font-semibold text-[#f59e0b]">Live</span>
             </div>
           </div>
 
@@ -408,36 +408,36 @@ export default function TransparencyPage() {
             <div className="rounded-xl border border-[#f59e0b]/10 bg-[#080c14]/60 p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Activity className="size-3.5 text-[#f59e0b]" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#f59e0b]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#f59e0b]">
                   Balances
                 </span>
               </div>
-              <div className="font-mono text-[11px] text-[#8b9cb3]">GET /beta/svm/balances/</div>
-              <p className="mt-1.5 text-[11px] text-[#c9d4e5]">
+              <div className="font-mono text-xs text-[#8b9cb3]">GET /beta/svm/balances/</div>
+              <p className="mt-1.5 text-xs text-[#c9d4e5]">
                 Full SPL token portfolio for connected wallets. Powers the Token Holdings table and the Deposit Modal USDC balance display.
               </p>
             </div>
             <div className="rounded-xl border border-[#f59e0b]/10 bg-[#080c14]/60 p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Activity className="size-3.5 text-[#f59e0b]" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#f59e0b]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#f59e0b]">
                   Transactions
                 </span>
               </div>
-              <div className="font-mono text-[11px] text-[#8b9cb3]">GET /beta/svm/transactions/</div>
-              <p className="mt-1.5 text-[11px] text-[#c9d4e5]">
+              <div className="font-mono text-xs text-[#8b9cb3]">GET /beta/svm/transactions/</div>
+              <p className="mt-1.5 text-xs text-[#c9d4e5]">
                 Recent wallet transactions parsed with log inspection. Feeds the Vault Activity Feed and the 15-day portfolio USDC flow chart.
               </p>
             </div>
             <div className="rounded-xl border border-[#f59e0b]/10 bg-[#080c14]/60 p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Zap className="size-3.5 text-[#f59e0b]" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#f59e0b]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#f59e0b]">
                   Webhooks
                 </span>
               </div>
-              <div className="font-mono text-[11px] text-[#8b9cb3]">POST /api/webhooks/dune-sim</div>
-              <p className="mt-1.5 text-[11px] text-[#c9d4e5]">
+              <div className="font-mono text-xs text-[#8b9cb3]">POST /api/webhooks/dune-sim</div>
+              <p className="mt-1.5 text-xs text-[#c9d4e5]">
                 Real-time push receiver. Register this endpoint in Dune SIM Subscriptions to stream transaction events directly into Axiom Vaults without polling.
               </p>
             </div>
@@ -447,7 +447,7 @@ export default function TransparencyPage() {
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-xs font-semibold text-[#e8edf5]">Webhook Event Log</h3>
-              <div className="flex items-center gap-1.5 text-[10px] text-[#8b9cb3]">
+              <div className="flex items-center gap-1.5 text-xs text-[#8b9cb3]">
                 <RefreshCw className={`size-3 ${webhookQ.isFetching ? "animate-spin text-[#f59e0b]" : ""}`} />
                 {webhookQ.data ? `${webhookQ.data.total} events total` : "Polling…"}
               </div>
@@ -461,23 +461,23 @@ export default function TransparencyPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-[#f59e0b]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#f59e0b]">
+                        <span className="rounded-full bg-[#f59e0b]/15 px-1.5 py-0.5 text-xs font-medium text-[#f59e0b]">
                           {ev.eventType}
                         </span>
-                        <span className="text-[10px] text-[#8b9cb3]">{ev.chain}</span>
+                        <span className="text-xs text-[#8b9cb3]">{ev.chain}</span>
                         {ev.walletAddress && (
-                          <span className="font-mono text-[10px] text-[#8b9cb3]">
+                          <span className="font-mono text-xs text-[#8b9cb3]">
                             {ev.walletAddress.slice(0, 6)}…{ev.walletAddress.slice(-4)}
                           </span>
                         )}
                       </div>
                       {ev.txHash && (
-                        <div className="mt-0.5 font-mono text-[10px] text-[#8b9cb3]">
+                        <div className="mt-0.5 font-mono text-xs text-[#8b9cb3]">
                           tx: {ev.txHash.slice(0, 16)}…
                         </div>
                       )}
                     </div>
-                    <div className="shrink-0 text-[10px] text-[#8b9cb3]">
+                    <div className="shrink-0 text-xs text-[#8b9cb3]">
                       {new Date(ev.receivedAt).toLocaleTimeString()}
                     </div>
                   </div>
@@ -489,7 +489,7 @@ export default function TransparencyPage() {
                 <p className="text-xs text-[#8b9cb3]">
                   No webhook events received yet.
                 </p>
-                <p className="mt-1 text-[11px] text-[#8b9cb3]/70">
+                <p className="mt-1 text-xs text-[#8b9cb3]/70">
                   Register{" "}
                   <span className="font-mono text-[#f59e0b]/70">{"<your-domain>"}/api/webhooks/dune-sim</span>{" "}
                   in the Dune SIM dashboard under Subscriptions → Webhooks to push real-time transaction events here.

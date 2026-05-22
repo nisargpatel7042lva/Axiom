@@ -88,6 +88,15 @@ export function DepositModal({
   const [amountStr, setAmountStr] = useState("");
   const [lastSig, setLastSig] = useState<string | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
+  const [solBalance, setSolBalance] = useState<number | null>(null);
+
+  // Fetch SOL balance once on open so we can warn about fee coverage
+  useEffect(() => {
+    if (!open || !publicKey || !connection) return;
+    connection.getBalance(publicKey).then((lamports) => {
+      setSolBalance(lamports / 1e9);
+    }).catch(() => {});
+  }, [open, publicKey, connection]);
 
   const walletBalance = usdcBalance;
 
@@ -296,6 +305,20 @@ export function DepositModal({
                     USDC
                   </span>
                 </div>
+                {!balanceLoading && walletBalance === 0 && (
+                  <p className="mt-1 rounded-lg border border-[#00e5c3]/20 bg-[#00e5c3]/5 px-3 py-2 text-xs text-[#8b9cb3]">
+                    No devnet USDC found. Airdrop test tokens at{" "}
+                    <a
+                      href="https://spl-token-faucet.com/?token-name=USDC-Dev"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#00e5c3] underline hover:text-[#33ebd3]"
+                    >
+                      spl-token-faucet.com
+                    </a>
+                    .
+                  </p>
+                )}
                 {amount > 0 && lamports.gt(walletLamportsMax) && (
                   <p className="mt-1 text-xs text-[#ef4444]">
                     Amount exceeds on-wallet USDC ({formatUsd(walletBalance)} available).
@@ -304,6 +327,19 @@ export function DepositModal({
                 {amount > 0 && amount < vaultConfig.minDeposit && (
                   <p className="mt-1 text-xs text-[#ef4444]">
                     Minimum deposit: {formatUsd(vaultConfig.minDeposit)}
+                  </p>
+                )}
+                {solBalance !== null && solBalance < 0.005 && (
+                  <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+                    Low SOL balance ({solBalance.toFixed(4)} SOL). Transactions need ~0.005 SOL for fees.{" "}
+                    <a
+                      href="https://faucet.solana.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-amber-200"
+                    >
+                      Get devnet SOL →
+                    </a>
                   </p>
                 )}
               </div>

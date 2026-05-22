@@ -103,10 +103,10 @@ export function SafePlayAgreementGate({
                     <summary className="cursor-pointer text-xs font-medium text-[#00e5c3]">
                       View exact message you will sign
                     </summary>
-                    <pre className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-[#8b9cb3]">
+                    <pre className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#8b9cb3]">
                       {buildAgreementMessage("YOUR_WALLET_ADDRESS")}
                     </pre>
-                    <p className="mt-2 text-[10px] text-[#8b9cb3]/70">
+                    <p className="mt-2 text-xs text-[#8b9cb3]/70">
                       Preview uses a placeholder; your real address is inserted when you sign.
                     </p>
                   </details>
@@ -137,7 +137,7 @@ export function SafePlayAgreementGate({
                       </>
                     )}
                   </button>
-                  <p className="mt-3 text-center text-[10px] text-[#8b9cb3]/70">
+                  <p className="mt-3 text-center text-xs text-[#8b9cb3]/70">
                     This signs a plain message only. It does not send a transaction or transfer
                     tokens.
                   </p>

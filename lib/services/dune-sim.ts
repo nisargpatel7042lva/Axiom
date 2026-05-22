@@ -322,12 +322,19 @@ export function inferWalletUsdcFlow(
 /**
  * Fetch all SPL token balances for a Solana wallet.
  * Powers: DepositModal (real USDC balance), Portfolio page (token holdings).
+ * In the browser, proxied through /api/dune/balances so the key stays server-side.
  */
 export async function getWalletBalances(
   address: string,
 ): Promise<TokenBalance[]> {
-  const client = createClient();
   try {
+    if (typeof window !== "undefined") {
+      const res = await fetch(`/api/dune/balances?address=${encodeURIComponent(address)}`);
+      if (!res.ok) return [];
+      const data: SvmBalancesResponse = await res.json();
+      return (data.balances ?? []).map(mapSvmBalanceToTokenBalance);
+    }
+    const client = createClient();
     const { data } = await client.get<SvmBalancesResponse>(
       `/beta/svm/balances/${encodeURIComponent(address)}`,
       { params: { chains: "solana" } },
@@ -357,13 +364,20 @@ export async function getUsdcBalance(
 /**
  * Fetch recent transactions for a Solana wallet.
  * Powers: Vault detail Activity Feed with real deposit/withdraw/trade data.
+ * In the browser, proxied through /api/dune/txns so the key stays server-side.
  */
 export async function getTransactionHistory(
   address: string,
   limit = 20,
 ): Promise<DuneTransaction[]> {
-  const client = createClient();
   try {
+    if (typeof window !== "undefined") {
+      const res = await fetch(`/api/dune/txns?address=${encodeURIComponent(address)}&limit=${limit}`);
+      if (!res.ok) return [];
+      const data: SvmTransactionsResponse = await res.json();
+      return (data.transactions ?? []).map(mapSvmTransactionToDune);
+    }
+    const client = createClient();
     const { data } = await client.get<SvmTransactionsResponse>(
       `/beta/svm/transactions/${encodeURIComponent(address)}`,
       { params: { limit, chains: "solana" } },

@@ -20,8 +20,9 @@ import {
   Target,
   Gem,
   Mail,
-  User,
+  Layers,
   ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -70,10 +71,10 @@ const FEATURES = [
     color: "#a855f7",
   },
   {
-    icon: <User className="size-5" />,
-    title: "Solana Identity",
+    icon: <Layers className="size-5" />,
+    title: "Composable",
     description:
-      "Anchor vault access to .sol identity and agent reputation. Build trust through on-chain reputation.",
+      "SPL vault tokens are standard Solana tokens. Use them as collateral, transfer them, or build on top.",
     color: "#f59e0b",
   },
 ];
@@ -86,9 +87,9 @@ const STEPS = [
 ];
 
 const STATS = [
-  { label: "Target APY Range", value: "8–35%", suffix: "" },
+  { label: "Idle Capital Baseline", value: "~6%", suffix: "APY" },
   { label: "On-chain Vaults", value: "3", suffix: "" },
-  { label: "Solana Network", value: "Devnet", suffix: "" },
+  { label: "Stage", value: "Devnet", suffix: "Preview" },
   { label: "Management Fee", value: "0%", suffix: "" },
 ];
 
@@ -201,19 +202,103 @@ function ScrollCue() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function WaitlistCard() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          setStatus("success");
+          return;
+        }
+        throw new Error((data as { error?: string }).error ?? "Something went wrong");
+      }
+      setStatus("success");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="relative h-full overflow-hidden rounded-2xl border border-[#00e5c3]/20 bg-[#0d1420] p-6 md:p-8"
+      style={{ boxShadow: "0 0 0 1px rgba(0,229,195,0.06), inset 0 1px 0 rgba(0,229,195,0.04)" }}>
+      <div className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,229,195,0.07) 0%, transparent 60%)" }} />
+      <div className="relative">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-3 py-1">
+          <span className="text-xs font-semibold uppercase tracking-widest text-[#00e5c3]">Mainnet Launch</span>
+        </div>
+        <h2 className="mt-3 text-xl font-bold text-[#e8edf5]">Get early access</h2>
+        <p className="mt-2 text-sm leading-relaxed text-[#8b9cb3]">
+          Axiom is live on devnet. Join the waitlist and be first to deposit when we go to mainnet.
+        </p>
+        {status === "success" ? (
+          <div className="mt-6 flex items-center gap-3 rounded-xl border border-[#00e5c3]/25 bg-[#00e5c3]/10 px-4 py-3">
+            <CheckCircle2 className="size-5 shrink-0 text-[#00e5c3]" />
+            <p className="text-sm font-medium text-[#00e5c3]">You&apos;re on the list. We&apos;ll email you at launch.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="email"
+              required
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={status === "loading"}
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-[#e8edf5] placeholder:text-[#8b9cb3] focus:border-[#00e5c3]/40 focus:outline-none focus:ring-1 focus:ring-[#00e5c3]/30 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={status === "loading" || !email.trim()}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#00e5c3] px-5 py-2.5 text-sm font-bold text-[#080c14] transition-all hover:bg-[#33ebd3] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {status === "loading" ? "Joining…" : "Join waitlist"}
+              {status !== "loading" && <ArrowRight className="size-4" />}
+            </button>
+          </form>
+        )}
+        {status === "error" && (
+          <p className="mt-2 text-xs text-red-400">{errorMsg}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true });
   return (
     <div ref={ref} className="flex flex-col items-center gap-1">
-      <motion.span
-        className="font-[family-name:var(--font-space-mono)] text-2xl font-bold text-[#e8edf5] md:text-3xl"
+      <motion.div
+        className="flex items-baseline gap-1"
         initial={{ opacity: 0, y: 10 }}
         animate={inView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        {value}
-      </motion.span>
+        <span className="font-[family-name:var(--font-space-mono)] text-2xl font-bold text-[#e8edf5] md:text-3xl">
+          {value}
+        </span>
+        {suffix && (
+          <span className="font-[family-name:var(--font-space-mono)] text-sm font-medium text-[#8b9cb3]">
+            {suffix}
+          </span>
+        )}
+      </motion.div>
       <span className="text-xs text-[#8b9cb3] text-center">{label}</span>
     </div>
   );
@@ -368,7 +453,7 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-0 md:divide-x md:divide-white/[0.07]">
               {STATS.map((s) => (
                 <div key={s.label} className="flex justify-center md:px-8">
-                  <StatCard label={s.label} value={s.value} />
+                  <StatCard label={s.label} value={s.value} suffix={s.suffix} />
                 </div>
               ))}
             </div>
@@ -564,42 +649,59 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── CTA / Contact ────────────────────────────── */}
+        {/* ── Waitlist + Contact ───────────────────────── */}
         <section className="border-t border-white/5 bg-[#0d1420]/40">
           <div className="mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-20">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={SPRING.smooth}
-              className="mx-auto max-w-2xl"
-            >
-              <div className="relative overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 text-center md:p-10"
-                style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-                {/* BG glow */}
-                <div className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,229,195,0.06) 0%, transparent 60%)" }} />
-                <h2 className="relative text-xl font-bold text-[#e8edf5] md:text-2xl">Still have questions?</h2>
-                <p className="relative mt-2 text-sm leading-relaxed text-[#8b9cb3]">
-                  All common topics are on our FAQ page. Prefer email or X? Reach us below.
-                </p>
-                <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="relative mt-6 inline-block">
-                  <Link href="/faq" className="inline-flex items-center gap-2 rounded-xl bg-[#00e5c3] px-6 py-3 text-sm font-bold text-[#080c14] transition-colors hover:bg-[#33ebd3]">
-                    Go to FAQ
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </motion.div>
-                <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-                  <a href="mailto:axiomvaults1@gmail.com" className="group inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-all hover:border-[#00e5c3]/40 hover:bg-white/[0.04] hover:scale-[1.02]">
-                    <Mail className="size-4 shrink-0 text-[#00e5c3]" aria-hidden />
-                    axiomvaults1@gmail.com
-                  </a>
-                  <a href="https://x.com/axiom_vaults" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-all hover:border-[#00e5c3]/40 hover:bg-white/[0.04] hover:scale-[1.02]">
-                    <span className="flex size-4 items-center justify-center rounded bg-[#00e5c3]/20 text-[10px] font-bold text-[#00e5c3]">X</span>
-                    @axiom_vaults
-                  </a>
+            <div className="grid gap-6 md:grid-cols-2 md:gap-8">
+
+              {/* Waitlist card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={SPRING.smooth}
+              >
+                <WaitlistCard />
+              </motion.div>
+
+              {/* Contact card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ ...SPRING.smooth, delay: 0.08 }}
+              >
+                <div className="relative h-full overflow-hidden rounded-2xl border border-[#1a2235] bg-[#0d1420] p-6 md:p-8"
+                  style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.05) 0%, transparent 60%)" }} />
+                  <div className="relative">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#6366f1]/25 bg-[#6366f1]/10 px-3 py-1">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-[#6366f1]">Contact</span>
+                    </div>
+                    <h2 className="mt-3 text-xl font-bold text-[#e8edf5]">Still have questions?</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-[#8b9cb3]">
+                      All common topics are on our FAQ page. Prefer email or X?
+                    </p>
+                    <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="mt-5 inline-block">
+                      <Link href="/faq" className="inline-flex items-center gap-2 rounded-xl bg-[#6366f1] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#7c7ef5]">
+                        Go to FAQ
+                        <ArrowRight className="size-4" />
+                      </Link>
+                    </motion.div>
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <a href="mailto:axiomvaults1@gmail.com" className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-all hover:border-[#6366f1]/40 hover:bg-white/[0.04] hover:scale-[1.02]">
+                        <Mail className="size-4 shrink-0 text-[#6366f1]" aria-hidden />
+                        axiomvaults1@gmail.com
+                      </a>
+                      <a href="https://x.com/axiom_vaults" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-[#080c14] px-4 py-2.5 text-sm text-[#e8edf5] transition-all hover:border-[#6366f1]/40 hover:bg-white/[0.04] hover:scale-[1.02]">
+                        <span className="flex size-4 items-center justify-center rounded bg-[#6366f1]/20 text-xs font-bold text-[#818cf8]">X</span>
+                        @axiom_vaults
+                      </a>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </div>
           </div>
         </section>
       </main>

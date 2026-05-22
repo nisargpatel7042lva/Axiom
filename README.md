@@ -10,9 +10,9 @@ Axiom Vaults lets users deposit USDC into themed, auto-managed vaults that build
 
 | Vault                | Strategy                                                | Risk   | Target APY |
 |----------------------|---------------------------------------------------------|--------|------------|
-| **Safe Consensus**   | Buys >85% probability events                            | Low    | 8–15%      |
-| **Macro Contrarian** | Targets mispriced 40–65% political/economic events      | High   | 20–50%     |
-| **Yield Maximizer**  | 70% Jupiter Lend yield, 30% high-conviction predictions | Medium | 12–25%     |
+| **Safe Consensus**   | Buys >85% probability events                            | Low    | 4–10%      |
+| **Macro Contrarian** | Targets mispriced 40–65% political/economic events      | Medium | 8–22%      |
+| **Yield Maximizer**  | 55% Jupiter Lend yield, 35% high-conviction predictions | High   | 10–28%     |
 
 ## Architecture
 

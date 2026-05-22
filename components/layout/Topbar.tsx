@@ -21,10 +21,11 @@ const WalletMultiButton = dynamic(
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/vaults", label: "Vaults" },
+  { href: "/docs", label: "Docs" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
   { href: "/portfolio", label: "Portfolio" },
-  { href: "/transparency", label: "Metrics" },
+  { href: "/transparency", label: "Transparency" },
 ] as const;
 
 function navActive(pathname: string, href: string): boolean {
@@ -163,7 +164,7 @@ export function Topbar() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00e5c3] opacity-50" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-[#00e5c3]" />
                   </span>
-                  <span className="text-[11px] font-medium text-white/50">
+                  <span className="text-xs font-medium text-white/50">
                     {cluster}
                   </span>
                 </div>

@@ -13,7 +13,7 @@ export function ExposureVenues({
   return (
     <div className={embedded ? "" : "mt-4 border-t border-white/5 pt-4"}>
       {!embedded && (
-        <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-2">
+        <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3] mb-2">
           Where capital is expressed
         </div>
       )}
@@ -25,7 +25,7 @@ export function ExposureVenues({
             title={v.role}
           >
             <div className="text-xs font-medium text-[#e8edf5]">{v.label}</div>
-            <div className="text-[10px] text-[#8b9cb3]" style={{ color: `${accentColor}cc` }}>
+            <div className="text-xs text-[#8b9cb3]" style={{ color: `${accentColor}cc` }}>
               {v.role}
             </div>
           </div>

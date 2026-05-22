@@ -356,7 +356,7 @@ export default function VaultDetailPage({
               key={label}
               className="rounded-xl border border-[#1a2235] bg-[#0d1420] p-3 min-[391px]:p-4"
             >
-              <div className="text-[9px] font-medium uppercase tracking-wider text-[#8b9cb3] min-[391px]:text-[10px]">
+              <div className="text-[9px] font-medium uppercase tracking-wider text-[#8b9cb3] min-[391px]:text-xs">
                 {label}
               </div>
               <div
@@ -385,7 +385,7 @@ export default function VaultDetailPage({
               <Activity className="size-4 shrink-0 text-[#8b9cb3]" />
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[#e8edf5]">Price per share</h3>
-                <p className="text-[10px] text-[#8b9cb3] max-[390px]:leading-snug">
+                <p className="text-xs text-[#8b9cb3] max-[390px]:leading-snug">
                   Live samples from this browser session (devnet polls)
                 </p>
               </div>
@@ -396,7 +396,7 @@ export default function VaultDetailPage({
                   key={range}
                   type="button"
                   onClick={() => setChartRange(range)}
-                  className={`shrink-0 snap-start rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors min-[391px]:px-3 min-[391px]:text-xs ${
+                  className={`shrink-0 snap-start rounded-lg px-2.5 py-1 text-xs font-medium transition-colors min-[391px]:px-3 min-[391px]:text-xs ${
                     chartRange === range
                       ? "bg-white/10 text-[#00e5c3]"
                       : "text-[#8b9cb3] hover:text-[#e8edf5]"
@@ -543,14 +543,14 @@ export default function VaultDetailPage({
                   </span>
                 </div>
               ))}
-              <p className="text-[10px] leading-relaxed text-[#8b9cb3] pt-2 border-t border-white/5">
+              <p className="text-xs leading-relaxed text-[#8b9cb3] pt-2 border-t border-white/5">
                 NAV follows `total_assets` from the program. The vault token account may differ until
                 the engine runs `sync_nav` or after user flows settle.
               </p>
             </div>
 
             <div className="mt-5 pt-4 border-t border-white/5">
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3] mb-3">
+              <div className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3] mb-3">
                 Vault parameters
               </div>
               <div className="space-y-2 text-xs min-[391px]:text-sm">

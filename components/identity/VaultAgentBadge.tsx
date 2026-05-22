@@ -31,9 +31,9 @@ export function VaultAgentBadge({ vaultId }: { vaultId: string }) {
     >
       <div className="flex items-center gap-2 min-w-0">
         <Brain className="size-3.5 shrink-0 text-[#8b9cb3]" />
-        <span className="truncate text-[11px] text-[#8b9cb3]">{display.agentName}</span>
+        <span className="truncate text-xs text-[#8b9cb3]">{display.agentName}</span>
       </div>
-      <div className={`flex items-center gap-1 shrink-0 text-[11px] font-semibold ${text}`}>
+      <div className={`flex items-center gap-1 shrink-0 text-xs font-semibold ${text}`}>
         <TrendingUp className="size-3" />
         <span>{Math.round(display.reputation)}</span>
         <span

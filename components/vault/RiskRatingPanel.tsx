@@ -55,7 +55,7 @@ export function RiskRatingPanel({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-medium text-[#e8edf5]">{d.label}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.className}`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${s.className}`}>
                   {s.label}
                 </span>
               </div>

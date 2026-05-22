@@ -67,10 +67,10 @@ export function VaultTxSuccessStep({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.55, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
-            <p className="text-[10px] font-medium uppercase tracking-wider text-[#8b9cb3]">
+            <p className="text-xs font-medium uppercase tracking-wider text-[#8b9cb3]">
               Transaction signature
             </p>
-            <p className="mt-2 max-h-24 overflow-y-auto font-[family-name:var(--font-space-mono)] text-[11px] leading-relaxed text-[#e8edf5] break-all">
+            <p className="mt-2 max-h-24 overflow-y-auto font-[family-name:var(--font-space-mono)] text-xs leading-relaxed text-[#e8edf5] break-all">
               {txSig}
             </p>
             <a

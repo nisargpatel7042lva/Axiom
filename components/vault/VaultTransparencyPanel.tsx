@@ -67,14 +67,14 @@ export function VaultTransparencyPanel({
             >
               <div className="min-w-0">
                 <div className="text-sm font-medium text-[#e8edf5]">{l.label}</div>
-                <div className="text-[10px] text-[#8b9cb3]">{l.hint}</div>
+                <div className="text-xs text-[#8b9cb3]">{l.hint}</div>
               </div>
               <ExternalLink className="mt-0.5 size-4 shrink-0 text-[#8b9cb3] group-hover:text-[#00e5c3]" />
             </a>
           </li>
         ))}
       </ul>
-      <div className="mt-4 flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2.5 text-[11px] leading-relaxed text-[#8b9cb3]">
+      <div className="mt-4 flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2.5 text-xs leading-relaxed text-[#8b9cb3]">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#00e5c3]" />
         <span>
           Charts and Dune SIM activity are <span className="text-[#e8edf5]">off-chain UX layers</span>

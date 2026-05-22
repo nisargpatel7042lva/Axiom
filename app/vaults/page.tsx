@@ -95,7 +95,7 @@ export default function VaultsPage() {
                 </button>
               </div>
             )}
-            <div className="flex items-center justify-end gap-2 text-[10px] text-[#8b9cb3]">
+            <div className="flex items-center justify-end gap-2 text-xs text-[#8b9cb3]">
               {isFetching && !loading ? (
                 <span className="animate-pulse">Refreshing devnet data…</span>
               ) : (
@@ -133,6 +133,7 @@ export default function VaultsPage() {
                       y:       stage >= 3 ? 0 : 24,
                     }}
                     transition={{ ...SPRING.bouncy, delay: i * 0.12 }}
+                    className="h-full"
                   >
                     <VaultCard
                       config={config}

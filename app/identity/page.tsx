@@ -55,7 +55,7 @@ function VaultAgentRow({ vaultId }: { vaultId: string }) {
 function SummaryRow({ label, value }: { label: string; value: string | number | React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-[#c8d0df] shadow-sm shadow-black/10">
-      <span className="text-[11px] uppercase tracking-[0.22em] text-white/60">{label}</span>
+      <span className="text-xs uppercase tracking-[0.22em] text-white/60">{label}</span>
       <span className="text-sm font-semibold text-white">{value}</span>
     </div>
   );
