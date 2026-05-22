@@ -22,7 +22,7 @@ export async function GET() {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: `Unable to reach engine API: ${message}` },
+      { error: `Unable to reach engine API: ${message}`, target: DEFAULT_ENGINE_BASE },
       { status: 502 },
     );
   }
