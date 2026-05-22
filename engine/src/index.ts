@@ -161,8 +161,8 @@ app.get("/api/transparency", (_req, res) => {
   });
 });
 
-app.listen(CONFIG.HEALTH_PORT, () => {
-  log.info(`Health endpoint listening on http://localhost:${CONFIG.HEALTH_PORT}/health`);
+app.listen(CONFIG.HEALTH_PORT, "0.0.0.0", () => {
+  log.info(`Health endpoint listening on http://0.0.0.0:${CONFIG.HEALTH_PORT}/health`);
 });
 
 let navDebounceTimer: NodeJS.Timeout | null = null;

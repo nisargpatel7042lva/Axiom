@@ -62,7 +62,7 @@ export const CONFIG = {
   USDC_MINT:
     process.env.USDC_MINT || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 
-  HEALTH_PORT: parseInt(process.env.HEALTH_PORT || "3001", 10),
+  HEALTH_PORT: parseInt(process.env.PORT || process.env.HEALTH_PORT || "3001", 10),
 
   VAULT_NAV_SNAPSHOT_DIR: process.env.VAULT_NAV_SNAPSHOT_DIR?.trim() || "",
   ENABLE_TOKENS_ENRICHMENT:
