@@ -2,9 +2,10 @@ import "./env-bootstrap.js";
 import cron from "node-cron";
 import express from "express";
 import { runMarketScanner } from "./jobs/market-scanner.js";
-import { runPositionManager } from "./jobs/position-manager.js";
+import { runPositionManager, initPositionManager } from "./jobs/position-manager.js";
 import { runYieldRouter } from "./jobs/yield-router.js";
 import { runNavCalculator, getAllNavs } from "./jobs/nav-calculator.js";
+import { runFeeCollector } from "./jobs/fee-collector.js";
 import { getActivePositions, getDecisionHistory, getTradeHistory } from "./jobs/position-manager.js";
 import { getVaultNavYieldMetrics } from "./data/vault-nav-snapshots.js";
 import { getAllVaultConfigs, CONFIG, inferClusterFromRpc } from "./config.js";
@@ -74,6 +75,17 @@ cron.schedule("0 * * * *", async () => {
     lastYieldRoute = new Date().toISOString();
   } catch (err) {
     log.error("Yield router failed", err);
+  }
+});
+
+// Daily at 00:05 UTC — collect performance fees when PPS > HWM.
+// Daily cadence is sufficient; more frequent runs waste SOL on tx fees.
+cron.schedule("5 0 * * *", async () => {
+  log.info("[cron] Fee collector");
+  try {
+    await runFeeCollector();
+  } catch (err) {
+    log.error("Fee collector failed", err);
   }
 });
 
@@ -170,6 +182,15 @@ let navDebounceTimer: NodeJS.Timeout | null = null;
 async function bootstrap(): Promise<void> {
   log.info("Spectra Engine starting...");
   validateStartupEnvironment();
+
+  // Restore persisted positions before any NAV or position cycle runs.
+  // Without this, a restart zeroes activePositions, causing sync_nav to
+  // under-report NAV and allowing users to withdraw at a depressed share price.
+  try {
+    await initPositionManager();
+  } catch (err) {
+    log.error("Position manager init failed (non-fatal, continuing with empty state)", err);
+  }
 
   try {
     log.info("Running initial market scan...");

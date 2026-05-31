@@ -46,11 +46,18 @@ export abstract class BaseStrategy {
         const daysToResolution = this.daysUntil(event.endDate);
         const side = this.recommendedSide(event, market);
         const price = side === "yes" ? market.buyYesPriceUsd : market.buyNoPriceUsd;
-        const probability = market.buyYesPriceUsd;
+        // Win probability for the side being taken, not always the YES probability.
+        // Without this, NO bets on a 40%-YES market score at 0.40 instead of 0.60,
+        // systematically underranking them and starving contrarian/NO strategies.
+        const probability = side === "yes" ? market.buyYesPriceUsd : 1 - market.buyYesPriceUsd;
 
         const volumeWeight = this.normalizeVolume(market.volumeTotal);
         const timeWeight = this.timeToResolutionScore(daysToResolution);
         const score = probability * volumeWeight * timeWeight;
+
+        // Edge ratio: how much return above fair value. 0 = breakeven, positive = edge.
+        // Formula: (win_probability / entry_price) - 1
+        const expectedValue = price > 0 ? probability / price - 1 : 0;
 
         opportunities.push({
           eventId: event.id,
@@ -62,7 +69,7 @@ export abstract class BaseStrategy {
           volumeTotal: market.volumeTotal,
           side,
           price,
-          expectedValue: (side === "yes" ? 1 - price : 1 - (1 - price)) * price,
+          expectedValue,
           score,
           daysToResolution,
           vaultFit: [this.strategyType],

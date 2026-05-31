@@ -90,4 +90,7 @@ pub enum SpectraError {
 
     #[msg("User has no shares to vote with")]
     NoSharesToVote,
+
+    #[msg("New NAV exceeds 2× previous value in a single sync — possible key compromise")]
+    NavBoundsExceeded,
 }

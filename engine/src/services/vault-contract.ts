@@ -78,6 +78,20 @@ export function deriveStrategyPda(vaultPda: PublicKey): [PublicKey, number] {
   );
 }
 
+export function deriveSharesMintPda(vaultPda: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("shares_mint"), vaultPda.toBuffer()],
+    PROGRAM_ID,
+  );
+}
+
+export function deriveMultisigPda(vaultPda: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("multisig"), vaultPda.toBuffer()],
+    PROGRAM_ID,
+  );
+}
+
 export async function syncNav(
   vaultId: number,
   newTotalAssets: number,
@@ -111,16 +125,34 @@ export async function syncNav(
   }, `syncNav(vault=${vaultId})`);
 }
 
-type ParsedVaultState = { totalAssets: number; totalShares: number };
+export type ParsedVaultState = {
+  totalAssets: number;
+  totalShares: number;
+  // Raw 9-decimal fixed-point PPS stored in high_water_mark on-chain.
+  // Divide by 1e9 to get USDC/share.
+  highWaterMarkRaw: bigint;
+};
 
 function parseVaultState(data: Buffer): ParsedVaultState | null {
-  if (data.length < 152) return null;
+  if (data.length < 170) return null;
+  // Layout (see state.rs VaultState):
+  // 0-7:    discriminator
+  // 8-39:   authority
+  // 40-71:  asset_mint
+  // 72-103: shares_mint
+  // 104-135: asset_vault
+  // 136-143: total_assets  (u64, 6-decimal)
+  // 144-151: total_shares  (u64, 9-decimal)
+  // 152-159: vault_id
+  // 160:    strategy_type
+  // 161-168: high_water_mark (u64, 9-decimal PPS)
   const totalAssets = Number(data.readBigUInt64LE(136)) / 1e6;
   const totalShares = Number(data.readBigUInt64LE(144)) / 1e9;
-  return { totalAssets, totalShares };
+  const highWaterMarkRaw = data.readBigUInt64LE(161);
+  return { totalAssets, totalShares, highWaterMarkRaw };
 }
 
-export async function fetchVaultState(vaultId: number): Promise<unknown | null> {
+export async function fetchVaultState(vaultId: number): Promise<ParsedVaultState | null> {
   try {
     const provider = getProvider();
     const [vaultPda] = deriveVaultPda(vaultId);
@@ -134,11 +166,11 @@ export async function fetchVaultState(vaultId: number): Promise<unknown | null> 
 }
 
 export async function getTotalShares(vaultId: number): Promise<number> {
-  const state = (await fetchVaultState(vaultId)) as ParsedVaultState | null;
+  const state = await fetchVaultState(vaultId);
   return state?.totalShares ?? 0;
 }
 
 export async function getTotalAssets(vaultId: number): Promise<number> {
-  const state = (await fetchVaultState(vaultId)) as ParsedVaultState | null;
+  const state = await fetchVaultState(vaultId);
   return state?.totalAssets ?? 0;
 }

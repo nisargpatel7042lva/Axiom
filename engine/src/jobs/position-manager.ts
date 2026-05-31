@@ -8,6 +8,7 @@ import { getOpportunities, getStrategy } from "./market-scanner.js";
 import { getNav } from "./nav-calculator.js";
 import { getAllVaultConfigs, CONFIG } from "../config.js";
 import { createLogger } from "../utils/logger.js";
+import { loadPersistedPositions, persistPositions } from "../utils/position-store.js";
 import type {
   ActivePosition,
   DecisionLog,
@@ -21,6 +22,19 @@ const log = createLogger("position-manager");
 
 /** In-memory ledger of positions managed by the engine. */
 const activePositions = new Map<string, ActivePosition[]>();
+
+/**
+ * Load persisted positions from disk on engine startup.
+ * Must be called once before the first runPositionManager cycle so that
+ * NAV computation doesn't lose track of open positions across restarts.
+ */
+export async function initPositionManager(): Promise<void> {
+  const saved = await loadPersistedPositions();
+  for (const [key, val] of saved.entries()) {
+    activePositions.set(key, val);
+  }
+  log.info("Position manager initialized from persisted state");
+}
 const tradeHistory: TradeLog[] = [];
 const decisionHistory: DecisionLog[] = [];
 const ORDER_REQUEST_DELAY_MS = Math.max(0, CONFIG.ORDER_REQUEST_DELAY_MS);
@@ -274,10 +288,7 @@ async function openPosition(
       openedAt: new Date().toISOString(),
     };
 
-    const positions = activePositions.get(vaultId) ?? [];
-    positions.push(pos);
-    activePositions.set(vaultId, positions);
-
+    addPosition(vaultId, pos);
     logTrade(vaultId, "open", pos, {
       reasonCode: "market_entry",
       expectedPrice: opp.price,
@@ -314,10 +325,7 @@ async function openPosition(
       openedAt: new Date().toISOString(),
     };
 
-    const positions = activePositions.get(vaultId) ?? [];
-    positions.push(pos);
-    activePositions.set(vaultId, positions);
-
+    addPosition(vaultId, pos);
     logTrade(vaultId, "open", pos, {
       txSignature: sig,
       reasonCode: "market_entry",
@@ -343,10 +351,7 @@ async function openPosition(
         openedAt: new Date().toISOString(),
       };
 
-      const positions = activePositions.get(vaultId) ?? [];
-      positions.push(pos);
-      activePositions.set(vaultId, positions);
-
+      addPosition(vaultId, pos);
       logTrade(vaultId, "open", pos, {
         reasonCode: "market_entry",
         expectedPrice: opp.price,
@@ -414,6 +419,14 @@ function removePosition(vaultId: string, marketId: string): void {
     vaultId,
     positions.filter((p) => p.marketId !== marketId),
   );
+  void persistPositions(activePositions);
+}
+
+function addPosition(vaultId: string, pos: ActivePosition): void {
+  const positions = activePositions.get(vaultId) ?? [];
+  positions.push(pos);
+  activePositions.set(vaultId, positions);
+  void persistPositions(activePositions);
 }
 
 function logTrade(

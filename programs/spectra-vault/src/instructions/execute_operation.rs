@@ -67,6 +67,15 @@ pub fn handler(ctx: Context<ExecuteOperation>) -> Result<()> {
 
 fn execute_sync_nav(vault: &mut Account<VaultState>, new_total_assets: u64) -> Result<()> {
     let old_total_assets = vault.total_assets;
+
+    // Mirror the same bounds guard as the direct sync_nav instruction.
+    if old_total_assets > 0 {
+        let max_allowed = old_total_assets
+            .checked_mul(2)
+            .ok_or(SpectraError::MathOverflow)?;
+        require!(new_total_assets <= max_allowed, SpectraError::NavBoundsExceeded);
+    }
+
     vault.total_assets = new_total_assets;
 
     let pps: u64 = if vault.total_shares > 0 {
@@ -80,6 +89,12 @@ fn execute_sync_nav(vault: &mut Account<VaultState>, new_total_assets: u64) -> R
     } else {
         0
     };
+
+    // Keep high-water mark in sync — without this the multisig path never
+    // advances HWM, blocking performance fee collection after a multisig sync.
+    if pps > vault.high_water_mark {
+        vault.high_water_mark = pps;
+    }
 
     emit!(NavSyncEvent {
         vault: vault.key(),
