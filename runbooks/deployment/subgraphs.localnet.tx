@@ -1,0 +1,108 @@
+
+action "spectra_vault_deposit_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "DepositEvent"
+    }
+}
+
+action "spectra_vault_multisig_initialized_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "MultisigInitializedEvent"
+    }
+}
+
+action "spectra_vault_nav_sync_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "NavSyncEvent"
+    }
+}
+
+action "spectra_vault_operation_approved_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "OperationApprovedEvent"
+    }
+}
+
+action "spectra_vault_operation_cancelled_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "OperationCancelledEvent"
+    }
+}
+
+action "spectra_vault_operation_executed_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "OperationExecutedEvent"
+    }
+}
+
+action "spectra_vault_operation_proposed_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "OperationProposedEvent"
+    }
+}
+
+action "spectra_vault_strategy_proposal_created_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "StrategyProposalCreatedEvent"
+    }
+}
+
+action "spectra_vault_strategy_proposal_executed_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "StrategyProposalExecutedEvent"
+    }
+}
+
+action "spectra_vault_strategy_update_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "StrategyUpdateEvent"
+    }
+}
+
+action "spectra_vault_vote_cast_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "VoteCastEvent"
+    }
+}
+
+action "spectra_vault_withdraw_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_spectra_vault.program_id
+    program_idl = action.deploy_spectra_vault.program_idl
+    block_height = 0 // action.deploy_spectra_vault.block_height
+    event {
+        name = "WithdrawEvent"
+    }
+}

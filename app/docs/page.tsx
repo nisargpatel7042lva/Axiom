@@ -335,7 +335,7 @@ export default function DocsPage() {
                       },
                       {
                         n: 5, title: "Idle Capital → Lend",
-                        body: "Capital between trades is routed to Jupiter Lend at 6%+ APY automatically. It never sits still.",
+                        body: "Capital between trades is routed to Jupiter Lend at 6%+ APY automatically. A 20% withdrawal buffer is always kept idle so small withdrawals execute instantly without touching lending positions.",
                         color: "#f59e0b",
                       },
                       {
@@ -568,8 +568,15 @@ export default function DocsPage() {
                         icon: "◉",
                         name: "Position Manager",
                         cadence: "Every 15 min",
-                        desc: "Tracks active positions. Manages exits on resolution. Logs slippage and execution quality for the transparency dashboard.",
+                        desc: "Tracks active positions. Manages exits on resolution. Logs slippage and execution quality for the transparency dashboard. Position state is persisted to disk — engine restarts do not affect NAV accuracy.",
                         accent: "#a855f7",
+                      },
+                      {
+                        icon: "◎",
+                        name: "Fee Collector",
+                        cadence: "Daily 00:05 UTC",
+                        desc: "Reads on-chain PPS and high-water mark. Calls collect_performance_fee only when PPS exceeds HWM. Fee shares minted to authority via Token-2022 — fully on-chain, never a manual transfer.",
+                        accent: "#f59e0b",
                       },
                     ].map((item) => (
                       <Card key={item.name}>
@@ -702,8 +709,9 @@ Yield Maximizer:   score >= 0.12, probability >= 0.70`}</CodeBlock>
 PPS = NAV / total_shares_outstanding
 
 // On-chain sync every 30 minutes via sync_nav instruction
-// Redeemable NAV = idle_usdc only (positions not yet resolved)
-// Computed NAV  = full value including open positions`}</CodeBlock>
+// Redeemable NAV = idle_usdc + lend_balance  (assets you can withdraw now)
+// Computed NAV   = full value including open prediction positions
+// HWM (High-Water Mark) updated on-chain whenever PPS reaches a new all-time high`}</CodeBlock>
                   </Card>
 
                   <Card className="mt-4 border-amber-500/20 bg-amber-500/[0.04]">
@@ -846,8 +854,26 @@ PPS = NAV / total_shares_outstanding
                       {
                         icon: TrendingUp,
                         title: "High-Water Mark Fees",
-                        body: "Performance fees only collected when vault NAV exceeds its previous peak. You only pay when you profit.",
+                        body: "Performance fees only collected when vault NAV exceeds its previous peak. The HWM is updated on-chain every time PPS reaches a new all-time high. You only pay when you profit.",
                         accent: "#a855f7",
+                      },
+                      {
+                        icon: Shield,
+                        title: "NAV Bounds Guard",
+                        body: "On-chain: sync_nav rejects any update that would increase total_assets by more than 2× in a single transaction. Even a fully compromised engine key cannot inflate NAV arbitrarily — the program enforces the cap.",
+                        accent: "#ef4444",
+                      },
+                      {
+                        icon: Zap,
+                        title: "Emergency Pause",
+                        body: "Any vault can be frozen in a single transaction by the authority. Pause blocks all deposits and withdrawals immediately — a killswitch for exploit or oracle failure scenarios.",
+                        accent: "#f59e0b",
+                      },
+                      {
+                        icon: Lock,
+                        title: "Position Persistence",
+                        body: "Active position state is persisted to disk on every change. Engine restarts do not cause a window of depressed share price — positions are reloaded before the first NAV sync runs.",
+                        accent: "#22c55e",
                       },
                     ].map((item) => {
                       const Icon = item.icon;
@@ -925,6 +951,18 @@ PPS = NAV / total_shares_outstanding
                       {
                         q: "Where can I track performance?",
                         a: "Each vault page shows NAV, price-per-share history, recent activity, and strategy context. The Portfolio page summarizes all your vault positions. The Transparency page logs every engine decision with reasoning.",
+                      },
+                      {
+                        q: "Can a hacked engine key drain the vault?",
+                        a: "No. The on-chain NAV bounds guard rejects any sync_nav call that would increase total_assets by more than 2× in a single transaction. An attacker with the engine key cannot inflate share price arbitrarily — the program enforces this at the instruction level, not just in the off-chain engine.",
+                      },
+                      {
+                        q: "What is the withdrawal buffer?",
+                        a: "The yield router always keeps 20% of liquid NAV (idle USDC) as an instant-withdrawal reserve. This means small withdrawals execute immediately without needing to unwind lending positions first. If a withdrawal exceeds the idle buffer, you receive the idle portion instantly and the remainder once positions resolve.",
+                      },
+                      {
+                        q: "What happens if the strategy engine restarts or goes offline?",
+                        a: "Active position state is persisted to disk on every trade. On restart, positions are reloaded before the first NAV sync runs — so there is no window where the vault appears to hold zero positions. Engine downtime does not affect the share price users see or the safety of their funds.",
                       },
                     ].map((item) => (
                       <Card key={item.q}>

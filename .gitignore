@@ -37,3 +37,15 @@ posthog-setup-report.md
 # Nested program build output (if Anchor writes under programs/)
 programs/**/target/
 
+# Surfpool logs
+*.log
+*.surf
+
+# Signer files
+signers.*.tx
+
+# Render config (check if sensitive)
+render.yaml
+
+# Surfpool local state (fork snapshots, wallet cache)
+.surfpool/
