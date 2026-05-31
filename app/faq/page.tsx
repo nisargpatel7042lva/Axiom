@@ -21,19 +21,59 @@ const FAQS = [
       "Go to Vaults, pick a strategy, connect your wallet, deposit USDC, then track your position from Vaults and Portfolio.",
   },
   {
-    question: "Do I need to trade prediction markets manually?",
+    question: "Is my USDC safe on devnet?",
     answer:
-      "No. The engine handles scanning and execution based on vault strategy rules. You do not need to place every trade manually.",
+      "Devnet uses test USDC only. No real funds are at risk on devnet. Mainnet launch will follow a professional security audit.",
   },
   {
-    question: "Can I withdraw whenever I want?",
+    question: "How does Axiom make money?",
     answer:
-      "Yes. You can withdraw based on your share balance and current vault NAV. There is no fixed lock period in normal operation.",
+      "Performance fees above the high-water mark only. If the vault NAV does not exceed its previous peak, Axiom takes no fee. You only pay when you profit.",
+  },
+  {
+    question: "Can I withdraw at any time?",
+    answer:
+      "Yes. Vault shares are redeemable at any time for the current idle USDC portion of the vault NAV. Full redemption including position P&L occurs when positions resolve.",
+  },
+  {
+    question: "Why Solana?",
+    answer:
+      "Sub-cent transaction fees make a 15-minute rebalancing engine economically viable. The same product on Ethereum would cost thousands of dollars per day in gas. Solana also enables composability with all five Jupiter APIs from day one.",
+  },
+  {
+    question: "What happens when the engine finds no opportunities?",
+    answer:
+      "Idle capital routes to Jupiter Lend automatically, earning 6%+ APY. Capital never sits still.",
+  },
+  {
+    question: "Do I need to trade prediction markets manually?",
+    answer:
+      "No. The engine handles scanning and execution based on vault strategy rules. You do not place every trade manually — that is the entire point.",
+  },
+  {
+    question: "Why limit orders instead of market orders?",
+    answer:
+      "The engine places limit entries via Jupiter Trigger. This delivers 3–5% better entry prices on average and eliminates the volatility penalty of market orders. Positions only open if price reaches the target — otherwise capital stays in yield.",
   },
   {
     question: "Where can I track performance?",
     answer:
-      "Each vault page shows NAV, price-per-share chart, recent activity, and strategy context. Portfolio summarizes your wallet's vault positions.",
+      "Each vault page shows NAV, price-per-share history, recent activity, and strategy context. The Portfolio page summarizes all your vault positions. The Transparency page logs every engine decision with reasoning.",
+  },
+  {
+    question: "Can a hacked engine key drain the vault?",
+    answer:
+      "No. The on-chain NAV bounds guard rejects any sync_nav call that would increase total_assets by more than 2× in a single transaction. An attacker with the engine key cannot inflate share price arbitrarily — the program enforces this at the instruction level, not just in the off-chain engine.",
+  },
+  {
+    question: "What is the withdrawal buffer?",
+    answer:
+      "The yield router always keeps 20% of liquid NAV (idle USDC) as an instant-withdrawal reserve. This means small withdrawals execute immediately without needing to unwind lending positions first. If a withdrawal exceeds the idle buffer, you receive the idle portion instantly and the remainder once positions resolve.",
+  },
+  {
+    question: "What happens if the strategy engine restarts or goes offline?",
+    answer:
+      "Active position state is persisted to disk on every trade. On restart, positions are reloaded before the first NAV sync runs — so there is no window where the vault appears to hold zero positions. Engine downtime does not affect the share price users see or the safety of their funds.",
   },
   {
     question: "How do I contact the team?",
