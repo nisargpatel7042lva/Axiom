@@ -1,8 +1,12 @@
 [toolchain]
+anchor_version = "0.31.1"
 
 [features]
 seeds = false
 skip-lint = false
+
+[programs.localnet]
+spectra_vault = "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH"
 
 [programs.devnet]
 spectra_vault = "JBagp4qXz26XMHce1tXMpEwgVKPBpRGj7ejvsJXaoQhH"
@@ -13,8 +17,23 @@ url = "https://api.apr.dev"
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
-# For production: replace with RPC Fast endpoint
-# cluster = "https://your-endpoint.rpcfast.com"
 
 [scripts]
+# Local validator unit tests (no external dependencies):
 test = "npx ts-mocha -p ./tsconfig.anchor.json -t 1000000 tests/**/*.ts"
+
+# Mainnet fork integration tests via Surfpool:
+#   1. surfpool start --network mainnet
+#   2. anchor build   (build once; skip if artifacts are current)
+#   3. anchor run test-fork
+# To run only the surfpool suite: SURFPOOL=1 npx ts-mocha -p ./tsconfig.anchor.json -t 1000000 tests/**/*.ts --grep "surfpool"
+# NOTE: do NOT use "anchor test -- --grep"; the extra args go to cargo-build-sbf, not to mocha.
+test-fork = "SURFPOOL=1 npx ts-mocha -p ./tsconfig.anchor.json -t 1000000 tests/**/*.ts --grep surfpool"
+
+[test]
+startup_wait = 5000
+
+[test.validator]
+# Surfpool replaces the local validator when SURFPOOL=1 is set.
+# Default: Anchor spins up its own local validator for unit tests.
+url = "http://localhost:8899"
