@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_2022::Token2022;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 use crate::state::{VaultState, MultisigConfig, PendingOperation, StrategyProposal, UserVote, StrategyConfig};
 
@@ -192,6 +194,18 @@ pub struct VoteOnStrategy<'info> {
     )]
     pub vault: Account<'info, VaultState>,
 
+    /// Vault's share mint (Token-2022); used to validate voter_shares_account
+    #[account(address = vault.shares_mint)]
+    pub shares_mint: InterfaceAccount<'info, Mint>,
+
+    /// Voter's share token account — vote weight is drawn from its balance
+    #[account(
+        token::mint = shares_mint,
+        token::authority = voter,
+        token::token_program = token_2022_program,
+    )]
+    pub voter_shares_account: InterfaceAccount<'info, TokenAccount>,
+
     #[account(
         mut,
         seeds = [b"proposal", vault.key().as_ref(), strategy_proposal.proposal_id.to_le_bytes().as_ref()],
@@ -208,6 +222,7 @@ pub struct VoteOnStrategy<'info> {
     )]
     pub user_vote: Account<'info, UserVote>,
 
+    pub token_2022_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 

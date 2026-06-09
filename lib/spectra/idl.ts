@@ -14,6 +14,106 @@ export const IDL = {
   },
   "instructions": [
     {
+      "name": "approve_operation",
+      "discriminator": [
+        13,
+        149,
+        177,
+        120,
+        180,
+        11,
+        252,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "approver",
+          "docs": [
+            "Must be one of the authorized signers"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "multisig_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pending_operation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  112,
+                  101,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "account",
+                "path": "pending_operation.operation_id",
+                "account": "PendingOperation"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "bootstrap_vault",
       "discriminator": [
         229,
@@ -107,6 +207,106 @@ export const IDL = {
           "type": "u16"
         }
       ]
+    },
+    {
+      "name": "cancel_operation",
+      "discriminator": [
+        64,
+        80,
+        246,
+        116,
+        95,
+        207,
+        78,
+        13
+      ],
+      "accounts": [
+        {
+          "name": "canceller",
+          "docs": [
+            "Must be one of the authorized signers"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "multisig_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pending_operation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  112,
+                  101,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "account",
+                "path": "pending_operation.operation_id",
+                "account": "PendingOperation"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
     },
     {
       "name": "collect_performance_fee",
@@ -449,6 +649,358 @@ export const IDL = {
       ]
     },
     {
+      "name": "emergency_drain",
+      "docs": [
+        "Drains all vault reserves to the authority after a multisig-approved",
+        "EmergencyWithdraw has paused the vault."
+      ],
+      "discriminator": [
+        157,
+        136,
+        148,
+        14,
+        161,
+        111,
+        54,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "asset_vault",
+          "writable": true
+        },
+        {
+          "name": "authority_asset_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "execute_operation",
+      "discriminator": [
+        105,
+        240,
+        250,
+        159,
+        65,
+        132,
+        111,
+        185
+      ],
+      "accounts": [
+        {
+          "name": "executor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "multisig_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pending_operation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  112,
+                  101,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "account",
+                "path": "pending_operation.operation_id",
+                "account": "PendingOperation"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "execute_strategy_change",
+      "discriminator": [
+        224,
+        215,
+        145,
+        225,
+        25,
+        100,
+        28,
+        40
+      ],
+      "accounts": [
+        {
+          "name": "executor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "strategy_proposal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112,
+                  111,
+                  115,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "account",
+                "path": "strategy_proposal.proposal_id",
+                "account": "StrategyProposal"
+              }
+            ]
+          }
+        },
+        {
+          "name": "strategy_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  114,
+                  97,
+                  116,
+                  101,
+                  103,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_multisig",
+      "discriminator": [
+        220,
+        130,
+        117,
+        21,
+        27,
+        227,
+        78,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "admin",
+          "docs": [
+            "The admin/authority initializing the multisig"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "multisig_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "signers",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "initialize_strategy_config",
       "discriminator": [
         124,
@@ -591,6 +1143,255 @@ export const IDL = {
       "args": []
     },
     {
+      "name": "propose_operation",
+      "discriminator": [
+        138,
+        188,
+        18,
+        209,
+        140,
+        122,
+        139,
+        187
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "proposer",
+          "docs": [
+            "Must be one of the authorized signers"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "multisig_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pending_operation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  112,
+                  101,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "arg",
+                "path": "operation_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "operation_id",
+          "type": "u64"
+        },
+        {
+          "name": "operation_type",
+          "type": {
+            "defined": {
+              "name": "OperationType"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "propose_strategy_change",
+      "discriminator": [
+        233,
+        158,
+        231,
+        49,
+        242,
+        220,
+        89,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "proposer",
+          "docs": [
+            "Must be an authorized multisig signer"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "multisig_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  115,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "strategy_proposal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112,
+                  111,
+                  115,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "arg",
+                "path": "proposal_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "proposal_id",
+          "type": "u64"
+        },
+        {
+          "name": "change_type",
+          "type": {
+            "defined": {
+              "name": "StrategyChangeType"
+            }
+          }
+        },
+        {
+          "name": "new_value",
+          "type": "u64"
+        },
+        {
+          "name": "voting_duration_seconds",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "sync_nav",
       "discriminator": [
         120,
@@ -688,6 +1489,141 @@ export const IDL = {
       "args": []
     },
     {
+      "name": "vote_on_strategy",
+      "discriminator": [
+        210,
+        223,
+        235,
+        121,
+        64,
+        253,
+        219,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "voter",
+          "docs": [
+            "The voter (must hold vault shares)"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.vault_id",
+                "account": "VaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "shares_mint",
+          "docs": [
+            "Vault's share mint (Token-2022); used to validate voter_shares_account"
+          ]
+        },
+        {
+          "name": "voter_shares_account",
+          "docs": [
+            "Voter's share token account — vote weight is drawn from its balance"
+          ]
+        },
+        {
+          "name": "strategy_proposal",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  112,
+                  111,
+                  115,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "account",
+                "path": "strategy_proposal.proposal_id",
+                "account": "StrategyProposal"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_vote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "strategy_proposal"
+              },
+              {
+                "kind": "account",
+                "path": "voter"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_2022_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "voted_for",
+          "type": "bool"
+        }
+      ]
+    },
+    {
       "name": "withdraw",
       "discriminator": [
         183,
@@ -766,6 +1702,32 @@ export const IDL = {
   ],
   "accounts": [
     {
+      "name": "MultisigConfig",
+      "discriminator": [
+        44,
+        62,
+        172,
+        225,
+        246,
+        3,
+        178,
+        33
+      ]
+    },
+    {
+      "name": "PendingOperation",
+      "discriminator": [
+        124,
+        146,
+        84,
+        123,
+        121,
+        210,
+        217,
+        118
+      ]
+    },
+    {
       "name": "StrategyConfig",
       "discriminator": [
         103,
@@ -776,6 +1738,32 @@ export const IDL = {
         87,
         129,
         57
+      ]
+    },
+    {
+      "name": "StrategyProposal",
+      "discriminator": [
+        242,
+        10,
+        114,
+        75,
+        229,
+        116,
+        66,
+        211
+      ]
+    },
+    {
+      "name": "UserVote",
+      "discriminator": [
+        136,
+        163,
+        243,
+        202,
+        202,
+        124,
+        112,
+        53
       ]
     },
     {
@@ -807,6 +1795,32 @@ export const IDL = {
       ]
     },
     {
+      "name": "EmergencyDrainEvent",
+      "discriminator": [
+        75,
+        127,
+        185,
+        108,
+        30,
+        124,
+        225,
+        16
+      ]
+    },
+    {
+      "name": "MultisigInitializedEvent",
+      "discriminator": [
+        136,
+        56,
+        221,
+        200,
+        217,
+        17,
+        232,
+        94
+      ]
+    },
+    {
       "name": "NavSyncEvent",
       "discriminator": [
         49,
@@ -820,6 +1834,84 @@ export const IDL = {
       ]
     },
     {
+      "name": "OperationApprovedEvent",
+      "discriminator": [
+        211,
+        98,
+        219,
+        29,
+        25,
+        202,
+        102,
+        191
+      ]
+    },
+    {
+      "name": "OperationCancelledEvent",
+      "discriminator": [
+        149,
+        8,
+        193,
+        1,
+        100,
+        119,
+        102,
+        122
+      ]
+    },
+    {
+      "name": "OperationExecutedEvent",
+      "discriminator": [
+        210,
+        224,
+        175,
+        122,
+        117,
+        133,
+        29,
+        48
+      ]
+    },
+    {
+      "name": "OperationProposedEvent",
+      "discriminator": [
+        134,
+        181,
+        159,
+        27,
+        63,
+        242,
+        149,
+        141
+      ]
+    },
+    {
+      "name": "StrategyProposalCreatedEvent",
+      "discriminator": [
+        23,
+        96,
+        120,
+        173,
+        179,
+        249,
+        246,
+        97
+      ]
+    },
+    {
+      "name": "StrategyProposalExecutedEvent",
+      "discriminator": [
+        164,
+        9,
+        33,
+        89,
+        13,
+        18,
+        229,
+        248
+      ]
+    },
+    {
       "name": "StrategyUpdateEvent",
       "discriminator": [
         203,
@@ -830,6 +1922,19 @@ export const IDL = {
         158,
         222,
         60
+      ]
+    },
+    {
+      "name": "VoteCastEvent",
+      "discriminator": [
+        241,
+        151,
+        159,
+        134,
+        250,
+        234,
+        71,
+        234
       ]
     },
     {
@@ -911,6 +2016,91 @@ export const IDL = {
       "code": 6012,
       "name": "InvalidFeeBps",
       "msg": "Performance fee basis points out of range (max 5000)"
+    },
+    {
+      "code": 6013,
+      "name": "UnauthorizedSigner",
+      "msg": "Signer is not authorized in multisig"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidThreshold",
+      "msg": "Threshold must be between 1 and MAX_MULTISIG_THRESHOLD"
+    },
+    {
+      "code": 6015,
+      "name": "TooManySigners",
+      "msg": "Too many signers (max 5)"
+    },
+    {
+      "code": 6016,
+      "name": "AlreadyApproved",
+      "msg": "Operation already approved by this signer"
+    },
+    {
+      "code": 6017,
+      "name": "OperationNotFound",
+      "msg": "Operation not found or already executed/cancelled"
+    },
+    {
+      "code": 6018,
+      "name": "TimelockActive",
+      "msg": "Timelock has not expired yet"
+    },
+    {
+      "code": 6019,
+      "name": "ThresholdNotMet",
+      "msg": "Threshold not met - more approvals required"
+    },
+    {
+      "code": 6020,
+      "name": "DuplicateSigner",
+      "msg": "Duplicate signer in list"
+    },
+    {
+      "code": 6021,
+      "name": "VotingEnded",
+      "msg": "Voting period has ended"
+    },
+    {
+      "code": 6022,
+      "name": "VotingActive",
+      "msg": "Voting period is still active"
+    },
+    {
+      "code": 6023,
+      "name": "AlreadyVoted",
+      "msg": "User already voted on this proposal"
+    },
+    {
+      "code": 6024,
+      "name": "QuorumNotReached",
+      "msg": "Quorum not reached"
+    },
+    {
+      "code": 6025,
+      "name": "AlreadyExecuted",
+      "msg": "Proposal already executed"
+    },
+    {
+      "code": 6026,
+      "name": "ProposalRejected",
+      "msg": "Proposal was rejected"
+    },
+    {
+      "code": 6027,
+      "name": "InvalidChangeType",
+      "msg": "Invalid strategy change type"
+    },
+    {
+      "code": 6028,
+      "name": "NoSharesToVote",
+      "msg": "User has no shares to vote with"
+    },
+    {
+      "code": 6029,
+      "name": "NavBoundsExceeded",
+      "msg": "New NAV exceeds 2× previous value in a single sync — possible key compromise"
     }
   ],
   "types": [
@@ -943,6 +2133,98 @@ export const IDL = {
       }
     },
     {
+      "name": "EmergencyDrainEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_drained",
+            "type": "u64"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigConfig",
+      "docs": [
+        "Multisig configuration for a vault",
+        "Replaces single authority with 2-of-3 signer model"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "docs": [
+              "The vault this multisig belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "signers",
+            "docs": [
+              "List of authorized signers (up to MAX_MULTISIG_SIGNERS)"
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "threshold",
+            "docs": [
+              "Number of approvals required to execute (e.g., 2 for 2-of-3)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed for PDA"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigInitializedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "signers",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "NavSyncEvent",
       "type": {
         "kind": "struct",
@@ -966,6 +2248,237 @@ export const IDL = {
           {
             "name": "timestamp",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OperationApprovedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "operation_id",
+            "type": "u64"
+          },
+          {
+            "name": "approver",
+            "type": "pubkey"
+          },
+          {
+            "name": "approvals_count",
+            "type": "u8"
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OperationCancelledEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "operation_id",
+            "type": "u64"
+          },
+          {
+            "name": "cancelled_by",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OperationExecutedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "operation_id",
+            "type": "u64"
+          },
+          {
+            "name": "operation_type",
+            "type": "u8"
+          },
+          {
+            "name": "executed_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OperationProposedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "operation_id",
+            "type": "u64"
+          },
+          {
+            "name": "operation_type",
+            "type": "u8"
+          },
+          {
+            "name": "proposed_at",
+            "type": "i64"
+          },
+          {
+            "name": "executable_at",
+            "type": "i64"
+          },
+          {
+            "name": "proposer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OperationType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SyncNav"
+          },
+          {
+            "name": "Pause"
+          },
+          {
+            "name": "Unpause"
+          },
+          {
+            "name": "CollectFee"
+          },
+          {
+            "name": "EmergencyWithdraw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PendingOperation",
+      "docs": [
+        "Represents an operation waiting for multisig approval and timelock"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "docs": [
+              "The vault this operation belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "operation_id",
+            "docs": [
+              "Unique operation ID within the vault"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "operation_type",
+            "docs": [
+              "Type of operation being performed"
+            ],
+            "type": {
+              "defined": {
+                "name": "OperationType"
+              }
+            }
+          },
+          {
+            "name": "proposed_at",
+            "docs": [
+              "When this operation was proposed"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "executable_at",
+            "docs": [
+              "When this operation can be executed (after timelock)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "is_executed",
+            "docs": [
+              "Whether operation has been executed"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "is_cancelled",
+            "docs": [
+              "Whether operation has been cancelled"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "approvals",
+            "docs": [
+              "List of signers who have approved"
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed for PDA"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StrategyChangeType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "ProbabilityRange"
+          },
+          {
+            "name": "MaxPositionSize"
+          },
+          {
+            "name": "LendingAllocation"
+          },
+          {
+            "name": "Categories"
           }
         ]
       }
@@ -1037,6 +2550,151 @@ export const IDL = {
       }
     },
     {
+      "name": "StrategyProposal",
+      "docs": [
+        "Strategy change proposal with on-chain governance voting"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "docs": [
+              "The vault this proposal is for"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "proposal_id",
+            "docs": [
+              "Unique proposal ID"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "change_type",
+            "docs": [
+              "What parameter is being changed"
+            ],
+            "type": {
+              "defined": {
+                "name": "StrategyChangeType"
+              }
+            }
+          },
+          {
+            "name": "new_value",
+            "docs": [
+              "New value (interpreted based on change_type)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "voting_ends_at",
+            "docs": [
+              "When voting ends"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "votes_for",
+            "docs": [
+              "Total votes in favor (in share units)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "votes_against",
+            "docs": [
+              "Total votes against (in share units)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_executed",
+            "docs": [
+              "Whether proposal passed and was executed"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "is_rejected",
+            "docs": [
+              "Whether proposal was rejected"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed for PDA"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StrategyProposalCreatedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "proposal_id",
+            "type": "u64"
+          },
+          {
+            "name": "change_type",
+            "type": "u8"
+          },
+          {
+            "name": "new_value",
+            "type": "u64"
+          },
+          {
+            "name": "voting_ends_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StrategyProposalExecutedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "proposal_id",
+            "type": "u64"
+          },
+          {
+            "name": "change_type",
+            "type": "u8"
+          },
+          {
+            "name": "new_value",
+            "type": "u64"
+          },
+          {
+            "name": "votes_for",
+            "type": "u64"
+          },
+          {
+            "name": "votes_against",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "StrategyUpdateEvent",
       "type": {
         "kind": "struct",
@@ -1052,6 +2710,52 @@ export const IDL = {
           {
             "name": "timestamp",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserVote",
+      "docs": [
+        "Tracks a user's vote on a specific proposal"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proposal",
+            "docs": [
+              "The proposal this vote is for"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "voter",
+            "docs": [
+              "The voter"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "voted_for",
+            "docs": [
+              "Whether they voted for (true) or against (false)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "vote_weight",
+            "docs": [
+              "How many shares they voted with"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed"
+            ],
+            "type": "u8"
           }
         ]
       }
@@ -1144,6 +2848,34 @@ export const IDL = {
               "PDA bump seed"
             ],
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VoteCastEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "proposal_id",
+            "type": "u64"
+          },
+          {
+            "name": "voter",
+            "type": "pubkey"
+          },
+          {
+            "name": "voted_for",
+            "type": "bool"
+          },
+          {
+            "name": "vote_weight",
+            "type": "u64"
           }
         ]
       }

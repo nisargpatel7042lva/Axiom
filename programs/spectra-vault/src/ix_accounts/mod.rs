@@ -1,5 +1,6 @@
 pub mod collect_fee;
 pub mod deposit;
+pub mod emergency_drain;
 pub mod initialize;
 pub mod initialize_strategy;
 pub mod multisig;
@@ -9,6 +10,7 @@ pub mod withdraw;
 
 pub use collect_fee::*;
 pub use deposit::*;
+pub use emergency_drain::*;
 pub use initialize::*;
 pub use initialize_strategy::*;
 pub use multisig::*;

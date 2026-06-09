@@ -91,12 +91,13 @@ export abstract class BaseStrategy {
   }
 
   /**
-   * Volume weight 0–1 (log scale). Clamped to [0, 1] so sub-10k markets produce
-   * zero weight instead of a negative number that flips the sign of the score.
+   * Volume weight 0–1 (log scale). Maps [1K, 1M] → [0, 1] so markets down to
+   * the env-configurable minVolume (default 5K) still produce a non-zero weight.
+   * Zero at ≤1K, 1.0 at ≥1M.
    */
   protected normalizeVolume(volume: number): number {
     if (volume <= 0) return 0;
-    return Math.max(0, Math.min(1, Math.log10(volume / 10_000) / Math.log10(100)));
+    return Math.max(0, Math.min(1, (Math.log10(Math.max(1, volume)) - 3) / 3));
   }
 
   /**

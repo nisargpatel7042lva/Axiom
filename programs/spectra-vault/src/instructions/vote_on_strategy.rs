@@ -24,11 +24,7 @@ pub fn handler(
     require!(!proposal.is_executed, SpectraError::AlreadyExecuted);
     require!(!proposal.is_rejected, SpectraError::ProposalRejected);
 
-    // In a real implementation, we'd check the voter's share balance
-    // For now, we'll use a placeholder weight
-    // TODO: Integrate with token account to get actual share balance
-    let vote_weight: u64 = 1; // Placeholder - should fetch from shares_mint
-
+    let vote_weight = ctx.accounts.voter_shares_account.amount;
     require!(vote_weight > 0, SpectraError::NoSharesToVote);
 
     // Record the vote

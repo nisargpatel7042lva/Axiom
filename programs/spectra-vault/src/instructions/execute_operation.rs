@@ -48,8 +48,9 @@ pub fn handler(ctx: Context<ExecuteOperation>) -> Result<()> {
             // For now, we just mark as executed
         },
         OperationType::EmergencyWithdraw => {
-            // Emergency withdrawal logic
-            // Would require additional accounts
+            // Pause the vault immediately; the authority then calls
+            // emergency_drain to transfer all reserves out.
+            vault.is_paused = true;
         },
     }
 

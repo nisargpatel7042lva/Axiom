@@ -2,6 +2,7 @@ pub mod approve_operation;
 pub mod cancel_operation;
 pub mod collect_fee;
 pub mod deposit;
+pub mod emergency_drain;
 pub mod execute_operation;
 pub mod execute_strategy_change;
 pub mod initialize;

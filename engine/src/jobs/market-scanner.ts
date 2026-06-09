@@ -59,7 +59,13 @@ export async function runMarketScanner(): Promise<void> {
 
     let top: ScoredOpportunity[];
     try {
-      top = await scoreOpportunitiesWithAi(vaultConfig.strategyType, ruleScored, events);
+      const aiScored = await scoreOpportunitiesWithAi(vaultConfig.strategyType, ruleScored, events);
+      // If the algo gate filtered everything out from a non-empty candidate set, fall back
+      // to rules-only so the opportunity list is never silently empty.
+      top = aiScored.length > 0 ? aiScored : ruleScored.slice(0, 20);
+      if (aiScored.length === 0 && ruleScored.length > 0) {
+        log.warn(`[${vaultConfig.name}] Algo gate rejected all ${ruleScored.length} candidates; using rules-only scores`);
+      }
     } catch (err) {
       log.warn(`[${vaultConfig.name}] AI scoring failed; using rules-only opportunities`, err);
       top = ruleScored.slice(0, 20);

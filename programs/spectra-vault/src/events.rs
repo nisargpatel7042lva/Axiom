@@ -78,6 +78,15 @@ pub struct OperationCancelledEvent {
     pub timestamp: i64,
 }
 
+// Emergency events
+#[event]
+pub struct EmergencyDrainEvent {
+    pub vault: Pubkey,
+    pub amount_drained: u64,
+    pub destination: Pubkey,
+    pub timestamp: i64,
+}
+
 // Governance events
 #[event]
 pub struct StrategyProposalCreatedEvent {

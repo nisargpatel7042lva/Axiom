@@ -132,4 +132,10 @@ pub mod spectra_vault {
     pub fn execute_strategy_change(ctx: Context<ExecuteStrategyChange>) -> Result<()> {
         instructions::execute_strategy_change::handler(ctx)
     }
+
+    /// Drains all vault reserves to the authority after a multisig-approved
+    /// EmergencyWithdraw has paused the vault.
+    pub fn emergency_drain(ctx: Context<EmergencyDrain>) -> Result<()> {
+        instructions::emergency_drain::handler(ctx)
+    }
 }
