@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { BarChart2, RefreshCw, TrendingUp, Shield, User } from "lucide-react";
+import { BarChart2, RefreshCw, TrendingUp } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -13,7 +13,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 import { Topbar } from "@/components/layout/Topbar";
@@ -109,12 +108,19 @@ function fmtUsd(v: number): string {
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
-  if (data.length < 2) return <div className="h-8 w-16" />;
+  const W = 56, H = 28;
+  if (data.length === 0) return <div className="h-8 w-14" />;
+  if (data.length === 1) {
+    return (
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
+        <circle cx={W / 2} cy={H / 2} r={3} fill={color} opacity={0.8} />
+      </svg>
+    );
+  }
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 0.0001;
-  const W = 56, H = 28;
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * W},${H - ((v - min) / range) * H}`).join(" ");
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * W},${H - ((v - min) / range) * (H - 4) - 2}`).join(" ");
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
       <polyline points={pts} stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -127,20 +133,25 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 interface ChartRow { label: string; [key: string]: number | string }
 
 function PpsChart({ data }: { data: PerformanceData }) {
-  const vaultEntries = Object.entries(data.vaults);
-
-  const chartData = useMemo<ChartRow[]>(() => {
-    // Collect all unique timestamps across all vaults
+  const { chartData, sparse } = useMemo(() => {
+    const vaultEntries = Object.entries(data.vaults);
     const tsSet = new Set<string>();
     for (const [, vp] of vaultEntries) {
       for (const s of vp.ppsHistory) tsSet.add(s.timestamp);
     }
     const sorted = [...tsSet].sort();
-    if (sorted.length === 0) return [];
 
-    return sorted.map((ts) => {
+    // Use time labels (HH:MM) when all points are within 48h; date otherwise
+    const spanMs = sorted.length > 1
+      ? Date.parse(sorted.at(-1)!) - Date.parse(sorted[0])
+      : 0;
+    const useTime = spanMs < 48 * 60 * 60 * 1000;
+
+    const rows = sorted.map((ts) => {
       const row: ChartRow = {
-        label: new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        label: useTime
+          ? new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+          : new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       };
       for (const [vaultId, vp] of vaultEntries) {
         const snap = [...vp.ppsHistory]
@@ -150,33 +161,63 @@ function PpsChart({ data }: { data: PerformanceData }) {
       }
       return row;
     });
-  }, [vaultEntries]);
 
-  if (chartData.length < 2) {
+    return { chartData: rows, sparse: rows.length < 6 };
+  }, [data]);
+
+  const vaultEntries = Object.entries(data.vaults);
+
+  if (chartData.length === 0) {
     return (
-      <div className="flex h-44 items-center justify-center rounded-xl border border-white/5 bg-[#080c14]/60">
-        <p className="text-sm text-[#8b9cb3]">Not enough history yet — check back after a few engine cycles.</p>
+      <div className="flex h-44 flex-col items-center justify-center gap-2 rounded-xl border border-white/5 bg-[#080c14]/60">
+        <RefreshCw className="size-5 animate-spin text-[#8b9cb3]/50" />
+        <p className="text-sm text-[#8b9cb3]">Waiting for first engine cycle…</p>
+      </div>
+    );
+  }
+
+  if (chartData.length === 1) {
+    return (
+      <div className="flex h-44 flex-col items-center justify-center gap-2 rounded-xl border border-white/5 bg-[#080c14]/60">
+        <p className="text-sm text-[#8b9cb3]">1 snapshot captured — chart builds as cycles complete.</p>
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+          {vaultEntries.map(([vaultId, vp]) => {
+            const meta = VAULT_META[vaultId] ?? { name: vaultId, color: "#8b9cb3" };
+            const pps = vp.ppsHistory[0]?.pps;
+            return pps != null ? (
+              <div key={vaultId} className="flex items-center gap-2">
+                <span className="inline-block size-2 rounded-full" style={{ backgroundColor: meta.color }} />
+                <span className="text-xs text-[#8b9cb3]">{meta.name}</span>
+                <span className="font-[family-name:var(--font-space-mono)] text-xs font-semibold text-[#e8edf5]">
+                  ${pps.toFixed(6)}
+                </span>
+              </div>
+            ) : null;
+          })}
+        </div>
       </div>
     );
   }
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="rgba(139,156,179,0.1)" strokeDasharray="3 4" vertical={false} />
+    <ResponsiveContainer width="100%" height={240}>
+      <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke="rgba(139,156,179,0.08)" strokeDasharray="3 4" vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fill: "#8b9cb3", fontSize: 10 }}
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
+          minTickGap={40}
         />
         <YAxis
           tick={{ fill: "#8b9cb3", fontSize: 10, fontFamily: "var(--font-space-mono)" }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v: number) => `$${v.toFixed(3)}`}
-          width={56}
+          width={60}
+          domain={["auto", "auto"]}
         />
         <Tooltip
           contentStyle={{
@@ -185,13 +226,14 @@ function PpsChart({ data }: { data: PerformanceData }) {
             borderRadius: 10,
             fontSize: 11,
             color: "#e8edf5",
+            padding: "8px 12px",
           }}
           formatter={(value: number, name: string) => [
             `$${value.toFixed(6)}`,
             VAULT_META[name]?.name ?? name,
           ]}
-          labelStyle={{ color: "#8b9cb3", marginBottom: 4 }}
-          cursor={{ stroke: "rgba(255,255,255,0.08)" }}
+          labelStyle={{ color: "#8b9cb3", marginBottom: 6 }}
+          cursor={{ stroke: "rgba(255,255,255,0.06)", strokeWidth: 1 }}
         />
         {vaultEntries.map(([vaultId]) => {
           const meta = VAULT_META[vaultId] ?? { color: "#8b9cb3" };
@@ -202,8 +244,8 @@ function PpsChart({ data }: { data: PerformanceData }) {
               dataKey={vaultId}
               stroke={meta.color}
               strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 3, fill: meta.color, strokeWidth: 0 }}
+              dot={sparse ? { r: 4, fill: meta.color, stroke: "#0d1420", strokeWidth: 2 } : false}
+              activeDot={{ r: 4, fill: meta.color, stroke: "#0d1420", strokeWidth: 2 }}
               connectNulls
             />
           );
