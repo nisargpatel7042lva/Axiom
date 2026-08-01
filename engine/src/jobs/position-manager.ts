@@ -30,10 +30,12 @@ const activePositions = new Map<string, ActivePosition[]>();
  */
 export async function initPositionManager(): Promise<void> {
   const saved = await loadPersistedPositions();
+  let total = 0;
   for (const [key, val] of saved.entries()) {
     activePositions.set(key, val);
+    total += val.length;
   }
-  log.info("Position manager initialized from persisted state");
+  log.info(`Position manager ready — ${total} position(s) restored across ${saved.size} vault(s)`);
 }
 const tradeHistory: TradeLog[] = [];
 const decisionHistory: DecisionLog[] = [];

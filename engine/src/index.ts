@@ -115,6 +115,44 @@ app.get("/health", (_req, res) => {
   res.json(health);
 });
 
+app.get("/status", (_req, res) => {
+  const vaults = getAllVaultConfigs();
+  const positionsByVault: Record<string, ReturnType<typeof getActivePositions>> = {};
+  let totalPositions = 0;
+  for (const v of vaults) {
+    const vp = getActivePositions(v.strategyType);
+    positionsByVault[v.strategyType] = vp;
+    totalPositions += vp.length;
+  }
+  const rpcProvider = (process.env.RPC_FAST_HTTP_URL?.trim() || CONFIG.RPC_URL.includes("rpcfast")) ? "rpcfast" : "public";
+  res.json({
+    engine: {
+      status: "ok",
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+      startedAt: new Date(startTime).toISOString(),
+      executionMode: CONFIG.EXECUTION_MODE,
+      cluster: inferClusterFromRpc(CONFIG.RPC_URL),
+    },
+    jobs: { lastScan, lastNavSync, lastPositionCheck, lastYieldRoute },
+    rpc: {
+      provider: rpcProvider,
+      streamActive: isRpcFastStreamActive(),
+      url: CONFIG.RPC_URL,
+    },
+    vaults: vaults.map((v) => ({
+      id: v.id,
+      name: v.name,
+      strategyType: v.strategyType,
+      activePositions: positionsByVault[v.strategyType]?.length ?? 0,
+    })),
+    positions: positionsByVault,
+    navs: getAllNavs(),
+    trades: getTradeHistory(),
+    decisions: getDecisionHistory().slice(-50),
+    generatedAt: new Date().toISOString(),
+  });
+});
+
 app.get("/api/navs", (_req, res) => {
   res.json(getAllNavs());
 });
@@ -173,7 +211,7 @@ app.get("/api/transparency", (_req, res) => {
   });
 });
 
-app.listen(CONFIG.HEALTH_PORT, "0.0.0.0", () => {
+const server = app.listen(CONFIG.HEALTH_PORT, "0.0.0.0", () => {
   log.info(`Health endpoint listening on http://0.0.0.0:${CONFIG.HEALTH_PORT}/health`);
 });
 
@@ -249,9 +287,25 @@ async function bootstrap(): Promise<void> {
   );
 }
 
-process.on("SIGTERM", async () => {
+async function shutdown(signal: string): Promise<void> {
+  log.info(`Received ${signal} — shutting down gracefully`);
+  if (navDebounceTimer) {
+    clearTimeout(navDebounceTimer);
+    navDebounceTimer = null;
+  }
   await stopRpcFastStream();
-  process.exit(0);
-});
+  server.close(() => {
+    log.info("HTTP server closed — exiting");
+    process.exit(0);
+  });
+  // Force exit if the server hasn't drained within 10 s
+  setTimeout(() => {
+    log.warn("Shutdown timeout exceeded — forcing exit");
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT",  () => void shutdown("SIGINT"));
 
 void bootstrap();
