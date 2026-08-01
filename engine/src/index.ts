@@ -11,6 +11,7 @@ import { getVaultNavYieldMetrics } from "./data/vault-nav-snapshots.js";
 import { getAllVaultConfigs, CONFIG, inferClusterFromRpc } from "./config.js";
 import { startRpcFastStream, stopRpcFastStream, isRpcFastStreamActive } from "./services/rpc-fast-stream.js";
 import { deriveVaultPda } from "./services/vault-contract.js";
+import { initPerformanceTracker, getPerformanceData } from "./utils/performance-tracker.js";
 import { createLogger } from "./utils/logger.js";
 import type { EngineHealth } from "./types/index.js";
 
@@ -211,6 +212,10 @@ app.get("/api/transparency", (_req, res) => {
   });
 });
 
+app.get("/api/performance", (_req, res) => {
+  res.json(getPerformanceData());
+});
+
 const server = app.listen(CONFIG.HEALTH_PORT, "0.0.0.0", () => {
   log.info(`Health endpoint listening on http://0.0.0.0:${CONFIG.HEALTH_PORT}/health`);
 });
@@ -228,6 +233,12 @@ async function bootstrap(): Promise<void> {
     await initPositionManager();
   } catch (err) {
     log.error("Position manager init failed (non-fatal, continuing with empty state)", err);
+  }
+
+  try {
+    await initPerformanceTracker();
+  } catch (err) {
+    log.error("Performance tracker init failed (non-fatal)", err);
   }
 
   try {
