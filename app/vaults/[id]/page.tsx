@@ -33,8 +33,6 @@ import { WithdrawModal } from "@/components/vault/WithdrawModal";
 import { getVaultConfig } from "@/constants";
 import { RiskRatingPanel } from "@/components/vault/RiskRatingPanel";
 import { VaultTransparencyPanel } from "@/components/vault/VaultTransparencyPanel";
-import { AgentIdentityCard } from "@/components/identity/AgentIdentityCard";
-import { useVaultAgentIdentity } from "@/hooks/useVaultAgentIdentity";
 import { ExposureVenues } from "@/components/vault/ExposureVenues";
 import { formatUsd, formatPercent, formatShares } from "@/components/format";
 import { useTransactionHistory } from "@/hooks/useTransactionHistory";
@@ -125,8 +123,6 @@ export default function VaultDetailPage({
     22_000,
     config?.id
   );
-
-  const { agent: vaultAgent } = useVaultAgentIdentity(id);
 
   const chartData = useMemo(() => {
     if (sessionPps.length === 0) return [];
@@ -485,16 +481,6 @@ export default function VaultDetailPage({
         >
           <div className="min-w-0 space-y-4 min-[391px]:space-y-6">
             <RiskRatingPanel name={config.name} riskSheet={config.riskSheet} />
-            {/* Vault strategy agent identity */}
-            {vaultAgent && (
-              <div className="rounded-2xl border border-[#1a2235] bg-[#0d1420] p-4 min-[391px]:p-6">
-                <h3 className="text-sm font-semibold text-[#e8edf5] mb-1">Strategy Agent</h3>
-                <p className="text-xs text-[#8b9cb3] mb-3">
-                  Autonomous agent executing this vault's strategy on-chain. Reputation updates after every NAV cycle.
-                </p>
-                <AgentIdentityCard agent={vaultAgent} />
-              </div>
-            )}
           </div>
           <div className="min-w-0 space-y-4 min-[391px]:space-y-6">
             <VaultTransparencyPanel chainVaultId={config.chainVaultId} />
