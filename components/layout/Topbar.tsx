@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/faq", label: "FAQ" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/transparency", label: "Transparency" },
+  { href: "/performance",  label: "Performance" },
 ] as const;
 
 function navActive(pathname: string, href: string): boolean {
