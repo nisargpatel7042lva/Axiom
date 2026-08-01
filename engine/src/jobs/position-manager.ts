@@ -9,6 +9,7 @@ import { getNav } from "./nav-calculator.js";
 import { getAllVaultConfigs, CONFIG } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 import { loadPersistedPositions, persistPositions } from "../utils/position-store.js";
+import { recordClosedPosition, recordPositionOpened } from "../utils/performance-tracker.js";
 import type {
   ActivePosition,
   DecisionLog,
@@ -104,6 +105,7 @@ export async function runPositionManager(): Promise<void> {
           currentPrice: onChain.currentPrice,
           details: "Position removed after market resolution.",
         });
+        recordClosedPosition(vaultId, pos, onChain.currentPrice);
         removePosition(vaultId, pos.marketId);
         logTrade(vaultId, "harvest", pos, {
           reasonCode: "market_resolved",
@@ -130,6 +132,7 @@ export async function runPositionManager(): Promise<void> {
             details: "Strategy exit condition returned true.",
           });
           await closePosition(ownerPubkey, pos);
+          recordClosedPosition(vaultId, pos, currentPrice);
           removePosition(vaultId, pos.marketId);
           logTrade(vaultId, "close", pos, {
             reasonCode: "strategy_exit_signal",
@@ -428,6 +431,7 @@ function addPosition(vaultId: string, pos: ActivePosition): void {
   const positions = activePositions.get(vaultId) ?? [];
   positions.push(pos);
   activePositions.set(vaultId, positions);
+  recordPositionOpened(vaultId);
   void persistPositions(activePositions);
 }
 

@@ -11,6 +11,7 @@ import {
 import { getActivePositions } from "./position-manager.js";
 import { getLendingState } from "./yield-router.js";
 import { appendVaultNavSnapshot } from "../data/vault-nav-snapshots.js";
+import { recordPpsSnapshot } from "../utils/performance-tracker.js";
 import { getAllVaultConfigs, CONFIG } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 import type { NavBreakdown } from "../types/index.js";
@@ -94,6 +95,9 @@ export async function runNavCalculator(): Promise<void> {
       } catch (snapErr) {
         log.error(`[${vaultConfig.name}] NAV snapshot append failed`, snapErr);
       }
+
+      // Record PPS snapshot for the public performance dashboard
+      recordPpsSnapshot(vaultId, nav);
 
       // Update agent reputation based on PPS performance (best-effort)
       void updateAgentReputation(vaultId, nav.pricePerShare);
