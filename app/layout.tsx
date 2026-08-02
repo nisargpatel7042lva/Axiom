@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Sora } from "next/font/google";
+import { Inter, Sora, IBM_Plex_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
@@ -18,6 +18,13 @@ const sora = Sora({
   weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
   variable: "--font-space-mono",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-ibm-plex-mono",
   display: "swap",
 });
 
@@ -95,7 +102,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${sora.variable} h-full bg-[#080c14] antialiased`}
+      className={`${inter.variable} ${sora.variable} ${ibmPlexMono.variable} h-full bg-[#080c14] antialiased`}
     >
       <body
         className="min-h-full flex flex-col bg-[#080c14] text-[#e8edf5]"
